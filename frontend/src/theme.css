@@ -1,0 +1,58 @@
+/* ============================ TOKENS / TEMA ============================ */
+:root {
+  --bg0: #08080c;
+  --bg1: #0c0c13;
+  --bg2: #12121c;
+  --bg3: #18181f;
+  --bg4: #20202e;
+  --line: rgba(255, 255, 255, 0.07);
+  --line2: rgba(255, 255, 255, 0.12);
+  --tx: #ececf2;
+  --tx2: #9a9ab2;
+  --tx3: #65657c;
+  --pri: #6c63ff;
+  --pri2: #8b5cf6;
+  --cyan: #06b6d4;
+  --green: #22c55e;
+  --amber: #f59e0b;
+  --red: #ef4444;
+  --orange: #fb923c;
+  --pink: #ec4899;
+  --teal: #14b8a6;
+}
+
+:root[data-theme='light'] {
+  --bg0: #f4f4f8;
+  --bg1: #ffffff;
+  --bg2: #f7f7fb;
+  --bg3: #eeeef4;
+  --bg4: #e4e4ee;
+  --line: rgba(15, 15, 30, 0.08);
+  --line2: rgba(15, 15, 30, 0.14);
+  --tx: #16161e;
+  --tx2: #55556a;
+  --tx3: #8a8aa0;
+}
+
+/* ============================ RESET ============================ */
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; padding: 0; height: 100%; }
+body {
+  background: var(--bg0);
+  color: var(--tx);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+button { font-family: inherit; }
+input, textarea, select { font-family: inherit; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(128, 128, 150, 0.28); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: rgba(128, 128, 150, 0.45); background-clip: padding-box; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ============================ ANIMAÇÕES ============================ */
+@keyframes cpFade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes cpScale { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+@keyframes cpSpin { to { transform: rotate(360deg); } }
+.cp-fade { animation: cpFade 0.4s ease; }
