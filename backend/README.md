@@ -1,6 +1,6 @@
 # CreatorsPro API (backend)
 
-Implementa as Fases 0, 1 e 2 de `specs/07-roadmap-implementacao.md`: setup do projeto, tenancy/auth multi-tenant, e os catálogos (creators, collaborators, clients, professions). Ver `specs/` na raiz do monorepo para o desenho completo (modelo de dados, contrato de API, regras de negócio, roadmap).
+Implementa as Fases 0 a 3 de `specs/07-roadmap-implementacao.md`: setup do projeto, tenancy/auth multi-tenant, catálogos (creators, collaborators, clients, professions), e agora tarefas/serviços com histórico de status. Ver `specs/` na raiz do monorepo para o desenho completo (modelo de dados, contrato de API, regras de negócio, roadmap).
 
 ## Banco de dados local (sem Docker)
 
@@ -60,9 +60,17 @@ Senha de demonstração local — não é segredo de produção, não usar fora 
 - **`employment_type` é um enum Postgres compartilhado** (`src/db/schema/enums.ts`) entre `creators` e `collaborators` — evita declarar o mesmo tipo duas vezes no banco.
 - **`profession` continua sem tabela própria** — `/professions` combina uma lista default (igual ao mock do frontend) com os valores distintos já usados em `collaborators.profession` do tenant; `POST /professions` não persiste nada, só ecoa (ver `specs/04-contrato-api.md`).
 
-## O que falta para a Fase 3
+## Decisões tomadas na Fase 3
 
-- Tabelas/módulos de `creator_tasks` + `status_history` e `collaborator_services` (ver `specs/02-modelo-de-dados.md` e `specs/07-roadmap-implementacao.md#fase-3`).
-- Filtro "ver só o que é meu" para `role=operacional` em tarefas/serviços.
-- Estender `src/test/tenant-isolation.test.ts` com os novos recursos.
-- Resolver o gap de convite/senha de creators/collaborators antes de qualquer fluxo de login real para `operacional` (mobile ou web).
+- **`status_history` é polimórfica** (`entity_type` + `entity_id`) e única para `task`/`service` (e futuramente `absence`/`shift`) — mesma tabela, sem repetir a estrutura 4 vezes (ver `specs/02-modelo-de-dados.md`).
+- **`PUT /tasks/:id` e `PUT /services/:id` não aceitam `status`** — toda mudança de status passa exclusivamente por `PATCH .../status`, garantindo que `status_history` nunca fique sem registro de uma transição.
+- **`creator_id`/`client_id`/`collaborator_id` são validados contra o tenant antes do insert** (não só pela FK do banco) — retornam `400 INVALID_CREATOR`/`INVALID_CLIENT`/`INVALID_COLLABORATOR` em vez de deixar a constraint do Postgres estourar como erro 500 cru; isso também impede adivinhar IDs de outro tenant.
+- **`GET /tasks` e `GET /services` são liberados para `operacional`** (diferente de `creators`/`collaborators`/`clients`, que são `admin`/`gestor` only) — mas o filtro "só o que é meu" é resolvido no service a partir do `creator_id`/`collaborator_id` vinculado ao `user_id` do token, nunca por parâmetro vindo do client. Usuário operacional sem creator/collaborator vinculado recebe lista vazia, não erro.
+- **`PATCH /status` exige `admin`/`gestor`** — operacional só visualiza, nunca muda status (confirmado por teste, RBAC já documentado em `specs/03`).
+- **`GET /status-history?entity_type=&entity_id=`** alimenta qualquer tela de "Histórico" futura (ex.: Plantões na Fase 5) com a mesma rota, sem endpoint dedicado por entidade.
+
+## O que falta para a Fase 4
+
+- Tabelas/módulos de `scale_months`, `scale_entries`, `holidays` (ver `specs/02-modelo-de-dados.md` e `specs/07-roadmap-implementacao.md#fase-4a--escala--feriados-sem-a-validação-cruzada-com-ausências`).
+- Lembrar que a Fase 4 é dividida em 4a/4b — a validação cruzada com ausências só fecha depois da Fase 5 existir.
+- Resolver o gap de convite/senha de creators/collaborators (sinalizado na Fase 2) antes de qualquer fluxo de login real para `operacional` (mobile ou web).

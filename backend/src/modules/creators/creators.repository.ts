@@ -52,8 +52,18 @@ export function createCreatorsRepository(db: typeof Db) {
     return row ?? null;
   }
 
+  async function findRowByUserId(tenantId: string, userId: string) {
+    const [row] = await db
+      .select()
+      .from(creators)
+      .where(and(eq(creators.tenantId, tenantId), eq(creators.userId, userId)))
+      .limit(1);
+    return row ?? null;
+  }
+
   return {
     findRowById,
+    findRowByUserId,
 
     async list(tenantId: string, pagination: Pagination): Promise<{ rows: CreatorView[]; total: number }> {
       const where = eq(creators.tenantId, tenantId);

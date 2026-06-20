@@ -15,6 +15,13 @@
       "when": 1781959904028,
       "tag": "0001_true_black_bolt",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781960532393,
+      "tag": "0002_foamy_cassandra_nova",
+      "breakpoints": true
     }
   ]
 }

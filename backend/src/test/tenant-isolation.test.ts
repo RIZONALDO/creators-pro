@@ -100,4 +100,51 @@ describe('isolamento entre tenants', () => {
     expect(editCreator.status).toBe(404);
     expect(editClient.status).toBe(404);
   });
+
+  // Fase 3: tasks/services/status_history — extensão pedida em specs/07-roadmap-implementacao.md#fase-3.
+  it('tenant A não lista tasks/services do tenant B', async () => {
+    const { userA, userB, password } = await withTwoTenants();
+    const loginA = await request(app).post('/auth/login').send({ email: userA.email, password });
+    const loginB = await request(app).post('/auth/login').send({ email: userB.email, password });
+    const tokenA = loginA.body.token as string;
+    const tokenB = loginB.body.token as string;
+
+    await request(app).post('/tasks').set('Authorization', `Bearer ${tokenB}`).send({ title: 'Tarefa do tenant B' });
+    await request(app).post('/services').set('Authorization', `Bearer ${tokenB}`).send({ service_name: 'Serviço do tenant B' });
+
+    const tasksA = await request(app).get('/tasks').set('Authorization', `Bearer ${tokenA}`);
+    const servicesA = await request(app).get('/services').set('Authorization', `Bearer ${tokenA}`);
+
+    expect(tasksA.body.data).toHaveLength(0);
+    expect(servicesA.body.data).toHaveLength(0);
+  });
+
+  it('tenant A não muda status nem lê histórico de task/service do tenant B (404)', async () => {
+    const { userA, userB, password } = await withTwoTenants();
+    const loginA = await request(app).post('/auth/login').send({ email: userA.email, password });
+    const loginB = await request(app).post('/auth/login').send({ email: userB.email, password });
+    const tokenA = loginA.body.token as string;
+    const tokenB = loginB.body.token as string;
+
+    const taskB = await request(app).post('/tasks').set('Authorization', `Bearer ${tokenB}`).send({ title: 'Tarefa B' });
+    const serviceB = await request(app).post('/services').set('Authorization', `Bearer ${tokenB}`).send({ service_name: 'Serviço B' });
+
+    const statusAttemptTask = await request(app)
+      .patch(`/tasks/${taskB.body.id}/status`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ status: 'aprovado' });
+    const statusAttemptService = await request(app)
+      .patch(`/services/${serviceB.body.id}/status`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ status: 'concluido' });
+
+    // histórico gravado pelo tenant B não aparece pra quem consulta com o tenant_id de A
+    const historyFromA = await request(app)
+      .get(`/status-history?entity_type=task&entity_id=${taskB.body.id}`)
+      .set('Authorization', `Bearer ${tokenA}`);
+
+    expect(statusAttemptTask.status).toBe(404);
+    expect(statusAttemptService.status).toBe(404);
+    expect(historyFromA.body.data).toHaveLength(0);
+  });
 });

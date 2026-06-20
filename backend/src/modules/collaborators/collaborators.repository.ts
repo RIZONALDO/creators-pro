@@ -56,8 +56,18 @@ export function createCollaboratorsRepository(db: typeof Db) {
     return row ?? null;
   }
 
+  async function findRowByUserId(tenantId: string, userId: string) {
+    const [row] = await db
+      .select()
+      .from(collaborators)
+      .where(and(eq(collaborators.tenantId, tenantId), eq(collaborators.userId, userId)))
+      .limit(1);
+    return row ?? null;
+  }
+
   return {
     findRowById,
+    findRowByUserId,
 
     async list(tenantId: string, pagination: Pagination): Promise<{ rows: CollaboratorView[]; total: number }> {
       const where = eq(collaborators.tenantId, tenantId);
