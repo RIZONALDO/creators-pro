@@ -56,4 +56,48 @@ describe('isolamento entre tenants', () => {
     expect(userA.email).not.toBe(userB.email);
     expect(userA.tenantId).not.toBe(userB.tenantId);
   });
+
+  // Fase 2: creators/collaborators/clients — extensão pedida em specs/07-roadmap-implementacao.md#fase-2.
+  it('tenant A não lista creators/collaborators/clients criados pelo tenant B', async () => {
+    const { userA, userB, password } = await withTwoTenants();
+    const loginA = await request(app).post('/auth/login').send({ email: userA.email, password });
+    const loginB = await request(app).post('/auth/login').send({ email: userB.email, password });
+    const tokenA = loginA.body.token as string;
+    const tokenB = loginB.body.token as string;
+
+    await request(app).post('/creators').set('Authorization', `Bearer ${tokenB}`).send({ name: 'Creator B', email: 'creator-b@test.com', employment_type: 'fixed' });
+    await request(app)
+      .post('/collaborators')
+      .set('Authorization', `Bearer ${tokenB}`)
+      .send({ name: 'Colab B', email: 'colab-b@test.com', profession: 'Editor', employment_type: 'fixed' });
+    await request(app).post('/clients').set('Authorization', `Bearer ${tokenB}`).send({ name: 'Cliente B' });
+
+    const creatorsA = await request(app).get('/creators').set('Authorization', `Bearer ${tokenA}`);
+    const collaboratorsA = await request(app).get('/collaborators').set('Authorization', `Bearer ${tokenA}`);
+    const clientsA = await request(app).get('/clients').set('Authorization', `Bearer ${tokenA}`);
+
+    expect(creatorsA.body.data).toHaveLength(0);
+    expect(collaboratorsA.body.data).toHaveLength(0);
+    expect(clientsA.body.data).toHaveLength(0);
+  });
+
+  it('tenant A não edita creator/collaborator/client do tenant B (404, não 200)', async () => {
+    const { userA, userB, password } = await withTwoTenants();
+    const loginA = await request(app).post('/auth/login').send({ email: userA.email, password });
+    const loginB = await request(app).post('/auth/login').send({ email: userB.email, password });
+    const tokenA = loginA.body.token as string;
+    const tokenB = loginB.body.token as string;
+
+    const creatorB = await request(app)
+      .post('/creators')
+      .set('Authorization', `Bearer ${tokenB}`)
+      .send({ name: 'Creator B', email: 'creator-b2@test.com', employment_type: 'fixed' });
+    const clientB = await request(app).post('/clients').set('Authorization', `Bearer ${tokenB}`).send({ name: 'Cliente B2' });
+
+    const editCreator = await request(app).put(`/creators/${creatorB.body.id}`).set('Authorization', `Bearer ${tokenA}`).send({ active: false });
+    const editClient = await request(app).put(`/clients/${clientB.body.id}`).set('Authorization', `Bearer ${tokenA}`).send({ active: false });
+
+    expect(editCreator.status).toBe(404);
+    expect(editClient.status).toBe(404);
+  });
 });

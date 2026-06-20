@@ -1,6 +1,6 @@
 # CreatorsPro API (backend)
 
-Implementa as Fases 0 e 1 de `specs/07-roadmap-implementacao.md`: setup do projeto + tenancy/auth multi-tenant. Ver `specs/` na raiz do monorepo para o desenho completo (modelo de dados, contrato de API, regras de negócio, roadmap).
+Implementa as Fases 0, 1 e 2 de `specs/07-roadmap-implementacao.md`: setup do projeto, tenancy/auth multi-tenant, e os catálogos (creators, collaborators, clients, professions). Ver `specs/` na raiz do monorepo para o desenho completo (modelo de dados, contrato de API, regras de negócio, roadmap).
 
 ## Banco de dados local (sem Docker)
 
@@ -51,8 +51,18 @@ Senha de demonstração local — não é segredo de produção, não usar fora 
 - **Banco de teste separado** (`creatorspro_test`) carregado via `.env.test`, isolado do banco de dev — `src/test/setup.ts` garante que os testes nunca leem `.env` de produção/dev por acidente.
 - **Vitest com `fileParallelism: false`**: todos os arquivos de teste batem no mesmo Postgres de teste; rodar em paralelo causaria corrida entre `TRUNCATE` de um arquivo e inserts de outro.
 
-## O que falta para a Fase 2
+## Decisões tomadas na Fase 2
 
-- Tabelas/módulos de `creators`, `collaborators`, `clients` (ver `specs/02-modelo-de-dados.md` e `specs/07-roadmap-implementacao.md#fase-2`).
+- **`POST /creators` e `POST /collaborators` exigem `email` não-nulo**, mesmo o tipo `NewCreator`/`NewCollaborator` do frontend permitir `email: null` — `users.email` é `NOT NULL UNIQUE` (é o identificador de login), então não dá pra criar a conta sem ele. Ajuste de formulário fica para a Fase 8 do roadmap (`specs/08-ajustes-frontend.md`).
+- **Sem fluxo de convite/reset de senha ainda**: ao criar um creator/collaborator, o backend gera uma senha temporária aleatória só pra satisfazer a constraint `NOT NULL` de `password_hash` — ninguém a recebe, e a pessoa não consegue logar até existir um fluxo de convite/"esqueci minha senha" (fora do escopo da Fase 2; precisa ser adicionado num momento que ainda não foi planejado nos specs — sinalizar antes de avançar para o app mobile/operacional).
+- **Envelope de paginação `{ data, meta }`** introduzido agora (primeiros endpoints de listagem do projeto) — `GET /creators`, `/collaborators`, `/clients` aceitam `?page=&pageSize=` (default 50, máx 200).
+- **RBAC**: `creators`/`collaborators`/`clients`/`professions` são `admin`+`gestor` apenas — `operacional` recebe `403` em tudo, inclusive leitura (confirmado por teste).
+- **`employment_type` é um enum Postgres compartilhado** (`src/db/schema/enums.ts`) entre `creators` e `collaborators` — evita declarar o mesmo tipo duas vezes no banco.
+- **`profession` continua sem tabela própria** — `/professions` combina uma lista default (igual ao mock do frontend) com os valores distintos já usados em `collaborators.profession` do tenant; `POST /professions` não persiste nada, só ecoa (ver `specs/04-contrato-api.md`).
+
+## O que falta para a Fase 3
+
+- Tabelas/módulos de `creator_tasks` + `status_history` e `collaborator_services` (ver `specs/02-modelo-de-dados.md` e `specs/07-roadmap-implementacao.md#fase-3`).
+- Filtro "ver só o que é meu" para `role=operacional` em tarefas/serviços.
 - Estender `src/test/tenant-isolation.test.ts` com os novos recursos.
-- Nenhuma mudança é esperada na Fase 1 entregue aqui — `companies`, `users`, `refresh_tokens` e as rotas `/auth/*` + `/internal/companies` já estão completas e testadas.
+- Resolver o gap de convite/senha de creators/collaborators antes de qualquer fluxo de login real para `operacional` (mobile ou web).
