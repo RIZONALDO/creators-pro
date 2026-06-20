@@ -6,11 +6,15 @@
 import request from 'supertest';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../app.js';
+import { createUsersRepository } from '../modules/auth/users.repository.js';
+import { createCreatorsRepository } from '../modules/creators/creators.repository.js';
 import { resetDb, testDb, testPool } from './db.js';
 import { withTwoTenants } from './helpers/withTwoTenants.js';
 
 describe('isolamento entre tenants', () => {
   const app = createApp(testDb);
+  const usersRepo = createUsersRepository(testDb);
+  const creatorsRepo = createCreatorsRepository(testDb);
 
   beforeEach(async () => {
     await resetDb();
@@ -183,5 +187,46 @@ describe('isolamento entre tenants', () => {
 
     expect(autoAttempt.status).toBe(404);
     expect(duplicateAttempt.status).toBe(404);
+  });
+
+  // Fase 5: absences/shifts — extensão pedida em specs/07-roadmap-implementacao.md#fase-5--ausências--plantões.
+  it('tenant A não lista absences/shifts do tenant B', async () => {
+    const { userA, userB, password } = await withTwoTenants();
+    const loginA = await request(app).post('/auth/login').send({ email: userA.email, password });
+    const loginB = await request(app).post('/auth/login').send({ email: userB.email, password });
+    const tokenA = loginA.body.token as string;
+    const tokenB = loginB.body.token as string;
+
+    const creatorUserB = await usersRepo.create({ tenantId: userB.tenantId, name: 'Creator B', email: `creator-b-${Date.now()}@test.com`, passwordHash: 'hash', role: 'operacional' });
+    const creatorB = await creatorsRepo.createRow({ tenantId: userB.tenantId, userId: creatorUserB.id, employmentType: 'fixed' });
+
+    await request(app).post('/absences').set('Authorization', `Bearer ${tokenB}`).send({ creator_id: creatorB.id, start_date: '2026-06-24', end_date: '2026-06-26' });
+    await request(app).post('/shifts').set('Authorization', `Bearer ${tokenB}`).send({ shift_date: '2026-06-21', creator_id: creatorB.id });
+
+    const absencesA = await request(app).get('/absences').set('Authorization', `Bearer ${tokenA}`);
+    const shiftsA = await request(app).get('/shifts').set('Authorization', `Bearer ${tokenA}`);
+
+    expect(absencesA.body.data).toHaveLength(0);
+    expect(shiftsA.body.data).toHaveLength(0);
+  });
+
+  it('tenant A não revisa ausência nem edita plantão do tenant B (404)', async () => {
+    const { userA, userB, password } = await withTwoTenants();
+    const loginA = await request(app).post('/auth/login').send({ email: userA.email, password });
+    const loginB = await request(app).post('/auth/login').send({ email: userB.email, password });
+    const tokenA = loginA.body.token as string;
+    const tokenB = loginB.body.token as string;
+
+    const creatorUserB = await usersRepo.create({ tenantId: userB.tenantId, name: 'Creator B', email: `creator-b2-${Date.now()}@test.com`, passwordHash: 'hash', role: 'operacional' });
+    const creatorB = await creatorsRepo.createRow({ tenantId: userB.tenantId, userId: creatorUserB.id, employmentType: 'fixed' });
+
+    const absenceB = await request(app).post('/absences').set('Authorization', `Bearer ${tokenB}`).send({ creator_id: creatorB.id, start_date: '2026-06-24', end_date: '2026-06-26' });
+    const shiftB = await request(app).post('/shifts').set('Authorization', `Bearer ${tokenB}`).send({ shift_date: '2026-06-21' });
+
+    const reviewAttempt = await request(app).patch(`/absences/${absenceB.body.id}/review`).set('Authorization', `Bearer ${tokenA}`).send({ status: 'approved' });
+    const editAttempt = await request(app).put(`/shifts/${shiftB.body.id}`).set('Authorization', `Bearer ${tokenA}`).send({ notes: 'tentativa' });
+
+    expect(reviewAttempt.status).toBe(404);
+    expect(editAttempt.status).toBe(404);
   });
 });

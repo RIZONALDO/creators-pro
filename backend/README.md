@@ -1,6 +1,6 @@
 # CreatorsPro API (backend)
 
-Implementa as Fases 0 a 4a de `specs/07-roadmap-implementacao.md`: setup do projeto, tenancy/auth multi-tenant, catálogos, tarefas/serviços com histórico de status, e agora escala de creators + feriados (sem a validação cruzada com ausências, que é a Fase 4b). Ver `specs/` na raiz do monorepo para o desenho completo (modelo de dados, contrato de API, regras de negócio, roadmap).
+Implementa as Fases 0 a 5 + 4b de `specs/07-roadmap-implementacao.md`: setup do projeto, tenancy/auth multi-tenant, catálogos, tarefas/serviços com histórico de status, escala de creators + feriados, ausências/plantões, e a validação cruzada Escala↔Ausências que faltava (Fase 4b, fechada agora que a Fase 5 existe). Ver `specs/` na raiz do monorepo para o desenho completo (modelo de dados, contrato de API, regras de negócio, roadmap).
 
 ## Banco de dados local (sem Docker)
 
@@ -79,8 +79,23 @@ Senha de demonstração local — não é segredo de produção, não usar fora 
 - **Feriados móveis (Carnaval, Sexta-feira Santa, Corpus Christi) não estão no seed** — dependem do cálculo da Páscoa, que não foi implementado para evitar seedar uma data errada sem verificação. Seed cobre só os 9 feriados nacionais de data fixa de 2026. Cadastrar os móveis manualmente via `POST /holidays` enquanto isso não for resolvido.
 - **`GET /scale-entries` e `GET /holidays` são liberados para `operacional`** (só leitura) — mesma lógica de `tasks`/`services`: ele precisa ver a escala do mês, só não pode editar.
 
-## O que falta para a Fase 5
+## Decisões tomadas na Fase 5
 
-- Tabela/módulo de `absences` (solicitar/revisar) e `shifts` (plantões) — ver `specs/02-modelo-de-dados.md` e `specs/07-roadmap-implementacao.md#fase-5--ausências--plantões`.
-- **Fase 4b** (fechar a validação cruzada Escala↔Ausências) só pode ser feita depois da Fase 5 — não esquecer de voltar aqui.
+- **`POST /absences` não tem `authorize()` de papel** — a regra "só pode solicitar para si mesmo" é do `operacional` e é resolvida dentro do `absences.service.ts`, não no middleware de rota: `admin`/`gestor` podem registrar uma ausência em nome de qualquer creator do tenant (ex.: avisou por telefone), `operacional` só pode informar o próprio `creator_id` vinculado (`403 CANNOT_REQUEST_FOR_OTHER_CREATOR` se tentar outro).
+- **`PATCH /absences/:id/review` é `admin`/`gestor` only** e grava `approved_by`/`approved_at` + `status_history` (`entity_type='absence'`) na mesma transação.
+- **`PUT /shifts/:id` também não aceita `status`** — mesma regra de tasks/services, toda mudança de status passa por `PATCH /shifts/:id/status` (endpoint novo, não estava no contrato original de `specs/04`, adicionado por consistência).
+- **Plantões (`shifts`) usam o mesmo padrão de filtro "só o que é meu" de tasks/services**, resolvido via `creator_id` vinculado ao token — consistente com a regra de negócio original ("plantões são só de creators").
+- **`absences.findApprovedOverlapping(tenantId, creatorId, date)`** foi escrito já nesta fase (não na 4b) porque é puramente uma consulta do módulo de ausências — a Fase 4b só precisou *chamá-la* do `schedule.service.ts`.
+
+## Decisões tomadas na Fase 4b
+
+- **`PUT /scale-entries/:work_date`** agora retorna **`409 ABSENCE_OVERLAPS_SCHEDULE`** se o creator informado tiver uma ausência **aprovada** cobrindo a data (ausência `pending`/`rejected` não bloqueia).
+- **`POST /scale-months/:id/auto-assign`** pula, dia a dia, qualquer creator com ausência aprovada **nessa data específica** (não no mês todo) — o ponteiro do round-robin só avança quando alguém é de fato escalado; se todos estiverem indisponíveis num dia, ele fica com `creator_id: null` em vez de forçar alguém ausente.
+- **`POST /scale-months/:id/duplicate`** também não copia a atribuição se o creator tiver ausência aprovada na **data de destino** (mesma regra, evita reabrir a mesma inconsistência por outro caminho de código) — isso não estava explícito no roadmap original, mas é a mesma regra de negócio aplicada ao terceiro lugar que faz `upsertAssignment` direto.
+- **Notificação `alteracao_escala` está deferida para a Fase 6** (`notifications` ainda não existe) — há um `TODO` explícito em `schedule.service.ts` apontando para `specs/06-regras-de-negocio.md`; não esquecer ao implementar a Fase 6.
+
+## O que falta para a Fase 6
+
+- Tabelas/módulos de `messages` e `notifications` + bootstrap do Socket.IO — ver `specs/05-realtime-socketio.md` e `specs/07-roadmap-implementacao.md#fase-6--mensagens--notificações--socketio`.
+- Fechar o `TODO` de notificação `alteracao_escala` deixado na Fase 4b (`schedule.service.ts`, função `autoAssign`/`assign`).
 - Resolver o gap de convite/senha de creators/collaborators (sinalizado na Fase 2) antes de qualquer fluxo de login real para `operacional` (mobile ou web).

@@ -11,3 +11,5 @@ export * from './statusHistory';
 export * from './scaleMonths';
 export * from './scaleEntries';
 export * from './holidays';
+export * from './absences';
+export * from './shifts';

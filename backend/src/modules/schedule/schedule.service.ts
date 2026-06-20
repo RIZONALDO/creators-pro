@@ -1,5 +1,6 @@
 import type { db as Db } from '../../db/client.js';
-import { badRequest, notFound } from '../../lib/errors.js';
+import { badRequest, conflict, notFound } from '../../lib/errors.js';
+import { createAbsencesRepository } from '../absences/absences.repository.js';
 import { createCreatorsRepository } from '../creators/creators.repository.js';
 import { createHolidaysRepository } from './holidays.repository.js';
 import { createScaleEntriesRepository } from './scaleEntries.repository.js';
@@ -19,6 +20,7 @@ export function createScheduleService(db: typeof Db) {
   const scaleEntriesRepo = createScaleEntriesRepository(db);
   const holidaysRepo = createHolidaysRepository(db);
   const creatorsRepo = createCreatorsRepository(db);
+  const absencesRepo = createAbsencesRepository(db);
 
   async function getOrCreateScaleMonth(tenantId: string, month: number, year: number, createdBy: string) {
     const existing = await scaleMonthsRepo.findByMonth(tenantId, month, year);
@@ -68,6 +70,9 @@ export function createScheduleService(db: typeof Db) {
     if (creatorId) {
       const creator = await creatorsRepo.findRowById(tenantId, creatorId);
       if (!creator) throw badRequest('INVALID_CREATOR', 'Creator inválido para este tenant.');
+
+      const overlapping = await absencesRepo.findApprovedOverlapping(tenantId, creatorId, workDate);
+      if (overlapping) throw conflict('ABSENCE_OVERLAPS_SCHEDULE', 'Creator já possui ausência aprovada nesse período.');
     }
 
     const scaleMonth = await getOrCreateScaleMonth(tenantId, month, year, createdBy);
@@ -75,8 +80,13 @@ export function createScheduleService(db: typeof Db) {
   }
 
   /**
-   * Round-robin pulando feriados/fins de semana. Pular ausências aprovadas é Fase 4b
-   * (absences não existe ainda) — ver specs/07-roadmap-implementacao.md#fase-4b.
+   * Round-robin pulando feriados/fins de semana e creators com ausência aprovada cobrindo o dia
+   * (Fase 4b). Se todos os creators estiverem indisponíveis num dia, ele fica sem atribuição
+   * (creator_id null) — não removemos a tentativa, só não force-atribuímos alguém ausente.
+   *
+   * TODO (Fase 6): emitir notification 'alteracao_escala' pro(s) coordenador(es) quando uma
+   * ausência aprovada depois de já escalado gera conflito — ver specs/06-regras-de-negocio.md.
+   * Não implementado aqui porque a tabela `notifications` só existe a partir da Fase 6.
    */
   async function autoAssign(tenantId: string, scaleMonthId: string) {
     const scaleMonth = await scaleMonthsRepo.findById(tenantId, scaleMonthId);
@@ -88,10 +98,21 @@ export function createScheduleService(db: typeof Db) {
     const holidaySet = await holidaySetForMonth(tenantId, scaleMonth.year, scaleMonth.month);
     const workableDays = getWeekdaysInMonth(scaleMonth.year, scaleMonth.month).filter((d) => !holidaySet.has(d));
 
-    for (let i = 0; i < workableDays.length; i++) {
-      const workDate = workableDays[i]!;
-      const creatorId = creatorIds[i % creatorIds.length]!;
-      await scaleEntriesRepo.upsertAssignment({ tenantId, scaleMonthId: scaleMonth.id, workDate, creatorId, isHoliday: false });
+    let pointer = 0;
+    for (const workDate of workableDays) {
+      let chosenCreatorId: string | null = null;
+
+      for (let attempt = 0; attempt < creatorIds.length; attempt++) {
+        const candidate = creatorIds[(pointer + attempt) % creatorIds.length]!;
+        const overlapping = await absencesRepo.findApprovedOverlapping(tenantId, candidate, workDate);
+        if (!overlapping) {
+          chosenCreatorId = candidate;
+          pointer = (pointer + attempt + 1) % creatorIds.length;
+          break;
+        }
+      }
+
+      await scaleEntriesRepo.upsertAssignment({ tenantId, scaleMonthId: scaleMonth.id, workDate, creatorId: chosenCreatorId, isHoliday: false });
     }
 
     return scaleEntriesRepo.listByMonth(tenantId, scaleMonth.id);
@@ -112,11 +133,15 @@ export function createScheduleService(db: typeof Db) {
       const targetDate = buildDateStr(targetYear, targetMonth, day);
       if (!isWeekday(targetDate) || holidaySet.has(targetDate)) continue; // não força atribuição em fds/feriado do mês de destino
 
+      // Fase 4b: mesma regra do assign()/autoAssign() — não duplica uma atribuição pra quem
+      // estará em ausência aprovada na data de destino (fica sem creator nesse dia, não força).
+      const creatorIdForTarget = entry.creatorId && (await absencesRepo.findApprovedOverlapping(tenantId, entry.creatorId, targetDate)) ? null : entry.creatorId;
+
       await scaleEntriesRepo.upsertAssignment({
         tenantId,
         scaleMonthId: targetScaleMonth.id,
         workDate: targetDate,
-        creatorId: entry.creatorId,
+        creatorId: creatorIdForTarget,
         isHoliday: false,
       });
     }

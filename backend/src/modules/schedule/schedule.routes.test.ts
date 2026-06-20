@@ -6,12 +6,14 @@ import { resetDb, testDb, testPool } from '../../test/db.js';
 import { createCompaniesRepository } from '../auth/companies.repository.js';
 import { createUsersRepository } from '../auth/users.repository.js';
 import { createCreatorsRepository } from '../creators/creators.repository.js';
+import { createAbsencesRepository } from '../absences/absences.repository.js';
 
 describe('rotas de schedule (integração)', () => {
   const app = createApp(testDb);
   const companiesRepo = createCompaniesRepository(testDb);
   const usersRepo = createUsersRepository(testDb);
   const creatorsRepo = createCreatorsRepository(testDb);
+  const absencesRepo = createAbsencesRepository(testDb);
 
   beforeEach(async () => {
     await resetDb();
@@ -47,6 +49,19 @@ describe('rotas de schedule (integração)', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.creatorId).toBe(creator.id);
+  });
+
+  it('PUT /scale-entries/:work_date com ausência aprovada cobrindo a data retorna 409', async () => {
+    const { company, token } = await loginAsGestor();
+    const creatorUser = await usersRepo.create({ tenantId: company.id, name: 'Creator', email: 'creator2@acme.com', passwordHash: await bcrypt.hash('x', 4), role: 'operacional' });
+    const creator = await creatorsRepo.createRow({ tenantId: company.id, userId: creatorUser.id, employmentType: 'fixed' });
+    const absence = await absencesRepo.create({ tenantId: company.id, creatorId: creator.id, startDate: '2026-06-24', endDate: '2026-06-26' });
+    await absencesRepo.review(company.id, absence.id, 'approved', creatorUser.id);
+
+    const res = await request(app).put('/scale-entries/2026-06-25').set('Authorization', `Bearer ${token}`).send({ creator_id: creator.id });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('ABSENCE_OVERLAPS_SCHEDULE');
   });
 
   it('PUT /scale-entries/:work_date em fim de semana retorna 400', async () => {

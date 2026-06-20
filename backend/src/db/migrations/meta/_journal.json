@@ -29,6 +29,13 @@
       "when": 1781961126071,
       "tag": "0003_awesome_scourge",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1781961904955,
+      "tag": "0004_opposite_penance",
+      "breakpoints": true
     }
   ]
 }

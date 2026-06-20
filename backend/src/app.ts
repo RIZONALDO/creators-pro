@@ -20,6 +20,10 @@ import { createServicesService } from './modules/services/services.service.js';
 import { createServicesRouter } from './modules/services/services.routes.js';
 import { createScheduleService } from './modules/schedule/schedule.service.js';
 import { createScheduleRouter } from './modules/schedule/schedule.routes.js';
+import { createAbsencesService } from './modules/absences/absences.service.js';
+import { createAbsencesRouter } from './modules/absences/absences.routes.js';
+import { createShiftsService } from './modules/shifts/shifts.service.js';
+import { createShiftsRouter } from './modules/shifts/shifts.routes.js';
 
 export function createApp(db: typeof Db) {
   const app = express();
@@ -35,6 +39,8 @@ export function createApp(db: typeof Db) {
   app.use(createTasksRouter(createTasksService(db)));
   app.use(createServicesRouter(createServicesService(db)));
   app.use(createScheduleRouter(createScheduleService(db)));
+  app.use(createAbsencesRouter(createAbsencesService(db)));
+  app.use(createShiftsRouter(createShiftsService(db)));
 
   app.use(errorHandler);
   return app;
