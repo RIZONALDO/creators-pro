@@ -1,6 +1,6 @@
 # CreatorsPro API (backend)
 
-Implementa as Fases 0 a 3 de `specs/07-roadmap-implementacao.md`: setup do projeto, tenancy/auth multi-tenant, catálogos (creators, collaborators, clients, professions), e agora tarefas/serviços com histórico de status. Ver `specs/` na raiz do monorepo para o desenho completo (modelo de dados, contrato de API, regras de negócio, roadmap).
+Implementa as Fases 0 a 4a de `specs/07-roadmap-implementacao.md`: setup do projeto, tenancy/auth multi-tenant, catálogos, tarefas/serviços com histórico de status, e agora escala de creators + feriados (sem a validação cruzada com ausências, que é a Fase 4b). Ver `specs/` na raiz do monorepo para o desenho completo (modelo de dados, contrato de API, regras de negócio, roadmap).
 
 ## Banco de dados local (sem Docker)
 
@@ -69,8 +69,18 @@ Senha de demonstração local — não é segredo de produção, não usar fora 
 - **`PATCH /status` exige `admin`/`gestor`** — operacional só visualiza, nunca muda status (confirmado por teste, RBAC já documentado em `specs/03`).
 - **`GET /status-history?entity_type=&entity_id=`** alimenta qualquer tela de "Histórico" futura (ex.: Plantões na Fase 5) com a mesma rota, sem endpoint dedicado por entidade.
 
-## O que falta para a Fase 4
+## Decisões tomadas na Fase 4a
 
-- Tabelas/módulos de `scale_months`, `scale_entries`, `holidays` (ver `specs/02-modelo-de-dados.md` e `specs/07-roadmap-implementacao.md#fase-4a--escala--feriados-sem-a-validação-cruzada-com-ausências`).
-- Lembrar que a Fase 4 é dividida em 4a/4b — a validação cruzada com ausências só fecha depois da Fase 5 existir.
+- **`is_holiday` nunca é confiado do que está gravado em `scale_entries`** — toda leitura (`GET /scale-entries`) recalcula cruzando com `holidays` na hora, então cadastrar um feriado depois já reflete em entradas existentes (testado).
+- **`GET /scale-entries?month=` preenche automaticamente 1 linha por dia útil do mês** (cria as que faltarem, `creator_id: null`) — o frontend sempre recebe a grade completa do mês, nunca precisa lidar com "dias sem linha".
+- **Upsert por `(tenant_id, work_date)`** via `ON CONFLICT DO UPDATE` (`scaleEntries.upsertAssignment`) — usado tanto pela atribuição manual quanto pela escala automática e pela duplicação de mês; não existe caminho de código que insira duas linhas pro mesmo dia.
+- **Escala automática (round-robin) pula feriado e fim de semana**, mas **ainda não pula ausência aprovada** — `absences` não existe até a Fase 5; isso é exatamente a Fase 4b.
+- **Duplicar mês preserva o número do dia**, não o dia da semana (ex.: dia 2 de junho → dia 2 de julho) — pula silenciosamente se o dia não existir no mês de destino (ex. dia 31) ou se cair em fim de semana/feriado lá.
+- **Feriados móveis (Carnaval, Sexta-feira Santa, Corpus Christi) não estão no seed** — dependem do cálculo da Páscoa, que não foi implementado para evitar seedar uma data errada sem verificação. Seed cobre só os 9 feriados nacionais de data fixa de 2026. Cadastrar os móveis manualmente via `POST /holidays` enquanto isso não for resolvido.
+- **`GET /scale-entries` e `GET /holidays` são liberados para `operacional`** (só leitura) — mesma lógica de `tasks`/`services`: ele precisa ver a escala do mês, só não pode editar.
+
+## O que falta para a Fase 5
+
+- Tabela/módulo de `absences` (solicitar/revisar) e `shifts` (plantões) — ver `specs/02-modelo-de-dados.md` e `specs/07-roadmap-implementacao.md#fase-5--ausências--plantões`.
+- **Fase 4b** (fechar a validação cruzada Escala↔Ausências) só pode ser feita depois da Fase 5 — não esquecer de voltar aqui.
 - Resolver o gap de convite/senha de creators/collaborators (sinalizado na Fase 2) antes de qualquer fluxo de login real para `operacional` (mobile ou web).

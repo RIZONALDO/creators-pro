@@ -18,6 +18,8 @@ import { createTasksService } from './modules/tasks/tasks.service.js';
 import { createTasksRouter } from './modules/tasks/tasks.routes.js';
 import { createServicesService } from './modules/services/services.service.js';
 import { createServicesRouter } from './modules/services/services.routes.js';
+import { createScheduleService } from './modules/schedule/schedule.service.js';
+import { createScheduleRouter } from './modules/schedule/schedule.routes.js';
 
 export function createApp(db: typeof Db) {
   const app = express();
@@ -32,6 +34,7 @@ export function createApp(db: typeof Db) {
   app.use(createStatusHistoryRouter(createStatusHistoryRepository(db)));
   app.use(createTasksRouter(createTasksService(db)));
   app.use(createServicesRouter(createServicesService(db)));
+  app.use(createScheduleRouter(createScheduleService(db)));
 
   app.use(errorHandler);
   return app;

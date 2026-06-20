@@ -1,4 +1,4 @@
-import { and, count, eq } from 'drizzle-orm';
+import { and, asc, count, eq } from 'drizzle-orm';
 import type { db as Db } from '../../db/client.js';
 import { creators, users, type EmploymentType } from '../../db/schema/index.js';
 import { firstOrThrow } from '../../lib/firstOrThrow.js';
@@ -64,6 +64,16 @@ export function createCreatorsRepository(db: typeof Db) {
   return {
     findRowById,
     findRowByUserId,
+
+    /** Ids dos creators ativos, em ordem estável (createdAt) — base do round-robin da escala automática. */
+    async listActiveIds(tenantId: string): Promise<string[]> {
+      const rows = await db
+        .select({ id: creators.id })
+        .from(creators)
+        .where(and(eq(creators.tenantId, tenantId), eq(creators.active, true)))
+        .orderBy(asc(creators.createdAt));
+      return rows.map((r) => r.id);
+    },
 
     async list(tenantId: string, pagination: Pagination): Promise<{ rows: CreatorView[]; total: number }> {
       const where = eq(creators.tenantId, tenantId);

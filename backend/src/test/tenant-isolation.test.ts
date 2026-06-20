@@ -147,4 +147,41 @@ describe('isolamento entre tenants', () => {
     expect(statusAttemptService.status).toBe(404);
     expect(historyFromA.body.data).toHaveLength(0);
   });
+
+  // Fase 4a: scale_entries/holidays — extensão pedida em specs/07-roadmap-implementacao.md#fase-4a.
+  it('tenant A não vê atribuições de escala nem feriados específicos do tenant B', async () => {
+    const { userA, userB, password } = await withTwoTenants();
+    const loginA = await request(app).post('/auth/login').send({ email: userA.email, password });
+    const loginB = await request(app).post('/auth/login').send({ email: userB.email, password });
+    const tokenA = loginA.body.token as string;
+    const tokenB = loginB.body.token as string;
+
+    await request(app).post('/holidays').set('Authorization', `Bearer ${tokenB}`).send({ holiday_date: '2026-06-15', description: 'Feriado só do tenant B' });
+    const scaleA = await request(app).get('/scale-entries?month=2026-06').set('Authorization', `Bearer ${tokenA}`);
+    const holidaysA = await request(app).get('/holidays?month=2026-06').set('Authorization', `Bearer ${tokenA}`);
+
+    expect(holidaysA.body.data).toHaveLength(0);
+    const juneFifteenForA = scaleA.body.data.find((e: { workDate: string }) => e.workDate === '2026-06-15');
+    expect(juneFifteenForA?.isHoliday).toBe(false); // feriado é do tenant B, não vaza pro A
+  });
+
+  it('tenant A não roda escala automática nem duplica mês do tenant B (404)', async () => {
+    const { userA, userB, password } = await withTwoTenants();
+    const loginA = await request(app).post('/auth/login').send({ email: userA.email, password });
+    const loginB = await request(app).post('/auth/login').send({ email: userB.email, password });
+    const tokenA = loginA.body.token as string;
+    const tokenB = loginB.body.token as string;
+
+    const scaleB = await request(app).get('/scale-entries?month=2026-06').set('Authorization', `Bearer ${tokenB}`);
+    const scaleMonthIdB = scaleB.body.scale_month_id as string;
+
+    const autoAttempt = await request(app).post(`/scale-months/${scaleMonthIdB}/auto-assign`).set('Authorization', `Bearer ${tokenA}`);
+    const duplicateAttempt = await request(app)
+      .post(`/scale-months/${scaleMonthIdB}/duplicate`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ target_month: 7, target_year: 2026 });
+
+    expect(autoAttempt.status).toBe(404);
+    expect(duplicateAttempt.status).toBe(404);
+  });
 });

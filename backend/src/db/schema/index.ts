@@ -8,3 +8,6 @@ export * from './clients';
 export * from './creatorTasks';
 export * from './collaboratorServices';
 export * from './statusHistory';
+export * from './scaleMonths';
+export * from './scaleEntries';
+export * from './holidays';
