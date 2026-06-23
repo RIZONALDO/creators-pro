@@ -14,10 +14,10 @@ POST /auth/login   { email, password }
    { "sub": "<user_id>", "tenant_id": "<tenant_id>", "role": "admin|gestor|operacional", "iat": ..., "exp": ... }
    ```
 5. Gera **refresh token** (string aleatória opaca, 30 dias), guarda só o hash em `refresh_tokens` (ver [02](./02-modelo-de-dados.md#refresh_tokens-novo--fix-8)).
-6. Responde `{ token, refreshToken, user }` — formato compatível com o `AuthSession` já existente em `frontend/src/types.ts` (só adiciona `refreshToken`).
+6. Responde `{ token, refresh_token, user }` — formato compatível com o `AuthSession` já existente em `frontend/src/types.ts` (só adiciona `refresh_token`).
 
 ```
-POST /auth/refresh   { refreshToken }
+POST /auth/refresh   { refresh_token }
 ```
 Valida hash contra `refresh_tokens` (não revogado, não expirado) → emite novo access token. Rotação opcional do refresh token (recomendado: rotacionar a cada uso, revogando o anterior).
 

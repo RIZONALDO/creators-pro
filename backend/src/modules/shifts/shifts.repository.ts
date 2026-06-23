@@ -1,6 +1,6 @@
-import { and, count, eq } from 'drizzle-orm';
+import { and, count, eq, inArray, or } from 'drizzle-orm';
 import type { db as Db } from '../../db/client.js';
-import { shifts, type ShiftStatus } from '../../db/schema/index.js';
+import { shifts, shiftStandbys, type ShiftStatus } from '../../db/schema/index.js';
 import { firstOrThrow } from '../../lib/firstOrThrow.js';
 import type { Pagination } from '../../lib/pagination.js';
 
@@ -26,7 +26,15 @@ export interface ShiftListFilter {
 export function createShiftsRepository(db: typeof Db) {
   function whereFor(tenantId: string, filter?: ShiftListFilter) {
     const conditions = [eq(shifts.tenantId, tenantId)];
-    if (filter?.creatorId) conditions.push(eq(shifts.creatorId, filter.creatorId));
+    if (filter?.creatorId) {
+      // titular OU sobreaviso — quem está de sobreaviso recebe notificação e precisa também ver o plantão na própria lista.
+      conditions.push(
+        or(
+          eq(shifts.creatorId, filter.creatorId),
+          inArray(shifts.id, db.select({ id: shiftStandbys.shiftId }).from(shiftStandbys).where(eq(shiftStandbys.creatorId, filter.creatorId))),
+        )!,
+      );
+    }
     return and(...conditions);
   }
 
@@ -57,7 +65,7 @@ export function createShiftsRepository(db: typeof Db) {
           shiftDate: input.shiftDate,
           creatorId: input.creatorId ?? null,
           notes: input.notes ?? null,
-          status: input.status ?? 'pending',
+          status: input.status ?? 'scheduled',
           createdBy: input.createdBy,
         })
         .returning();
@@ -81,6 +89,12 @@ export function createShiftsRepository(db: typeof Db) {
         .where(and(eq(shifts.tenantId, tenantId), eq(shifts.id, id)))
         .returning();
       return rows[0] ?? null;
+    },
+
+    /** shift_standbys some junto via ON DELETE CASCADE — não precisa limpar manualmente. */
+    async delete(tenantId: string, id: string) {
+      const rows = await db.delete(shifts).where(and(eq(shifts.tenantId, tenantId), eq(shifts.id, id))).returning();
+      return rows.length > 0;
     },
   };
 }

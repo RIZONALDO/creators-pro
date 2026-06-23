@@ -1,8 +1,13 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
 import { AppLayout } from '@/components/AppLayout';
+import { AdminLayout } from '@/components/AdminLayout';
 import { Login } from '@/screens/Login';
+import { Signup } from '@/screens/Signup';
+import { SignupSuccess } from '@/screens/SignupSuccess';
 import { AdminUsers } from '@/screens/AdminUsers';
+import { AdminBilling } from '@/screens/AdminBilling';
+import { AdminSettings } from '@/screens/AdminSettings';
 import { Dashboard } from '@/screens/Dashboard';
 import { Tasks } from '@/screens/Tasks';
 import { Services } from '@/screens/Services';
@@ -12,6 +17,7 @@ import { Shifts } from '@/screens/Shifts';
 import { Messages } from '@/screens/Messages';
 import { Reports } from '@/screens/Reports';
 import { Cadastros } from '@/screens/Cadastros';
+import { Profile } from '@/screens/Profile';
 
 export function App() {
   const { user } = useApp();
@@ -19,16 +25,22 @@ export function App() {
   if (!user) {
     return (
       <Routes>
+        <Route path="/cadastro" element={<Signup />} />
+        <Route path="/cadastro/sucesso" element={<SignupSuccess />} />
         <Route path="*" element={<Login />} />
       </Routes>
     );
   }
 
-  // Admin tem uma área enxuta e exclusiva (gestão de usuários).
+  // Admin tem uma área enxuta e exclusiva (gestão de usuários + configurações da empresa).
   if (user.role === 'admin') {
     return (
       <Routes>
-        <Route path="/admin" element={<AdminUsers />} />
+        <Route element={<AdminLayout />}>
+          <Route path="/admin" element={<AdminUsers />} />
+          <Route path="/admin/cobranca" element={<AdminBilling />} />
+          <Route path="/admin/configuracoes" element={<AdminSettings />} />
+        </Route>
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>
     );
@@ -46,7 +58,8 @@ export function App() {
         <Route path="/plantoes" element={<Shifts />} />
         <Route path="/mensagens" element={<Messages />} />
         <Route path="/relatorios" element={<Reports />} />
-        <Route path="/cadastros" element={<Cadastros />} />
+        <Route path="/cadastros" element={user.role === 'operacional' ? <Navigate to="/dashboard" replace /> : <Cadastros />} />
+        <Route path="/perfil" element={<Profile />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

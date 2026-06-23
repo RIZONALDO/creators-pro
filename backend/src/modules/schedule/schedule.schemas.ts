@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const assignCreatorSchema = z.object({
-  creator_id: z.string().uuid().nullable(),
+  creator_id: z.string().uuid(),
 });
 
 export const duplicateMonthSchema = z.object({

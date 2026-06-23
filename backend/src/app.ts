@@ -1,7 +1,12 @@
 import cors from 'cors';
 import express from 'express';
+import type Stripe from 'stripe';
 import type { db as Db } from './db/client.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { requestLogger } from './middleware/requestLogger.js';
+import { snakeCaseResponse } from './middleware/snakeCaseResponse.js';
+import { createNoopEmitter, type RealtimeEmitter } from './realtime/emitter.js';
+import { createNoopPushSender, type PushSender } from './realtime/pushSender.js';
 import { createAuthService } from './modules/auth/auth.service.js';
 import { createAuthRouter } from './modules/auth/auth.routes.js';
 import { createCreatorsService } from './modules/creators/creators.service.js';
@@ -24,23 +29,68 @@ import { createAbsencesService } from './modules/absences/absences.service.js';
 import { createAbsencesRouter } from './modules/absences/absences.routes.js';
 import { createShiftsService } from './modules/shifts/shifts.service.js';
 import { createShiftsRouter } from './modules/shifts/shifts.routes.js';
+import { createUsersAdminService } from './modules/users/users.service.js';
+import { createUsersRouter } from './modules/users/users.routes.js';
+import { createNotificationsService } from './modules/notifications/notifications.service.js';
+import { createNotificationsRouter } from './modules/notifications/notifications.routes.js';
+import { createMessagesService } from './modules/messages/messages.service.js';
+import { createMessagesRouter } from './modules/messages/messages.routes.js';
+import { createPushSubscriptionsService } from './modules/push/push.service.js';
+import { createPushRouter } from './modules/push/push.routes.js';
+import { createReportsService } from './modules/reports/reports.service.js';
+import { createReportsRouter } from './modules/reports/reports.routes.js';
+import { createAttachmentsService } from './modules/attachments/attachments.service.js';
+import { createAttachmentsRouter } from './modules/attachments/attachments.routes.js';
+import { createCompanyService } from './modules/company/company.service.js';
+import { createCompanyRouter } from './modules/company/company.routes.js';
+import { createBillingService } from './modules/billing/billing.service.js';
+import { createBillingRouter, createBillingWebhookHandler } from './modules/billing/billing.routes.js';
+import { env } from './lib/env.js';
 
-export function createApp(db: typeof Db) {
+export function createApp(
+  db: typeof Db,
+  emitter: RealtimeEmitter = createNoopEmitter(),
+  pushSender: PushSender = createNoopPushSender(),
+  // Testável sem chave real da Stripe (mesmo padrão de emitter/pushSender) — ver billing.routes.test.ts.
+  billingDeps?: { stripe?: Stripe | null; priceId?: string; webhookSecret?: string },
+) {
   const app = express();
+  app.use(requestLogger);
   app.use(cors());
-  app.use(express.json());
 
-  app.use(createAuthRouter(createAuthService(db)));
+  const authService = createAuthService(db);
+  const billingService = createBillingService(db, authService, billingDeps?.stripe, billingDeps?.priceId);
+
+  // Webhook do Stripe precisa do corpo cru (bytes exatos) pra validar a assinatura — tem que vir
+  // ANTES do express.json() global, senão o corpo já chega parseado e a verificação falha sempre.
+  app.post(
+    '/billing/webhook',
+    express.raw({ type: 'application/json' }),
+    createBillingWebhookHandler(billingService, billingDeps?.stripe, billingDeps?.webhookSecret),
+  );
+
+  app.use(express.json());
+  app.use(snakeCaseResponse);
+
+  app.use(createAuthRouter(authService));
+  app.use(createBillingRouter(billingService));
   app.use(createCreatorsRouter(createCreatorsService(db)));
   app.use(createCollaboratorsRouter(createCollaboratorsService(db)));
   app.use(createClientsRouter(createClientsRepository(db)));
   app.use(createProfessionsRouter(createProfessionsService(db)));
   app.use(createStatusHistoryRouter(createStatusHistoryRepository(db)));
-  app.use(createTasksRouter(createTasksService(db)));
+  app.use(createTasksRouter(createTasksService(db, emitter, pushSender)));
   app.use(createServicesRouter(createServicesService(db)));
-  app.use(createScheduleRouter(createScheduleService(db)));
-  app.use(createAbsencesRouter(createAbsencesService(db)));
-  app.use(createShiftsRouter(createShiftsService(db)));
+  app.use(createScheduleRouter(createScheduleService(db, emitter, pushSender)));
+  app.use(createAbsencesRouter(createAbsencesService(db, emitter, pushSender)));
+  app.use(createShiftsRouter(createShiftsService(db, emitter, pushSender)));
+  app.use(createUsersRouter(createUsersAdminService(db)));
+  app.use(createNotificationsRouter(createNotificationsService(db, emitter, pushSender)));
+  app.use(createMessagesRouter(createMessagesService(db, emitter)));
+  app.use(createPushRouter(createPushSubscriptionsService(db), env.vapidPublicKey));
+  app.use(createReportsRouter(createReportsService(db)));
+  app.use(createAttachmentsRouter(createAttachmentsService(db, emitter, pushSender)));
+  app.use(createCompanyRouter(createCompanyService(db)));
 
   app.use(errorHandler);
   return app;

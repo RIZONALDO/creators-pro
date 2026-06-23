@@ -1,11 +1,17 @@
 node_modules
 dist
 dist-ssr
+dev-dist
 *.local
 .env
 .env.*
 !.env.example
 !*/.env.example
+certs/
+backend/uploads/
+backend/uploads-test/
 .DS_Store
 .vscode/*
 !.vscode/extensions.json
+.claude/
+*.tsbuildinfo

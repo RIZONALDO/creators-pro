@@ -39,5 +39,14 @@ export function createCollaboratorsRouter(service: CollaboratorsService) {
     }
   });
 
+  router.delete('/collaborators/:id', async (req, res, next) => {
+    try {
+      await service.remove(req.auth!.tenantId, req.params.id);
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  });
+
   return router;
 }

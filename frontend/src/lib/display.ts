@@ -4,7 +4,7 @@
  */
 import type {
   TaskFormat, TaskStatus, ServiceStatus,
-  AbsenceStatus, ShiftStatus, StatusMeta, UserRole,
+  AbsenceStatus, ShiftStatus, StatusMeta, UserRole, CompanyStatus, User,
 } from '@/types';
 
 export const TASK_STATUS_META: Record<TaskStatus, StatusMeta> = {
@@ -36,6 +36,10 @@ export const SERVICE_TYPE_LABEL: Record<string, string> = {
   drone: 'Operador de Drone', foto: 'Fotógrafo', edicao: 'Editor', sonora: 'Sonoplasta', outros: 'Outros',
 };
 
+export const SERVICE_TYPE_COLOR: Record<string, string> = {
+  drone: '#22C55E', foto: '#06B6D4', edicao: '#8B5CF6', sonora: '#FB923C', outros: '#9A9AB2',
+};
+
 export const SERVICE_STATUS_META: Record<string, StatusMeta> = {
   agendado:     { label: 'Agendado',     color: '#9A9AB2', bg: 'rgba(154,154,178,.14)' },
   em_andamento: { label: 'Em andamento', color: '#8B5CF6', bg: 'rgba(139,92,246,.16)' },
@@ -50,16 +54,36 @@ export const ABSENCE_STATUS_META: Record<AbsenceStatus, StatusMeta> = {
 };
 
 export const SHIFT_STATUS_META: Record<ShiftStatus, StatusMeta> = {
-  pending:   { label: 'Pendente',   color: '#F59E0B', bg: 'rgba(245,158,11,.16)' },
-  confirmed: { label: 'Confirmado', color: '#22C55E', bg: 'rgba(34,197,94,.16)' },
-  completed: { label: 'Realizado',  color: '#06B6D4', bg: 'rgba(6,182,212,.16)' },
-  cancelled: { label: 'Cancelado',  color: '#65657C', bg: 'rgba(101,101,124,.14)' },
+  scheduled: { label: 'Agendado',  color: '#22C55E', bg: 'rgba(34,197,94,.16)' },
+  completed: { label: 'Realizado', color: '#06B6D4', bg: 'rgba(6,182,212,.16)' },
+  cancelled: { label: 'Cancelado', color: '#65657C', bg: 'rgba(101,101,124,.14)' },
 };
 
+// label aqui é o nome do papel de acesso (RBAC), não a função/cargo da pessoa — "Coordenador" não
+// é um sinônimo fixo de "gestor", é só uma função possível entre outras (specs/06). Default só pra
+// quando não há função real cadastrada — roleLabel() abaixo é quem decide o texto de verdade.
+// Cor/fundo continuam por role (não tem sentido cor por função).
 export const ROLE_META: Record<UserRole, StatusMeta> = {
   admin:       { label: 'Admin',       color: '#8B5CF6', bg: 'rgba(139,92,246,.16)' },
-  gestor:      { label: 'Coordenador', color: '#6C63FF', bg: 'rgba(108,99,255,.16)' },
+  gestor:      { label: 'Gestor',      color: '#6C63FF', bg: 'rgba(108,99,255,.16)' },
   operacional: { label: 'Operacional', color: '#06B6D4', bg: 'rgba(6,182,212,.16)' },
+};
+
+/** Único lugar que decide que texto mostrar pra função/cargo de uma pessoa — nunca um rótulo de
+ * role cravado direto numa tela, e nunca assume "Coordenador" pra ninguém que não tenha essa
+ * função de fato cadastrada. Prioridade: 1) função digitada pelo admin (admin/gestor) 2) profissão
+ * real cadastrada (colaborador) 3) nome do papel de acesso, só quando nada foi cadastrado ainda. */
+export function roleLabel(user: Pick<User, 'role' | 'alias' | 'collaborator_id' | 'profession'>): string {
+  if (user.alias) return user.alias;
+  if (user.profession) return user.profession;
+  if (user.role === 'operacional') return user.collaborator_id ? 'Colaborador' : 'Creator';
+  return ROLE_META[user.role].label;
+}
+
+export const COMPANY_STATUS_META: Record<CompanyStatus, StatusMeta> = {
+  active:    { label: 'Ativa',     color: '#22C55E', bg: 'rgba(34,197,94,.16)' },
+  suspended: { label: 'Suspensa',  color: '#F59E0B', bg: 'rgba(245,158,11,.16)' },
+  cancelled: { label: 'Cancelada', color: '#EF4444', bg: 'rgba(239,68,68,.16)' },
 };
 
 /** Paleta determinística para avatares, derivada do id/nome. */
@@ -80,4 +104,26 @@ export function shortDate(iso: string | null): string {
   if (!iso) return '—';
   const [, m, d] = iso.split('-').map(Number);
   return `${String(d).padStart(2, '0')} ${MONTHS[m - 1]}`;
+}
+
+/** '2026-06-18T09:42:00Z' -> '09:42' (hoje) ou '18 jun' (outro dia) — usado nas notificações. */
+export function shortTime(iso: string): string {
+  const d = new Date(iso);
+  const sameDay = d.toDateString() === new Date().toDateString();
+  if (sameDay) return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return shortDate(iso.slice(0, 10));
+}
+
+const FULL_MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+/** '2026-06' -> 'Junho 2026' */
+export function monthLabel(yyyyMM: string): string {
+  const [y, m] = yyyyMM.split('-').map(Number);
+  return `${FULL_MONTHS[m - 1]} ${y}`;
+}
+
+export function formatFileSize(bytes: number | null): string {
+  if (bytes === null) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

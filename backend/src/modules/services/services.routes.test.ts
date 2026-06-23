@@ -42,7 +42,7 @@ describe('rotas de services (integração)', () => {
       .get(`/status-history?entity_type=service&entity_id=${created.body.id}`)
       .set('Authorization', `Bearer ${gestorToken}`);
     expect(history.body.data).toHaveLength(1);
-    expect(history.body.data[0].newStatus).toBe('concluido');
+    expect(history.body.data[0].new_status).toBe('concluido');
   });
 
   it('operacional vê só os próprios serviços', async () => {
@@ -59,7 +59,7 @@ describe('rotas de services (integração)', () => {
 
     const asCollaborator = await request(app).get('/services').set('Authorization', `Bearer ${collabLogin.body.token}`);
     expect(asCollaborator.body.data).toHaveLength(1);
-    expect(asCollaborator.body.data[0].serviceName).toBe('Serviço do colaborador logado');
+    expect(asCollaborator.body.data[0].service_name).toBe('Serviço do colaborador logado');
   });
 
   it('operacional recebe 403 ao tentar criar serviço', async () => {
@@ -69,5 +69,17 @@ describe('rotas de services (integração)', () => {
 
     const res = await request(app).post('/services').set('Authorization', `Bearer ${login.body.token}`).send({ service_name: 'Tentativa' });
     expect(res.status).toBe(403);
+  });
+
+  it('DELETE /services/:id remove o serviço e seu histórico', async () => {
+    const { gestorToken } = await setupTenant();
+    const created = await request(app).post('/services').set('Authorization', `Bearer ${gestorToken}`).send({ service_name: 'Captação' });
+    await request(app).patch(`/services/${created.body.id}/status`).set('Authorization', `Bearer ${gestorToken}`).send({ status: 'concluido' });
+
+    const res = await request(app).delete(`/services/${created.body.id}`).set('Authorization', `Bearer ${gestorToken}`);
+    expect(res.status).toBe(204);
+
+    const list = await request(app).get('/services').set('Authorization', `Bearer ${gestorToken}`);
+    expect(list.body.data).toHaveLength(0);
   });
 });

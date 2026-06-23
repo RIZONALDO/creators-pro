@@ -13,7 +13,7 @@
 | 3 | `role`, `status`, `format_type`, `employment_type`, `service_type`(parcial), `notification.type`, `attachment.entity_type` → `pgEnum` em vez de `VARCHAR` livre | Integridade no nível do banco, não só na aplicação |
 | 4 | `task_status_history` → generalizada para `status_history` (polimórfica) | Cobre `absences`, `shifts`, `collaborator_services` também — pedido explícito da proposta original ("Histórico" em Plantões) |
 | 5 | `holidays` ganha `tenant_id` **nullable** (NULL = feriado nacional/global, preenchido = feriado específico da empresa) | Hoje a tabela existe mas não é usada por nenhum endpoint; isso a torna funcional |
-| 6 | `scale_entries` ganha `UNIQUE(tenant_id, work_date)` | Regra observada no mock e na tela: 1 creator por dia útil |
+| 6 | `scale_entries` ganha `UNIQUE(tenant_id, work_date)` — **revertido depois** (ver nota na tabela `scale_entries` abaixo): passou a permitir mais de 1 creator por dia, restrição virou `UNIQUE(tenant_id, work_date, creator_id)` | Regra observada no mock e na tela na 1ª versão: 1 creator por dia útil. Mudou a pedido explícito: quadro da escala precisava aceitar múltiplos creators no mesmo dia, com mover/remover via drag |
 | 7 | + tabela `company_settings` | Cobre "Configurações gerais" (permissão do Admin na proposta), inexistente hoje |
 | 8 | + tabela `refresh_tokens` | Permite logout/revogação real, hoje o JWT é stateless e logout não invalida nada |
 | 9 | + coluna `avatar_url` em `users` | UI já tem botão "Trocar foto" sem campo correspondente |
@@ -44,7 +44,10 @@ export const taskStatusEnum = pgEnum('task_status', [
 
 export const serviceStatusEnum = pgEnum('service_status', ['agendado', 'em_andamento', 'concluido', 'cancelado']);
 export const absenceStatusEnum = pgEnum('absence_status', ['pending', 'approved', 'rejected']);
-export const shiftStatusEnum = pgEnum('shift_status', ['pending', 'confirmed', 'completed', 'cancelled']);
+// 'pending'/'confirmed' existiam na versão original mas nunca tiveram função real (mesma pessoa,
+// o gestor, cria e "confirma" — sem ação de terceiro, notificação ou relatório que diferencie os
+// dois). Simplificado pra 3 estados com desfecho real — decisão tomada depois, não no desenho inicial.
+export const shiftStatusEnum = pgEnum('shift_status', ['scheduled', 'completed', 'cancelled']);
 
 export const notificationTypeEnum = pgEnum('notification_type', [
   'nova_tarefa', 'mudanca_status', 'ausencia_aprovada',
@@ -66,12 +69,16 @@ export const companies = pgTable('companies', {
   name: varchar('name', { length: 255 }).notNull(),
   slug: varchar('slug', { length: 100 }).notNull().unique(),   // reservado p/ uso futuro (subdomínio/branding)
   status: companyStatusEnum('status').notNull().default('active'),
+  // Fase 9.1 (self-service signup + billing) — null pra tenants provisionados manualmente
+  // (/internal/companies), preenchido só pros que vieram do fluxo de assinatura via Stripe.
+  stripeCustomerId: varchar('stripe_customer_id', { length: 255 }).unique(),
+  stripeSubscriptionId: varchar('stripe_subscription_id', { length: 255 }),
   createdAt: timestamptz('created_at').notNull().defaultNow(),
   updatedAt: timestamptz('updated_at').notNull().defaultNow(),
 });
 ```
 
-`companies` nunca é hard-deletada via FK cascade — desativação é via `status = 'cancelled'`, nunca `DELETE`.
+`companies` nunca é hard-deletada via FK cascade — desativação é via `status = 'cancelled'`, nunca `DELETE`. Desde a Fase 9.1, `status` também é a fonte de verdade pro gate de login (`company.status !== 'active'` bloqueia com `402`) — não é só metadado, é checado em `auth.service.ts#login`.
 
 ---
 
@@ -108,6 +115,10 @@ export const creators = pgTable('creators', {
   userId: uuid('user_id').notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
   employmentType: employmentTypeEnum('employment_type'),
   active: boolean('active').notNull().default(true),
+  // Definido por drag na paleta da Escala (Schedule.tsx) — base do round-robin de POST
+  // /scale-months/:id/auto-assign (listActiveIds ordena por isto). Default 0 em todos: sem
+  // reordenar nada, o tiebreak por createdAt mantém o comportamento de antes (ordem de criação).
+  scaleOrder: integer('scale_order').notNull().default(0),
   createdAt: timestamptz('created_at').notNull().defaultNow(),
 }, (t) => ({
   tenantIdx: index('creators_tenant_idx').on(t.tenantId),
@@ -227,16 +238,21 @@ export const scaleEntries = pgTable('scale_entries', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull().references(() => companies.id, { onDelete: 'restrict' }),
   scaleMonthId: uuid('scale_month_id').notNull().references(() => scaleMonths.id, { onDelete: 'cascade' }),
-  creatorId: uuid('creator_id').references(() => creators.id, { onDelete: 'set null' }),
+  creatorId: uuid('creator_id').references(() => creators.id, { onDelete: 'restrict' }),
   workDate: date('work_date').notNull(),
   isHoliday: boolean('is_holiday').notNull().default(false),
   createdAt: timestamptz('created_at').notNull().defaultNow(),
 }, (t) => ({
-  uniqueWorkDate: unique('scale_entries_tenant_work_date').on(t.tenantId, t.workDate),   // fix #6
+  uniqueWorkDatePerCreator: unique('scale_entries_tenant_work_date_creator').on(t.tenantId, t.workDate, t.creatorId),
 }));
 ```
 
 `is_holiday` passa a ser **calculado pelo backend** ao gerar/consultar a escala (cruzando com `holidays`), não mais um campo digitado manualmente — ver regra em [06-regras-de-negocio.md](./06-regras-de-negocio.md).
+
+**Mudança posterior ao MVP — pedido direto (sem fase numerada no roadmap)**: a restrição original era `UNIQUE(tenant_id, work_date)` (1 creator por dia, fix #6 na tabela acima). Passou a permitir **mais de 1 creator no mesmo dia** — o quadro da Escala ganhou drag para mover/remover creators de um dia depois de rodar a escala automática. O que continua proibido é o *mesmo* creator duas vezes no mesmo dia (daí `creator_id` entrar na unique). Consequências:
+- Linhas em `scale_entries` agora **só existem quando há atribuição real** — não há mais "1 linha placeholder por dia útil com `creator_id = NULL`" (o que a 1ª versão criava ao consultar `GET /scale-entries`). Dia sem nenhum creator = nenhuma linha, não uma linha com `creator_id` nulo.
+- `creatorId` mudou de `onDelete: 'set null'` pra `onDelete: 'restrict'` — não faz mais sentido uma linha "órfã" sem creator nessa modelagem.
+- `POST /scale-months/:id/auto-assign` e `POST /scale-months/:id/duplicate` (ver [04](./04-contrato-api.md)) limpam todas as linhas do mês antes de regenerar, pra não sobrar atribuição manual antiga misturada com a nova distribuição.
 
 ---
 
@@ -288,13 +304,37 @@ export const shifts = pgTable('shifts', {
   shiftDate: date('shift_date').notNull(),
   creatorId: uuid('creator_id').references(() => creators.id, { onDelete: 'set null' }),
   notes: text('notes'),
-  status: shiftStatusEnum('status').notNull().default('pending'),
+  status: shiftStatusEnum('status').notNull().default('scheduled'),
   createdBy: uuid('created_by').notNull().references(() => users.id, { onDelete: 'restrict' }),
   createdAt: timestamptz('created_at').notNull().defaultNow(),
 }, (t) => ({
   tenantDateIdx: index('shifts_tenant_date_idx').on(t.tenantId, t.shiftDate),
 }));
 ```
+
+---
+
+## `shift_standbys` (sobreaviso — não fazia parte do roadmap original, pedido direto)
+
+0+ creators de backup por plantão, além do plantonista titular (`shifts.creatorId`). Recebem a mesma notificação `novo_plantao` do titular (título diferente: "Sobreaviso de plantão"), tanto na criação quanto quando adicionados depois via `PUT /shifts/:id`. `GET /shifts` passou a devolver plantões onde o usuário é titular **ou** sobreaviso (antes só titular) — ver [04](./04-contrato-api.md).
+
+```ts
+export const shiftStandbys = pgTable('shift_standbys', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => companies.id, { onDelete: 'restrict' }),
+  shiftId: uuid('shift_id').notNull().references(() => shifts.id, { onDelete: 'cascade' }),   // some com o plantão
+  creatorId: uuid('creator_id').notNull().references(() => creators.id, { onDelete: 'restrict' }), // mesmo padrão de shifts.creatorId
+  createdAt: timestamptz('created_at').notNull().defaultNow(),
+}, (t) => ({
+  uniqueShiftCreator: unique('shift_standbys_shift_creator').on(t.shiftId, t.creatorId), // mesmo creator não 2x no mesmo plantão
+  tenantShiftIdx: index('shift_standbys_tenant_shift_idx').on(t.tenantId, t.shiftId),
+  tenantCreatorIdx: index('shift_standbys_tenant_creator_idx').on(t.tenantId, t.creatorId),
+}));
+```
+
+`PUT /shifts/:id` com `standby_creator_ids` **substitui** a lista inteira (delete + insert), não soma — mesmo padrão de "enviar o array completo desejado" usado em `PUT /creators/reorder`.
+
+`GET/POST/PUT/PATCH /shifts` sempre devolvem `creator_name`/`standby_names` junto (não só os ids) — `creators.repository.ts#findNamesByIds` (batch) resolve isso em `shifts.service.ts#withStandbys`. Necessário porque `operacional` não tem `GET /creators` (RBAC): sem isso, ao ver um plantão em que é sobreaviso, não teria nenhuma forma de saber o nome de quem é o titular (ou vice-versa).
 
 ---
 

@@ -49,5 +49,14 @@ export function createShiftsRouter(service: ShiftsService) {
     }
   });
 
+  router.delete('/shifts/:id', authorize('admin', 'gestor'), async (req, res, next) => {
+    try {
+      await service.remove(req.auth!.tenantId, req.params.id!);
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  });
+
   return router;
 }

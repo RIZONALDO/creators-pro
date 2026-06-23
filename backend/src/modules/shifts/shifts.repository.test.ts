@@ -17,12 +17,12 @@ describe('shiftsRepository', () => {
     await testPool.end();
   });
 
-  it('cria com status default pending e lista por tenant', async () => {
+  it('cria com status default scheduled e lista por tenant', async () => {
     const company = await companiesRepo.create({ name: 'Acme', slug: 'acme' });
     const user = await usersRepo.create({ tenantId: company.id, name: 'Gestora', email: 'g@acme.com', passwordHash: 'hash', role: 'gestor' });
 
     const created = await shiftsRepo.create({ tenantId: company.id, shiftDate: '2026-06-21', notes: 'Turno manhã', createdBy: user.id });
-    expect(created.status).toBe('pending');
+    expect(created.status).toBe('scheduled');
 
     const { rows, total } = await shiftsRepo.list(company.id, { page: 1, pageSize: 50, offset: 0, limit: 50 });
     expect(total).toBe(1);
@@ -34,7 +34,17 @@ describe('shiftsRepository', () => {
     const user = await usersRepo.create({ tenantId: company.id, name: 'Gestora', email: 'g@acme.com', passwordHash: 'hash', role: 'gestor' });
     const created = await shiftsRepo.create({ tenantId: company.id, shiftDate: '2026-06-21', createdBy: user.id });
 
-    const updated = await shiftsRepo.updateStatus(company.id, created.id, 'confirmed');
-    expect(updated?.status).toBe('confirmed');
+    const updated = await shiftsRepo.updateStatus(company.id, created.id, 'completed');
+    expect(updated?.status).toBe('completed');
+  });
+
+  it('delete remove o plantão e devolve true; false se já não existe', async () => {
+    const company = await companiesRepo.create({ name: 'Acme', slug: 'acme' });
+    const user = await usersRepo.create({ tenantId: company.id, name: 'Gestora', email: 'g@acme.com', passwordHash: 'hash', role: 'gestor' });
+    const created = await shiftsRepo.create({ tenantId: company.id, shiftDate: '2026-06-21', createdBy: user.id });
+
+    expect(await shiftsRepo.delete(company.id, created.id)).toBe(true);
+    expect(await shiftsRepo.findById(company.id, created.id)).toBeNull();
+    expect(await shiftsRepo.delete(company.id, created.id)).toBe(false);
   });
 });

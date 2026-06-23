@@ -1,4 +1,4 @@
-import { boolean, index, pgTable, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, index, integer, pgTable, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { companies } from './companies';
 import { users } from './users';
 import { employmentTypeEnum } from './enums';
@@ -14,6 +14,10 @@ export const creators = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     employmentType: employmentTypeEnum('employment_type'),
     active: boolean('active').notNull().default(true),
+    // Ordem definida por drag na paleta da Escala — base do round-robin da escala automática
+    // (listActiveIds ordena por isto). Default 0 em todos: sem reordenar nada, o tiebreak por
+    // createdAt mantém o comportamento de hoje (ordem de criação).
+    scaleOrder: integer('scale_order').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({

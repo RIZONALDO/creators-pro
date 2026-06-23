@@ -2,7 +2,6 @@ import bcrypt from 'bcryptjs';
 import type { db as Db } from '../../db/client.js';
 import { conflict, notFound } from '../../lib/errors.js';
 import type { Pagination } from '../../lib/pagination.js';
-import { generateOpaqueToken } from '../../lib/tokens.js';
 import { createUsersRepository } from '../auth/users.repository.js';
 import { createCreatorsRepository, type CreatorView } from './creators.repository.js';
 import type { newCreatorSchema, updateCreatorSchema } from './creators.schemas.js';
@@ -21,10 +20,7 @@ export function createCreatorsService(db: typeof Db) {
       const existingUser = await usersRepo.findByEmail(input.email);
       if (existingUser) throw conflict('EMAIL_TAKEN', 'Já existe um usuário com este e-mail.');
 
-      // Sem fluxo de convite/reset de senha ainda (fora do escopo da Fase 2) — gera uma senha
-      // temporária aleatória só pra satisfazer a constraint NOT NULL; ninguém a recebe por ora.
-      const temporaryPassword = generateOpaqueToken();
-      const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+      const passwordHash = await bcrypt.hash(input.password, 10);
 
       return db.transaction(async (tx) => {
         const txUsersRepo = createUsersRepository(tx as typeof Db);
@@ -89,10 +85,38 @@ export function createCreatorsService(db: typeof Db) {
           });
         }
 
+        if (input.password !== undefined) {
+          const passwordHash = await bcrypt.hash(input.password, 10);
+          await txUsersRepo.updatePassword(creatorRow.userId, passwordHash);
+        }
+
         const view = await txCreatorsRepo.findById(tenantId, id);
         if (!view) throw notFound('CREATOR_NOT_FOUND', 'Creator não encontrado.');
         return view;
       });
+    },
+
+    /**
+     * Apaga o creator e o usuário/login vinculado na mesma transação — sem fluxo de "creator sem
+     * conta", a conta não tem propósito sozinha. Bloqueado pelo Postgres (RESTRICT) se houver
+     * task/serviço/escala/ausência/plantão vinculado — nesse caso nem o usuário chega a ser tocado.
+     */
+    async remove(tenantId: string, id: string) {
+      return db.transaction(async (tx) => {
+        const txCreatorsRepo = createCreatorsRepository(tx as typeof Db);
+        const txUsersRepo = createUsersRepository(tx as typeof Db);
+
+        const creatorRow = await txCreatorsRepo.findRowById(tenantId, id);
+        if (!creatorRow) throw notFound('CREATOR_NOT_FOUND', 'Creator não encontrado.');
+
+        await txCreatorsRepo.deleteRow(tenantId, id);
+        await txUsersRepo.deleteById(tenantId, creatorRow.userId);
+      });
+    },
+
+    /** Ordem definida por drag na paleta da Escala — base do round-robin da escala automática (listActiveIds). */
+    async reorder(tenantId: string, creatorIds: string[]) {
+      await creatorsRepo.reorder(tenantId, creatorIds);
     },
   };
 }

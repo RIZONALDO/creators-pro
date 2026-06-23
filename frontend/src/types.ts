@@ -34,13 +34,13 @@ export type ServiceStatus = 'agendado' | 'em_andamento' | 'concluido' | 'cancela
 /** absences.status */
 export type AbsenceStatus = 'pending' | 'approved' | 'rejected';
 
-/** shifts.status */
-export type ShiftStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
+/** shifts.status — 'pending'/'confirmed' existiam antes mas nunca tiveram função real (ver specs/06); simplificado pra 3 estados com desfecho real. */
+export type ShiftStatus = 'scheduled' | 'completed' | 'cancelled';
 
 /** notifications.type (VARCHAR — convenção do frontend) */
 export type NotificationType =
   | 'nova_tarefa' | 'mudanca_status' | 'ausencia_aprovada'
-  | 'ausencia_rejeitada' | 'novo_plantao' | 'alteracao_escala';
+  | 'ausencia_rejeitada' | 'novo_plantao' | 'alteracao_escala' | 'registro_tarefa';
 
 /** attachments.entity_type */
 export type AttachmentEntity = 'task' | 'service' | 'absence' | 'message' | 'shift';
@@ -58,6 +58,18 @@ export interface User {
   status: UserStatus;
   created_at: string;
   updated_at: string;
+  // Função/cargo digitado pelo admin (ex.: "Diretor", "Supervisor") — texto livre e opcional, só
+  // admin/gestor; sem valor cadastrado, a UI cai pro nome do tipo de acesso (Gestor/Admin), nunca
+  // assume um cargo específico. Operacional usa Creator/Colaborador (estrutural, não texto livre).
+  alias?: string | null;
+  // resolvido só por /auth/me (não é coluna de users) — operacional usa pra filtrar a própria escala.
+  creator_id?: string | null;
+  // resolvido por /auth/me, /auth/login e GET /users (admin) — distingue Creator de Colaborador
+  // dentro de role='operacional'.
+  collaborator_id?: string | null;
+  // resolvido junto com collaborator_id — a profissão real cadastrada (ex.: "Editor de Vídeo"),
+  // não um rótulo genérico. Null se não for colaborador.
+  profession?: string | null;
 }
 
 /** creators — vínculo 1:1 com users (user_id UNIQUE NOT NULL) */
@@ -95,6 +107,9 @@ export interface CreatorTask {
   task_date: string | null;     // DATE
   creator_id: string | null;    // FK -> creators.id
   client_id: string | null;     // FK -> clients.id
+  // vem via LEFT JOIN só em GET /tasks (não é coluna) — existe pro operacional ver o nome do
+  // cliente sem precisar de acesso a GET /clients, que o RBAC bloqueia pra esse papel.
+  client_name: string | null;
   status: TaskStatus;
   description: string | null;
   created_by: string;           // FK -> users.id
@@ -159,20 +174,25 @@ export interface Absence {
 export interface Shift {
   id: string;
   shift_date: string;           // DATE
-  creator_id: string | null;    // FK -> creators.id
+  creator_id: string | null;    // FK -> creators.id (plantonista titular)
+  creator_name: string | null;  // resolvido pela API — operacional não tem GET /creators pra resolver sozinho
+  standby_creator_ids: string[]; // FKs -> creators.id (sobreaviso — recebem a mesma notificação do titular)
+  standby_names: string[];      // paralelo a standby_creator_ids, mesmo motivo de creator_name
   notes: string | null;
   status: ShiftStatus;
   created_by: string;           // FK -> users.id
   created_at: string;
 }
 
-/** task_status_history */
-export interface TaskStatusHistory {
+/** status_history — polimórfica, cobre task/absence/shift/service (ver specs/02) */
+export type HistoryEntity = 'task' | 'absence' | 'shift' | 'service';
+export interface StatusHistoryEntry {
   id: string;
-  task_id: string;              // FK -> creator_tasks.id
-  old_status: TaskStatus | null;
-  new_status: TaskStatus | null;
-  changed_by: string;           // FK -> users.id
+  entity_type: HistoryEntity;
+  entity_id: string;
+  old_status: string | null;
+  new_status: string | null;
+  changed_by: string;            // FK -> users.id
   changed_at: string;
 }
 
@@ -197,15 +217,34 @@ export interface Notification {
   created_at: string;
 }
 
-/** attachments — anexos polimórficos de tarefas/serviços/etc. */
+/** attachments — anexos polimórficos de tarefas/serviços/ausências/plantões/mensagens. */
 export interface Attachment {
   id: string;
   file_name: string | null;
-  file_url: string | null;
-  entity_type: AttachmentEntity | string;
+  file_url: string;             // key de storage local, não uma URL pública — baixar sempre via GET /attachments/:id/file
+  mime_type: string | null;
+  size_bytes: number | null;
+  entity_type: AttachmentEntity;
   entity_id: string;
   uploaded_by: string;          // FK -> users.id
   created_at: string;
+}
+
+/** companies.status — controlado pelo webhook do Stripe (ver billing.service.ts), nunca pelo frontend. */
+export type CompanyStatus = 'active' | 'suspended' | 'cancelled';
+
+/** company_settings — 1 linha por tenant; GET liberado a qualquer autenticado, PUT só admin.
+ * Dois grupos: dados da empresa (display_name/logo_url — só organizacional) e dados do app
+ * (app_name/app_subtitle/timezone/locale — como o produto se apresenta/comporta pro tenant). */
+export interface CompanySettings {
+  tenant_id: string;
+  display_name: string | null;
+  logo_url: string | null;
+  app_name: string | null;
+  app_subtitle: string | null;
+  timezone: string;
+  locale: string;
+  updated_at: string | null;
 }
 
 /* ============================ VIEWS (JOINs para a UI) ============================ */
@@ -232,23 +271,95 @@ export interface Conversation {
   unread: number;
 }
 
+/** Com quem dá pra começar uma conversa nova — resolvido pelo papel (operacional vê a coordenação, coordenador vê os creators). */
+export interface MessageContact {
+  user_id: string;
+  name: string;
+}
+
+/* ============================ REPORTS (agregado, não é tabela) ============================ */
+
+export interface ReportFilterParams {
+  from: string; // YYYY-MM-DD
+  to: string;   // YYYY-MM-DD
+  clientId?: string | null;
+  creatorId?: string | null;
+  collaboratorId?: string | null; // só pra listagem de "outros serviços" — collaborator_services não tem creator_id
+}
+
+export interface ProductionMonthlyRow { month: string; count: number; }
+export interface ProductionByClientRow { client_id: string; client_name: string; count: number; }
+export interface ProductionByCreatorRow { creator_id: string; creator_name: string; count: number; }
+export interface ShiftsCompletedReport { total: number; by_creator: { creator_id: string; creator_name: string; count: number }[]; }
+export interface AbsencesReportSummary {
+  total: number;
+  by_status: { status: string; count: number }[];
+  by_creator: { creator_id: string; creator_name: string; count: number }[];
+}
+export interface ApprovedDeliveriesReport { total: number; approved: number; rate: number; }
+
+/**
+ * Listagem completa (não agregada) — relatório em formato de planilha, com nomes já resolvidos
+ * pelo backend. `responsible_name` = o gestor/coordenador que liderou (criou a tarefa/serviço, ou
+ * revisou a ausência) — não é o creator/colaborador que executa.
+ */
+export interface TaskReportRow {
+  id: string;
+  title: string;
+  format_type: TaskFormat | null;
+  task_date: string | null;
+  status: TaskStatus;
+  description: string | null;
+  client_name: string | null;
+  creator_name: string | null;
+  responsible_name: string | null;
+}
+
+export interface ServiceReportRow {
+  id: string;
+  service_name: string;
+  service_type: string | null;
+  service_date: string | null;
+  status: ServiceStatus | string;
+  notes: string | null;
+  client_name: string | null;
+  collaborator_name: string | null;
+  responsible_name: string | null;
+}
+
+export interface AbsenceReportRow {
+  id: string;
+  creator_name: string | null;
+  start_date: string;
+  end_date: string;
+  reason: string | null;
+  status: AbsenceStatus;
+  responsible_name: string | null;
+  approved_at: string | null;
+}
+
 /* ============================ AUXILIARES DE UI ============================ */
 
 export interface StatusMeta { label: string; color: string; bg: string; }
 
 export interface AuthSession {
   token: string;
+  refresh_token: string;
   user: User;
 }
 
 /* ============================ PAYLOADS DE CRIAÇÃO ============================ */
 
-export type NewUser = Pick<User, 'name' | 'email' | 'phone' | 'role' | 'status'> & { password: string };
+// 'operacional' não é uma opção aqui de propósito — essa conta só nasce vinculada a um creator ou
+// collaborator (ver NewCreator/NewCollaborator), nunca solta.
+export type NewUser = Pick<User, 'name' | 'email' | 'phone' | 'status' | 'alias'> & { role: 'admin' | 'gestor'; password: string };
 /** creator: cria users + creators. O backend separa nas duas tabelas. */
-export type NewCreator = { name: string; email: string | null; phone: string | null; employment_type: EmploymentType; active: boolean };
-export type NewCollaborator = { name: string; email: string | null; phone: string | null; profession: string; employment_type: EmploymentType; active: boolean };
+export type NewCreator = { name: string; email: string | null; phone: string | null; employment_type: EmploymentType; active: boolean; password: string };
+export type NewCollaborator = { name: string; email: string | null; phone: string | null; profession: string; employment_type: EmploymentType; active: boolean; password: string };
 export type NewClient = Pick<Client, 'name' | 'active'>;
 export type NewTask = Pick<CreatorTask, 'title' | 'format_type' | 'task_date' | 'creator_id' | 'client_id' | 'status' | 'description'>;
 export type NewService = Pick<ServiceRow, 'service_name' | 'service_type' | 'collaborator_id' | 'client_id' | 'service_date' | 'status' | 'notes'>;
-export type NewAbsence = Pick<Absence, 'creator_id' | 'start_date' | 'end_date' | 'reason'>;
-export type NewShift = Pick<Shift, 'shift_date' | 'creator_id' | 'notes' | 'status'>;
+// creator_id é opcional: operacional não informa (o backend resolve pelo próprio token, já
+// que ele não tem acesso a GET /creators pra descobrir o id); admin/gestor precisa informar.
+export type NewAbsence = Pick<Absence, 'start_date' | 'end_date' | 'reason'> & { creator_id?: string };
+export type NewShift = Pick<Shift, 'shift_date' | 'creator_id' | 'notes' | 'status'> & { standby_creator_ids?: string[] };

@@ -4,11 +4,13 @@ Base: `VITE_API_BASE_URL` (ex.: `https://api.creatorspro.com/api`). Toda rota (e
 
 ## Convenções
 
+**Casing**: toda chave JSON — request e response — é `snake_case` (`tenant_id`, `format_type`, `shift_date`...), igual aos nomes de coluna do banco e ao `frontend/src/types.ts`. O Drizzle nomeia objetos JS internamente em camelCase (`tenantId`); o backend converte automaticamente na saída via um middleware global (`snakeCaseResponse`, intercepta `res.json`) — nenhuma rota individual precisa se preocupar com isso. Só os VALORES nunca são tocados (ex.: código de erro `ABSENCE_OVERLAPS_SCHEDULE` continua maiúsculo), só as chaves dos objetos.
+
 **Envelope de listagem** — toda rota `GET` que retorna lista usa paginação, mesmo que o frontend hoje (mock) devolva array puro:
 ```json
-{ "data": [ ... ], "meta": { "page": 1, "pageSize": 50, "total": 137 } }
+{ "data": [ ... ], "meta": { "page": 1, "page_size": 50, "total": 137 } }
 ```
-Query params: `?page=1&pageSize=50`. Esse é o ponto de contrato que **muda** em relação ao mock atual — ver [08-ajustes-frontend.md](./08-ajustes-frontend.md).
+Query params: `?page=1&pageSize=50` (nos query strings, não há conversão de casing — só no corpo da resposta). Esse é o ponto de contrato que **muda** em relação ao mock atual — ver [08-ajustes-frontend.md](./08-ajustes-frontend.md).
 
 **Erros** — formato único:
 ```json
@@ -26,8 +28,8 @@ Query params: `?page=1&pageSize=50`. Esse é o ponto de contrato que **muda** em
 
 | Método | Rota | Body | Observações |
 |---|---|---|---|
-| POST | `/auth/login` | `{ email, password }` | → `{ token, refreshToken, user }` |
-| POST | `/auth/refresh` | `{ refreshToken }` | → `{ token }` (rotaciona o refresh token) |
+| POST | `/auth/login` | `{ email, password }` | → `{ token, refresh_token, user }` |
+| POST | `/auth/refresh` | `{ refresh_token }` | → `{ token }` (rotaciona o refresh token) |
 | POST | `/auth/logout` | — | revoga o refresh token atual |
 | GET | `/auth/me` | — | → `User` atual |
 
@@ -53,6 +55,7 @@ Query params: `?page=1&pageSize=50`. Esse é o ponto de contrato que **muda** em
 | GET | `/creators` | |
 | POST | `/creators` | cria `users` (role implícito ligado ao perfil) + `creators` numa transação |
 | PUT | `/creators/:id` | |
+| PUT | `/creators/reorder` | `{ creator_ids }` (array completo, na ordem desejada) — define `scale_order`, usado pelo round-robin de `POST /scale-months/:id/auto-assign`. Registrada **antes** de `PUT /creators/:id` no router (senão Express casaria "reorder" com `:id`) |
 | GET | `/collaborators` | |
 | POST | `/collaborators` | cria `users` + `collaborators` numa transação |
 | PUT | `/collaborators/:id` | |
@@ -67,8 +70,8 @@ Query params: `?page=1&pageSize=50`. Esse é o ponto de contrato que **muda** em
 | Método | Rota | Observações |
 |---|---|---|
 | GET | `/tasks` | `operacional` recebe automaticamente filtrado por `creator_id` próprio (não é um query param manipulável pelo client) |
-| POST | `/tasks` | |
-| PUT | `/tasks/:id` | |
+| POST | `/tasks` | `task_date` retroativo (anterior a hoje) → `400 TASK_DATE_IN_PAST` ("limit-min-date"). `creator_id` com ausência aprovada cobrindo `task_date` → `409 ABSENCE_OVERLAPS_TASK` (mesma regra do `POST /scale-entries/:work_date`) |
+| PUT | `/tasks/:id` | Mesmas duas validações do POST — só dispara quando `creator_id` e/ou `task_date` estão de fato no corpo (editar outro campo sem tocar nesses dois nunca revalida, mesmo se uma ausência tiver sido aprovada depois) |
 | PATCH | `/tasks/:id/status` | `{ status }` — grava em `status_history` (`entity_type='task'`) |
 
 ## Services
@@ -84,10 +87,11 @@ Query params: `?page=1&pageSize=50`. Esse é o ponto de contrato que **muda** em
 
 | Método | Rota | Observações |
 |---|---|---|
-| GET | `/scale-entries?month=YYYY-MM` | cria `scale_months` sob demanda se ainda não existir para o mês |
-| PUT | `/scale-entries/:work_date` | `{ creator_id }` — valida que o creator não tem ausência aprovada nessa data (`409 ABSENCE_OVERLAPS_SCHEDULE`) e que a data não é feriado/fim de semana (`400 INVALID_WORK_DATE`) |
-| POST | `/scale-months/:id/auto-assign` | dispara a escala automática (round-robin, pula ausências/feriados/fins de semana) — ver [06](./06-regras-de-negocio.md) |
-| POST | `/scale-months/:id/duplicate` | `{ targetMonth, targetYear }` — duplica as atribuições do mês de origem |
+| GET | `/scale-entries?month=YYYY-MM` | cria `scale_months` sob demanda se ainda não existir para o mês; só devolve linhas com atribuição real (sem placeholder) |
+| POST | `/scale-entries/:work_date` | `{ creator_id }` — **adiciona** 1 creator a 1 dia (não substitui quem já estiver lá — mais de 1 por dia é permitido). Valida ausência aprovada (`409 ABSENCE_OVERLAPS_SCHEDULE`), feriado/fim de semana (`400 INVALID_WORK_DATE`) e duplicidade (`409 ALREADY_ASSIGNED` se esse creator já está nesse dia) |
+| DELETE | `/scale-entries/:work_date/:creator_id` | remove só esse creator desse dia, sem afetar outros atribuídos no mesmo dia (`404 ASSIGNMENT_NOT_FOUND` se não estava lá) |
+| POST | `/scale-months/:id/auto-assign` | dispara a escala automática (round-robin, pula ausências/feriados/fins de semana) — **limpa todas as linhas do mês antes de regenerar** — ver [06](./06-regras-de-negocio.md) |
+| POST | `/scale-months/:id/duplicate` | `{ targetMonth, targetYear }` — duplica as atribuições do mês de origem (todos os creators de cada dia, não só 1) — limpa o mês de destino antes de regenerar |
 | GET | `/holidays?month=YYYY-MM` | retorna feriados globais (`tenant_id IS NULL`) + os do tenant |
 | POST | `/holidays` | cria feriado específico do tenant |
 
@@ -103,10 +107,11 @@ Query params: `?page=1&pageSize=50`. Esse é o ponto de contrato que **muda** em
 
 | Método | Rota | Observações |
 |---|---|---|
-| GET | `/shifts` | `operacional` só vê os próprios |
-| POST | `/shifts` | |
-| PUT | `/shifts/:id` | **novo** — necessário para o botão "Trocar creator" da tela de Plantões, que hoje não tem endpoint de update no contrato |
-| PATCH | `/shifts/:id/status` | **novo** — grava em `status_history` |
+| GET | `/shifts` | `operacional` vê os próprios plantões **e** os que está de sobreaviso (`creator_id = eu` OU `eu ∈ standby_creator_ids`) — cada linha inclui `standby_creator_ids: string[]`, `creator_name: string \| null` e `standby_names: string[]` (resolvidos pela API: `operacional` não tem `GET /creators` pra resolver o nome de quem não é ele mesmo) |
+| POST | `/shifts` | `{ ..., standby_creator_ids?: string[] }` — sobreaviso (não fazia parte do roadmap original): recebe a mesma notificação `novo_plantao` do titular |
+| PUT | `/shifts/:id` | `standby_creator_ids` **substitui** a lista inteira (não soma); só notifica quem é novo na lista, não quem já estava |
+| PATCH | `/shifts/:id/status` | grava em `status_history` |
+| DELETE | `/shifts/:id` | apenas `admin`/`gestor` — apaga o `status_history` do plantão antes (mesmo padrão de tasks/services); `shift_standbys` some via `ON DELETE CASCADE` |
 
 ## Status history
 
@@ -155,6 +160,16 @@ Todos aceitam `clientId`/`creatorId` como filtro adicional — fecha o gap de "f
 | Método | Rota | Observações |
 |---|---|---|
 | POST | `/internal/companies` | protegido por secret de plataforma, não por JWT de usuário — ver [03](./03-autenticacao-multitenancy.md#provisionamento-de-tenant) |
+
+## Billing (Fase 9.1 — self-service signup, não fazia parte do roadmap original)
+
+| Método | Rota | Body | Observações |
+|---|---|---|---|
+| POST | `/signup` | `{ company_name, admin_name, admin_email, admin_password }` | público, rate-limited (5/h por IP) — devolve `{ checkout_url }`. Não cria empresa/admin ainda: só depois do pagamento confirmar (webhook) |
+| POST | `/billing/webhook` | evento Stripe (corpo cru) | público, verificado por assinatura (`stripe-signature`), não por JWT — `checkout.session.completed` cria a empresa+admin; `customer.subscription.deleted`/`invoice.payment_failed` suspendem; `customer.subscription.updated` reativa |
+| POST | `/billing/portal` | — | apenas `admin`, autenticado — devolve `{ portal_url }` (Stripe Customer Portal) |
+
+`POST /auth/login` (seção Auth acima) ganhou uma checagem adicional: `company.status !== 'active'` devolve `402 SUBSCRIPTION_INACTIVE`, não `401`.
 
 ## Socket.IO
 

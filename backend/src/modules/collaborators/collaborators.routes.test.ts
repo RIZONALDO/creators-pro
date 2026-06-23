@@ -33,10 +33,33 @@ describe('rotas de collaborators (integração)', () => {
     const res = await request(app)
       .post('/collaborators')
       .set('Authorization', `Bearer ${token}`)
-      .send({ name: 'Novo Colaborador', email: 'novo-colab@acme.com', profession: 'Sonoplasta', employment_type: 'freelancer' });
+      .send({ name: 'Novo Colaborador', email: 'novo-colab@acme.com', profession: 'Sonoplasta', employment_type: 'freelancer', password: 'senha12345' });
 
     expect(res.status).toBe(201);
     expect(res.body.profession).toBe('Sonoplasta');
+  });
+
+  it('colaborador loga com a senha definida na criação', async () => {
+    const { token } = await loginAsGestor();
+    await request(app).post('/collaborators').set('Authorization', `Bearer ${token}`).send({ name: 'Login', email: 'login-colab@acme.com', profession: 'Editor', employment_type: 'freelancer', password: 'senhaDoColab1' });
+
+    const login = await request(app).post('/auth/login').send({ email: 'login-colab@acme.com', password: 'senhaDoColab1' });
+    expect(login.status).toBe(200);
+    expect(login.body.user.role).toBe('operacional');
+  });
+
+  it('PUT /collaborators/:id com password reseta a senha — a antiga deixa de funcionar', async () => {
+    const { token } = await loginAsGestor();
+    const created = await request(app).post('/collaborators').set('Authorization', `Bearer ${token}`).send({ name: 'Reset', email: 'reset-colab@acme.com', profession: 'Editor', employment_type: 'freelancer', password: 'senhaAntiga1' });
+
+    const res = await request(app).put(`/collaborators/${created.body.id}`).set('Authorization', `Bearer ${token}`).send({ password: 'senhaNova123' });
+    expect(res.status).toBe(200);
+
+    const oldLogin = await request(app).post('/auth/login').send({ email: 'reset-colab@acme.com', password: 'senhaAntiga1' });
+    expect(oldLogin.status).toBe(401);
+
+    const newLogin = await request(app).post('/auth/login').send({ email: 'reset-colab@acme.com', password: 'senhaNova123' });
+    expect(newLogin.status).toBe(200);
   });
 
   it('PUT /collaborators/:id atualiza profissão', async () => {
@@ -44,7 +67,7 @@ describe('rotas de collaborators (integração)', () => {
     const created = await request(app)
       .post('/collaborators')
       .set('Authorization', `Bearer ${token}`)
-      .send({ name: 'A', email: 'a@acme.com', profession: 'Editor', employment_type: 'fixed' });
+      .send({ name: 'A', email: 'a@acme.com', profession: 'Editor', employment_type: 'fixed', password: 'senha12345' });
 
     const res = await request(app)
       .put(`/collaborators/${created.body.id}`)
@@ -58,5 +81,32 @@ describe('rotas de collaborators (integração)', () => {
   it('GET /collaborators sem token retorna 401', async () => {
     const res = await request(app).get('/collaborators');
     expect(res.status).toBe(401);
+  });
+
+  it('DELETE /collaborators/:id remove o collaborator e o usuário vinculado quando não há vínculo', async () => {
+    const { token } = await loginAsGestor();
+    const created = await request(app)
+      .post('/collaborators')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: 'Sem vínculo', email: 'colab-sem-vinculo@acme.com', profession: 'Editor', employment_type: 'fixed', password: 'senha12345' });
+
+    const res = await request(app).delete(`/collaborators/${created.body.id}`).set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(204);
+
+    const list = await request(app).get('/collaborators').set('Authorization', `Bearer ${token}`);
+    expect(list.body.data.find((c: { id: string }) => c.id === created.body.id)).toBeUndefined();
+  });
+
+  it('DELETE /collaborators/:id com serviço vinculado retorna 409', async () => {
+    const { token } = await loginAsGestor();
+    const created = await request(app)
+      .post('/collaborators')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: 'Com serviço', email: 'colab-com-servico@acme.com', profession: 'Fotógrafo', employment_type: 'fixed', password: 'senha12345' });
+    await request(app).post('/services').set('Authorization', `Bearer ${token}`).send({ service_name: 'Sessão de fotos', collaborator_id: created.body.id });
+
+    const res = await request(app).delete(`/collaborators/${created.body.id}`).set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('COLLABORATOR_HAS_LINKED_RECORDS');
   });
 });

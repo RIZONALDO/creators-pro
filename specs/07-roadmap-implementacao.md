@@ -123,6 +123,18 @@ Como o isolamento entre tenants já vem sendo testado desde a Fase 1 (e estendid
 - Avaliar Postgres RLS como camada extra (opcional, ver [01](./01-arquitetura-geral.md#fora-de-escopo-desta-rodada)).
 - **Critério de saída**: checklist de cobertura 100% (toda rota do contrato tem teste de isolamento), `EXPLAIN ANALYZE` revisado nas 3 queries mais pesadas.
 
+## Fase 9.1 — Self-service signup + billing (Stripe)
+**Não fazia parte do roadmap original** — `specs/01-arquitetura-geral.md#fora-de-escopo-desta-rodada` marcava "self-service signup / billing" como fora de escopo, assumindo onboarding manual. Adicionada depois, sob pedido direto, pra viabilizar "alguém vê o anúncio, assina e começa a usar sem a equipe provisionar manualmente".
+
+- `companies` ganhou `stripe_customer_id`/`stripe_subscription_id` (null pra tenants provisionados manualmente via `/internal/companies`, preenchido só pros que vieram do Stripe).
+- `POST /signup` (público, rate-limited): recebe nome da empresa + dados do admin, abre uma Stripe Checkout Session com os dados em `metadata` — **não cria nada no banco ainda**, pra nunca sobrar tenant "fantasma" de quem começou e não pagou.
+- `POST /billing/webhook` (público, verificado por assinatura Stripe, corpo cru via `express.raw` — registrado antes do `express.json()` global): `checkout.session.completed` é o único lugar que de fato cria a empresa + o admin (reaproveita `provisionCompanyFromHash`, mesmo núcleo do provisionamento interno); `customer.subscription.deleted`/`invoice.payment_failed` suspendem a empresa; `customer.subscription.updated` reativa se voltar a `active`/`trialing`.
+- `POST /billing/portal` (autenticado, só `admin`): Stripe Customer Portal — o próprio Stripe hospeda a tela de trocar cartão/cancelar, não construímos nada disso.
+- `POST /auth/login` ganha uma checagem nova: além de `user.status`, confere `company.status` — assinatura suspensa/cancelada bloqueia com `402 SUBSCRIPTION_INACTIVE` (não `401`, pra não confundir com senha errada).
+- Tudo opcional via env (`STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`/`STRIPE_PRICE_ID`), mesmo padrão de VAPID/push — sem chave configurada, `/signup` e `/billing/portal` recusam com `BILLING_NOT_CONFIGURED`, o resto do app roda normal.
+- Frontend: `/cadastro` (formulário público) → redireciona pro Checkout do Stripe → `/cadastro/sucesso` → `/login`. Botão "Gerenciar cobrança" em Configurações do admin.
+- **Pendência consciente**: se o pagamento falhar numa renovação (assinatura já ativa, não no signup), o e-mail avisando o cliente é responsabilidade do **Stripe Dashboard** (Smart Retries / Customer Emails, configuração, não código) — não construímos um fluxo próprio de "recuperar acesso" para esse caso.
+
 ## Fase 10 — Deploy
 **Depende de: Fase 9 — Complexidade: média**
 - CI (lint + testes + migration dry-run) em cada PR.

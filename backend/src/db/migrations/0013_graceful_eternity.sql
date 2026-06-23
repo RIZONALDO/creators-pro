@@ -1,0 +1,2 @@
+ALTER TABLE "scale_entries" DROP CONSTRAINT "scale_entries_tenant_work_date";--> statement-breakpoint
+ALTER TABLE "scale_entries" ADD CONSTRAINT "scale_entries_tenant_work_date_creator" UNIQUE("tenant_id","work_date","creator_id");

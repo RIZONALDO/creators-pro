@@ -3,6 +3,8 @@ import request from 'supertest';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../../app.js';
 import { resetDb, testDb, testPool } from '../../test/db.js';
+import { createCreatorsRepository } from '../creators/creators.repository.js';
+import { createCollaboratorsRepository } from '../collaborators/collaborators.repository.js';
 import { createCompaniesRepository } from './companies.repository.js';
 import { createUsersRepository } from './users.repository.js';
 
@@ -10,6 +12,8 @@ describe('rotas de auth (integração)', () => {
   const app = createApp(testDb);
   const companiesRepo = createCompaniesRepository(testDb);
   const usersRepo = createUsersRepository(testDb);
+  const creatorsRepo = createCreatorsRepository(testDb);
+  const collaboratorsRepo = createCollaboratorsRepository(testDb);
 
   beforeEach(async () => {
     await resetDb();
@@ -39,8 +43,21 @@ describe('rotas de auth (integração)', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.token).toBeDefined();
-    expect(res.body.refreshToken).toBeDefined();
+    expect(res.body.refresh_token).toBeDefined();
     expect(res.body.user.email).toBe('fulano@acme.com');
+    expect(res.body.user.creator_id).toBeNull();
+  });
+
+  it('POST /auth/login de operacional com creator vinculado já inclui creator_id (sem precisar de /auth/me)', async () => {
+    const { company } = await createDemoUser();
+    const passwordHash = await bcrypt.hash('senha-correta', 4);
+    const creatorUser = await usersRepo.create({ tenantId: company.id, name: 'Creator', email: 'creator-login@acme.com', passwordHash, role: 'operacional' });
+    const creator = await creatorsRepo.createRow({ tenantId: company.id, userId: creatorUser.id, employmentType: 'fixed' });
+
+    const res = await request(app).post('/auth/login').send({ email: 'creator-login@acme.com', password: 'senha-correta' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.creator_id).toBe(creator.id);
   });
 
   it('POST /auth/login com senha errada retorna 401', async () => {
@@ -65,13 +82,41 @@ describe('rotas de auth (integração)', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.user.email).toBe('fulano@acme.com');
+    expect(res.body.user.creator_id).toBeNull(); // gestor não tem creator vinculado
+  });
+
+  it('GET /auth/me de um operacional com creator vinculado inclui creator_id', async () => {
+    const { company } = await createDemoUser();
+    const passwordHash = await bcrypt.hash('senha-correta', 4);
+    const creatorUser = await usersRepo.create({ tenantId: company.id, name: 'Creator', email: 'creator@acme.com', passwordHash, role: 'operacional' });
+    const creator = await creatorsRepo.createRow({ tenantId: company.id, userId: creatorUser.id, employmentType: 'fixed' });
+    const login = await request(app).post('/auth/login').send({ email: 'creator@acme.com', password: 'senha-correta' });
+
+    const res = await request(app).get('/auth/me').set('Authorization', `Bearer ${login.body.token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.creator_id).toBe(creator.id);
+  });
+
+  it('login de colaborador inclui collaborator_id e a profissão real cadastrada (não um rótulo genérico)', async () => {
+    const { company } = await createDemoUser();
+    const passwordHash = await bcrypt.hash('senha-correta', 4);
+    const colabUser = await usersRepo.create({ tenantId: company.id, name: 'Colab', email: 'colab-login@acme.com', passwordHash, role: 'operacional' });
+    const colab = await collaboratorsRepo.createRow({ tenantId: company.id, userId: colabUser.id, profession: 'Editor de Vídeo', employmentType: 'freelancer' });
+
+    const res = await request(app).post('/auth/login').send({ email: 'colab-login@acme.com', password: 'senha-correta' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.creator_id).toBeNull();
+    expect(res.body.user.collaborator_id).toBe(colab.id);
+    expect(res.body.user.profession).toBe('Editor de Vídeo');
   });
 
   it('POST /auth/refresh emite novo par de tokens', async () => {
     await createDemoUser();
     const login = await request(app).post('/auth/login').send({ email: 'fulano@acme.com', password: 'senha-correta' });
 
-    const res = await request(app).post('/auth/refresh').send({ refreshToken: login.body.refreshToken });
+    const res = await request(app).post('/auth/refresh').send({ refresh_token: login.body.refresh_token });
 
     expect(res.status).toBe(200);
     expect(res.body.token).toBeDefined();
@@ -81,10 +126,10 @@ describe('rotas de auth (integração)', () => {
     await createDemoUser();
     const login = await request(app).post('/auth/login').send({ email: 'fulano@acme.com', password: 'senha-correta' });
 
-    const logoutRes = await request(app).post('/auth/logout').send({ refreshToken: login.body.refreshToken });
+    const logoutRes = await request(app).post('/auth/logout').send({ refresh_token: login.body.refresh_token });
     expect(logoutRes.status).toBe(204);
 
-    const refreshRes = await request(app).post('/auth/refresh').send({ refreshToken: login.body.refreshToken });
+    const refreshRes = await request(app).post('/auth/refresh').send({ refresh_token: login.body.refresh_token });
     expect(refreshRes.status).toBe(401);
   });
 

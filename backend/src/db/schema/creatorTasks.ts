@@ -40,7 +40,8 @@ export const creatorTasks = pgTable(
     title: varchar('title', { length: 255 }).notNull(),
     formatType: taskFormatEnum('format_type'),
     taskDate: date('task_date', { mode: 'string' }), // string ISO YYYY-MM-DD, igual ao tipo do frontend
-    creatorId: uuid('creator_id').references(() => creators.id, { onDelete: 'set null' }),
+    // restrict (não set null): apagar um creator com tarefas vinculadas precisa falhar, não silenciar o vínculo histórico.
+    creatorId: uuid('creator_id').references(() => creators.id, { onDelete: 'restrict' }),
     clientId: uuid('client_id').references(() => clients.id, { onDelete: 'restrict' }),
     status: taskStatusEnum('status').notNull().default('na_fila'),
     description: text('description'),

@@ -22,6 +22,7 @@ Estrutura do monorepo:
 6. [06-regras-de-negocio.md](./06-regras-de-negocio.md) — escala automática, feriados, histórico de status, gatilhos de notificação.
 7. [07-roadmap-implementacao.md](./07-roadmap-implementacao.md) — sequência faseada de implementação, do setup ao deploy.
 8. [08-ajustes-frontend.md](./08-ajustes-frontend.md) — checklist do que muda no frontend existente (permissões na UI, features hoje decorativas, gaps da proposta original, design system).
+9. [09-deploy-vps.md](./09-deploy-vps.md) — checklist de deploy numa VPS sem container (TLS real, CORS, variáveis de ambiente, systemd, Nginx).
 
 ## Decisões já tomadas (não reabrir sem motivo novo)
 

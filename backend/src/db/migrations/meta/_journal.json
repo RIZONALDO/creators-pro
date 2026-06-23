@@ -36,6 +36,104 @@
       "when": 1781961904955,
       "tag": "0004_opposite_penance",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1781966298160,
+      "tag": "0005_lyrical_the_fury",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782006271059,
+      "tag": "0006_smiling_doomsday",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1782062889342,
+      "tag": "0007_zippy_stardust",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1782075844928,
+      "tag": "0008_lowly_quicksilver",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1782100619402,
+      "tag": "0009_dizzy_norman_osborn",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1782101630412,
+      "tag": "0010_fixed_meteorite",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1782103052296,
+      "tag": "0011_red_killer_shrike",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1782105269298,
+      "tag": "0012_square_valeria_richards",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1782130709074,
+      "tag": "0013_graceful_eternity",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1782135425084,
+      "tag": "0014_swift_bishop",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1782168914967,
+      "tag": "0015_conscious_trish_tilby",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1782175524086,
+      "tag": "0016_hot_santa_claus",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1782189690617,
+      "tag": "0017_grey_shatterstar",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1782192389702,
+      "tag": "0018_overrated_richard_fisk",
+      "breakpoints": true
     }
   ]
 }

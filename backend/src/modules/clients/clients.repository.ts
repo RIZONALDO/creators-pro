@@ -1,6 +1,7 @@
 import { and, count, eq } from 'drizzle-orm';
 import type { db as Db } from '../../db/client.js';
 import { clients } from '../../db/schema/index.js';
+import { rethrowAsConflictIfForeignKeyViolation } from '../../lib/dbErrors.js';
 import { firstOrThrow } from '../../lib/firstOrThrow.js';
 import type { Pagination } from '../../lib/pagination.js';
 
@@ -60,6 +61,16 @@ export function createClientsRepository(db: typeof Db) {
         .where(and(eq(clients.tenantId, tenantId), eq(clients.id, id)))
         .returning();
       return rows[0] ?? null;
+    },
+
+    /** Bloqueado pelo próprio Postgres (ON DELETE RESTRICT em creator_tasks/collaborator_services) se houver vínculo. */
+    async delete(tenantId: string, id: string) {
+      try {
+        const rows = await db.delete(clients).where(and(eq(clients.tenantId, tenantId), eq(clients.id, id))).returning();
+        return rows.length > 0;
+      } catch (err) {
+        rethrowAsConflictIfForeignKeyViolation(err, 'CLIENT_HAS_LINKED_RECORDS', 'Cliente possui tarefas ou serviços vinculados — não é possível excluir.');
+      }
     },
   };
 }

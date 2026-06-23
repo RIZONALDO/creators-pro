@@ -56,8 +56,24 @@ describe('rotas de tasks (integração)', () => {
       .get(`/status-history?entity_type=task&entity_id=${created.body.id}`)
       .set('Authorization', `Bearer ${gestorToken}`);
     expect(history.body.data).toHaveLength(1);
-    expect(history.body.data[0].oldStatus).toBe('na_fila');
-    expect(history.body.data[0].newStatus).toBe('aprovado');
+    expect(history.body.data[0].old_status).toBe('na_fila');
+    expect(history.body.data[0].new_status).toBe('aprovado');
+  });
+
+  it('GET /tasks inclui client_name via JOIN (e null quando sem cliente) — operacional não tem acesso a GET /clients', async () => {
+    const { company, gestorToken, passwordHash } = await setupTenant();
+    const { creator, token: creatorToken } = await loginAsCreator(company.id, passwordHash);
+    const client = await request(app).post('/clients').set('Authorization', `Bearer ${gestorToken}`).send({ name: 'Clínica XYZ' });
+
+    await request(app).post('/tasks').set('Authorization', `Bearer ${gestorToken}`).send({ title: 'Com cliente', creator_id: creator.id, client_id: client.body.id });
+    await request(app).post('/tasks').set('Authorization', `Bearer ${gestorToken}`).send({ title: 'Sem cliente', creator_id: creator.id });
+
+    const res = await request(app).get('/tasks').set('Authorization', `Bearer ${creatorToken}`);
+    expect(res.status).toBe(200);
+    const comCliente = res.body.data.find((t: { title: string }) => t.title === 'Com cliente');
+    const semCliente = res.body.data.find((t: { title: string }) => t.title === 'Sem cliente');
+    expect(comCliente.client_name).toBe('Clínica XYZ');
+    expect(semCliente.client_name).toBeNull();
   });
 
   it('operacional vê só as próprias tarefas em GET /tasks', async () => {
@@ -85,5 +101,60 @@ describe('rotas de tasks (integração)', () => {
 
     expect(createAttempt.status).toBe(403);
     expect(statusAttempt.status).toBe(403);
+  });
+
+  it('DELETE /tasks/:id remove a tarefa e seu histórico', async () => {
+    const { gestorToken } = await setupTenant();
+    const created = await request(app).post('/tasks').set('Authorization', `Bearer ${gestorToken}`).send({ title: 'Reels' });
+    await request(app).patch(`/tasks/${created.body.id}/status`).set('Authorization', `Bearer ${gestorToken}`).send({ status: 'aprovado' });
+
+    const res = await request(app).delete(`/tasks/${created.body.id}`).set('Authorization', `Bearer ${gestorToken}`);
+    expect(res.status).toBe(204);
+
+    const list = await request(app).get('/tasks').set('Authorization', `Bearer ${gestorToken}`);
+    expect(list.body.data).toHaveLength(0);
+
+    const history = await request(app)
+      .get(`/status-history?entity_type=task&entity_id=${created.body.id}`)
+      .set('Authorization', `Bearer ${gestorToken}`);
+    expect(history.body.data).toHaveLength(0);
+  });
+
+  it('POST /tasks com task_date retroativa retorna 400 TASK_DATE_IN_PAST', async () => {
+    const { gestorToken } = await setupTenant();
+    const yesterday = new Date();
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+
+    const res = await request(app).post('/tasks').set('Authorization', `Bearer ${gestorToken}`).send({ title: 'Reels', task_date: yesterday.toISOString().slice(0, 10) });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('TASK_DATE_IN_PAST');
+  });
+
+  it('POST /tasks com creator em ausência aprovada na data retorna 409 ABSENCE_OVERLAPS_TASK', async () => {
+    const { company, gestorToken, passwordHash } = await setupTenant();
+    const { creator } = await loginAsCreator(company.id, passwordHash);
+    const tomorrow = new Date();
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    const date = tomorrow.toISOString().slice(0, 10);
+
+    await request(app).post('/absences').set('Authorization', `Bearer ${gestorToken}`).send({ creator_id: creator.id, start_date: date, end_date: date });
+    const list = await request(app).get('/absences').set('Authorization', `Bearer ${gestorToken}`);
+    await request(app).patch(`/absences/${list.body.data[0].id}/review`).set('Authorization', `Bearer ${gestorToken}`).send({ status: 'approved' });
+
+    const res = await request(app).post('/tasks').set('Authorization', `Bearer ${gestorToken}`).send({ title: 'Reels', creator_id: creator.id, task_date: date });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('ABSENCE_OVERLAPS_TASK');
+  });
+
+  it('DELETE /tasks/:id inexistente retorna 404; operacional recebe 403', async () => {
+    const { company, gestorToken, passwordHash } = await setupTenant();
+    const { token: creatorToken } = await loginAsCreator(company.id, passwordHash);
+
+    const notFoundRes = await request(app).delete('/tasks/00000000-0000-0000-0000-000000000000').set('Authorization', `Bearer ${gestorToken}`);
+    expect(notFoundRes.status).toBe(404);
+
+    const created = await request(app).post('/tasks').set('Authorization', `Bearer ${gestorToken}`).send({ title: 'Reels' });
+    const forbiddenRes = await request(app).delete(`/tasks/${created.body.id}`).set('Authorization', `Bearer ${creatorToken}`);
+    expect(forbiddenRes.status).toBe(403);
   });
 });

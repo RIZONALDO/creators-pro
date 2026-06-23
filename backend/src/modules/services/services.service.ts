@@ -92,6 +92,19 @@ export function createServicesService(db: typeof Db) {
         return updated;
       });
     },
+
+    async remove(tenantId: string, id: string) {
+      return db.transaction(async (tx) => {
+        const txServicesRepo = createServicesRepository(tx as typeof Db);
+        const txHistoryRepo = createStatusHistoryRepository(tx as typeof Db);
+
+        const existing = await txServicesRepo.findById(tenantId, id);
+        if (!existing) throw notFound('SERVICE_NOT_FOUND', 'Serviço não encontrado.');
+
+        await txHistoryRepo.deleteForEntity(tenantId, 'service', id);
+        await txServicesRepo.delete(tenantId, id);
+      });
+    },
   };
 }
 

@@ -4,11 +4,13 @@ import { resetDb, testDb, testPool } from '../../test/db.js';
 import { createCompaniesRepository } from './companies.repository.js';
 import { createUsersRepository } from './users.repository.js';
 import { createAuthService } from './auth.service.js';
+import { createCompanyRepository } from '../company/company.repository.js';
 
 describe('authService', () => {
   const authService = createAuthService(testDb);
   const companiesRepo = createCompaniesRepository(testDb);
   const usersRepo = createUsersRepository(testDb);
+  const companySettingsRepo = createCompanyRepository(testDb);
 
   beforeEach(async () => {
     await resetDb();
@@ -88,6 +90,19 @@ describe('authService', () => {
     expect(result.company.slug).toBe('nova-empresa');
     expect(result.admin.role).toBe('admin');
     expect(result.admin.tenantId).toBe(result.company.id);
+  });
+
+  it('provisionCompany já preenche company_settings.display_name com o nome digitado no signup', async () => {
+    const result = await authService.provisionCompany({
+      name: 'Studio Norte Produções',
+      slug: 'studio-norte-x',
+      adminName: 'Admin Studio',
+      adminEmail: 'admin@studionorte-x.com',
+      adminPassword: 'senha12345',
+    });
+
+    const settings = await companySettingsRepo.findByTenant(result.company.id);
+    expect(settings?.displayName).toBe('Studio Norte Produções');
   });
 
   it('provisionCompany com slug duplicado falha com SLUG_TAKEN', async () => {

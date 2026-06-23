@@ -11,9 +11,10 @@ export const absences = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     tenantId: uuid('tenant_id').notNull().references(() => companies.id, { onDelete: 'restrict' }),
+    // restrict (não cascade): apagar um creator com ausências registradas precisa falhar, não apagar o histórico em cascata.
     creatorId: uuid('creator_id')
       .notNull()
-      .references(() => creators.id, { onDelete: 'cascade' }),
+      .references(() => creators.id, { onDelete: 'restrict' }),
     startDate: date('start_date', { mode: 'string' }).notNull(),
     endDate: date('end_date', { mode: 'string' }).notNull(),
     reason: text('reason'),

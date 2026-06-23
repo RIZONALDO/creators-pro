@@ -38,13 +38,13 @@ export function Tag({ label, color }: { label: string; color: string }) {
 
 /* ---------------- Button ---------------- */
 type BtnVariant = 'primary' | 'ghost' | 'soft';
-export function Button({ children, variant = 'primary', onClick, icon, style, type = 'button' }: {
-  children: ReactNode; variant?: BtnVariant; onClick?: () => void; icon?: ReactNode; style?: CSSProperties; type?: 'button' | 'submit';
+export function Button({ children, variant = 'primary', onClick, icon, style, type = 'button', disabled }: {
+  children: ReactNode; variant?: BtnVariant; onClick?: () => void; icon?: ReactNode; style?: CSSProperties; type?: 'button' | 'submit'; disabled?: boolean;
 }) {
   const base: CSSProperties = {
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
     border: 'none', borderRadius: 11, padding: '9px 15px', fontSize: 13, fontWeight: 600,
-    cursor: 'pointer', transition: 'all .15s', ...style,
+    cursor: 'pointer', transition: 'all .15s',
   };
   const variants: Record<BtnVariant, CSSProperties> = {
     primary: { background: 'linear-gradient(135deg, var(--pri), var(--pri2))', color: '#fff', boxShadow: '0 5px 16px rgba(108,99,255,.35)' },
@@ -52,16 +52,20 @@ export function Button({ children, variant = 'primary', onClick, icon, style, ty
     soft: { background: 'rgba(108,99,255,.1)', color: 'var(--pri)', border: '1px solid rgba(108,99,255,.25)' },
   };
   return (
-    <button type={type} onClick={onClick} style={{ ...base, ...variants[variant] }}>
+    // style por último: quem passa `style` explicitamente espera que ele vença sobre o variant (ex.: botão "Excluir" em vermelho).
+    <button type={type} onClick={onClick} disabled={disabled} style={{ ...base, ...variants[variant], ...style, ...(disabled ? { opacity: 0.5, cursor: 'not-allowed' } : null) }}>
       {icon}{children}
     </button>
   );
 }
 
 /* ---------------- Card ---------------- */
-export function Card({ children, style, pad = 18 }: { children: ReactNode; style?: CSSProperties; pad?: number }) {
+export function Card({ children, style, pad = 18, onClick, onDragOver, onDrop }: {
+  children: ReactNode; style?: CSSProperties; pad?: number; onClick?: () => void;
+  onDragOver?: (e: React.DragEvent) => void; onDrop?: (e: React.DragEvent) => void;
+}) {
   return (
-    <div style={{ background: 'var(--bg1)', border: '1px solid var(--line)', borderRadius: 18, padding: pad, ...style }}>
+    <div onClick={onClick} onDragOver={onDragOver} onDrop={onDrop} style={{ background: 'var(--bg1)', border: '1px solid var(--line)', borderRadius: 18, padding: pad, ...style }}>
       {children}
     </div>
   );

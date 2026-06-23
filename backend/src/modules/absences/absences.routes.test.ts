@@ -45,6 +45,28 @@ describe('rotas de absences (integração)', () => {
     expect(res.body.status).toBe('pending');
   });
 
+  it('creator solicita ausência sem informar creator_id — resolve pelo próprio token', async () => {
+    const { creator, creatorToken } = await setupTenant();
+    const res = await request(app)
+      .post('/absences')
+      .set('Authorization', `Bearer ${creatorToken}`)
+      .send({ start_date: '2026-06-24', end_date: '2026-06-26', reason: 'Consulta médica' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.creator_id).toBe(creator.id);
+  });
+
+  it('gestor não pode omitir creator_id (400)', async () => {
+    const { gestorToken } = await setupTenant();
+    const res = await request(app)
+      .post('/absences')
+      .set('Authorization', `Bearer ${gestorToken}`)
+      .send({ start_date: '2026-06-24', end_date: '2026-06-26' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('CREATOR_ID_REQUIRED');
+  });
+
   it('creator não pode solicitar ausência para outro creator (403)', async () => {
     const { company, creatorToken } = await setupTenant();
     const otherUser = await usersRepo.create({ tenantId: company.id, name: 'Outro', email: 'outro@acme.com', passwordHash: await bcrypt.hash('x', 4), role: 'operacional' });
@@ -69,7 +91,7 @@ describe('rotas de absences (integração)', () => {
 
     expect(reviewed.status).toBe(200);
     expect(reviewed.body.status).toBe('approved');
-    expect(reviewed.body.approvedBy).toBeDefined();
+    expect(reviewed.body.approved_by).toBeDefined();
   });
 
   it('creator não pode revisar ausência (403)', async () => {

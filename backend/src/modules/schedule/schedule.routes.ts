@@ -17,11 +17,22 @@ export function createScheduleRouter(service: ScheduleService) {
     }
   });
 
-  router.put('/scale-entries/:work_date', authenticate, authorize('admin', 'gestor'), async (req, res, next) => {
+  // Adiciona 1 creator a 1 dia — não substitui quem já estiver escalado (mais de 1 por dia é permitido).
+  router.post('/scale-entries/:work_date', authenticate, authorize('admin', 'gestor'), async (req, res, next) => {
     try {
       const { creator_id } = assignCreatorSchema.parse(req.body);
       const entry = await service.assign(req.auth!.tenantId, req.params.work_date, creator_id, req.auth!.userId);
-      res.json(entry);
+      res.status(201).json(entry);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Remove 1 creator de 1 dia, sem afetar outros creators atribuídos no mesmo dia.
+  router.delete('/scale-entries/:work_date/:creator_id', authenticate, authorize('admin', 'gestor'), async (req, res, next) => {
+    try {
+      await service.unassign(req.auth!.tenantId, req.params.work_date, req.params.creator_id!);
+      res.status(204).send();
     } catch (err) {
       next(err);
     }

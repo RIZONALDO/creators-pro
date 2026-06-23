@@ -43,7 +43,9 @@ body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
-button { font-family: inherit; }
+/* sem isso, qualquer <button> sem color explícito cai no preto padrão do navegador (ButtonText),
+   ignorando o tema escuro — ex.: texto do PushToggle e do card de usuário no Sidebar. */
+button { font-family: inherit; color: inherit; }
 input, textarea, select { font-family: inherit; }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -55,4 +57,77 @@ input, textarea, select { font-family: inherit; }
 @keyframes cpFade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes cpScale { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
 @keyframes cpSpin { to { transform: rotate(360deg); } }
+@keyframes cpShimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
 .cp-fade { animation: cpFade 0.4s ease; }
+
+/* ============================ TOAST ============================
+ * --fixed (painel desktop): ancorado na janela, canto inferior direito.
+ * --frame (app mobile/PWA): ancorado dentro do .cp-phone-frame (que é `position: relative`), não na
+ * janela — senão escaparia da moldura de celular na preview desktop. Ver ToastViewport. */
+.cp-toast-viewport--fixed { position: fixed; bottom: 24px; right: 24px; }
+.cp-toast-viewport--frame { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 12px); left: 12px; right: 12px; align-items: center; }
+
+/* ============================ APP MOBILE (papel operacional) ============================
+ * Acima de 480px (preview num navegador desktop largo): moldura de celular com largura
+ * travada em 393px (iPhone 16 Pro) e bordas, pra não esticar num monitor grande.
+ * Em 480px ou menos (celular de verdade): ocupa a tela toda, sem moldura nem barra de
+ * status falsa — o sistema operacional já mostra a dele. */
+.cp-phone-frame { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+@media (min-width: 481px) {
+  .cp-phone-frame { max-width: 393px; border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+}
+@media (max-width: 480px) {
+  .cp-fake-statusbar { display: none; }
+}
+
+/* ============================ LOGIN / SIGNUP (split desktop, single-column mobile) ============================
+ * Abaixo de 900px (a maioria dos celulares/tablets em retrato): só o formulário, tela toda.
+ * A partir de 900px: painel de marca à esquerda + formulário à direita — padrão comum de telas de
+ * login desktop, evita a página parecer "vazia" numa janela larga. */
+.cp-auth-page { min-height: 100dvh; display: flex; background: var(--bg0); }
+.cp-auth-brand { display: none; }
+.cp-auth-form-panel {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  padding: 24px; padding-top: calc(24px + env(safe-area-inset-top, 0px)); padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 900px) {
+  .cp-auth-brand { display: flex; flex: 1.1; }
+  .cp-auth-form-panel { flex: 1; }
+  /* o painel de marca já tem logo grande — não duplica no painel do formulário. */
+  .cp-auth-brand-compact { display: none; }
+}
+
+/* Abaixo de 900px: NÃO centraliza verticalmente (align-items é o eixo vertical aqui, justify-content
+ * continua centralizando na horizontal — não muda). Com align-items:center, abrir o teclado no
+ * celular encolhe a viewport (100dvh muda) e o conteúdo recalcula a centralização — a tela "pula"/
+ * "dança" a cada toque num campo. Ancorado no topo + scroll próprio é o que app nativo faz: a tela
+ * fica fixa, só rola se o conteúdo não couber. */
+@media (max-width: 899px) {
+  .cp-auth-page { height: 100dvh; overflow: hidden; }
+  .cp-auth-form-panel {
+    align-items: flex-start; overflow-y: auto; height: 100%; box-sizing: border-box;
+    /* respiro maior no topo (logo grande não pode ficar colado na status bar) — fixo, não em dvh,
+     * pra não recalcular junto com o teclado (mesma razão do align-items acima). */
+    padding-top: calc(64px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
+  }
+  /* Acessos demo + "assine agora" só fazem sentido em contexto de marketing/desktop — no PWA
+   * (celular) quem chega aqui já é cliente com assinatura ativa, não um visitante decidindo comprar.
+   * !important de propósito: o wrapper dos botões de demo tem style={{ display:'flex' }} inline,
+   * que vence qualquer classe sem isso — bug real encontrado, não só "podia ser mais robusto". */
+  .cp-auth-desktop-only { display: none !important; }
+}
+
+/* Abaixo de 900px: cartão flutuante (borda/fundo/sombra) some — campos ficam direto no fundo da
+ * página, sem caixa, pra parecer tela de app nativo e não "formulário web". Título duplicado
+ * (já tem o boas-vindas no logo grande acima) também some. */
+.cp-auth-card { background: var(--bg1); border: 1px solid var(--line); border-radius: 22px; padding: 30px; }
+.cp-auth-card-title { display: block; }
+@media (max-width: 899px) {
+  .cp-auth-card { background: transparent; border: none; border-radius: 0; padding: 0; }
+  .cp-auth-card-title { display: none; }
+}
+
+/* 16px evita o zoom automático do Safari/Chrome no iOS ao focar um <input> com fonte menor que
+ * isso — bug clássico de PWA testado num celular de verdade, não só estética. */
+.cp-auth-input { font-size: 16px; padding: 15px 16px; border-radius: 14px; }

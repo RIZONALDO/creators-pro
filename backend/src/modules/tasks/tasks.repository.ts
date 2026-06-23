@@ -1,6 +1,6 @@
 import { and, count, eq } from 'drizzle-orm';
 import type { db as Db } from '../../db/client.js';
-import { creatorTasks, type TaskFormat, type TaskStatus } from '../../db/schema/index.js';
+import { clients, creatorTasks, type TaskFormat, type TaskStatus } from '../../db/schema/index.js';
 import { firstOrThrow } from '../../lib/firstOrThrow.js';
 import type { Pagination } from '../../lib/pagination.js';
 
@@ -48,11 +48,35 @@ export function createTasksRepository(db: typeof Db) {
   return {
     findById,
 
+    /**
+     * client_name vem via LEFT JOIN: o operacional não tem acesso a GET /clients (RBAC), então
+     * sem isso a tela dele (cards de tarefa) não teria como mostrar o nome do cliente.
+     */
     async list(tenantId: string, pagination: Pagination, filter?: TaskListFilter) {
       const where = whereFor(tenantId, filter);
 
       const [rows, countRows] = await Promise.all([
-        db.select().from(creatorTasks).where(where).limit(pagination.limit).offset(pagination.offset),
+        db
+          .select({
+            id: creatorTasks.id,
+            tenantId: creatorTasks.tenantId,
+            title: creatorTasks.title,
+            formatType: creatorTasks.formatType,
+            taskDate: creatorTasks.taskDate,
+            creatorId: creatorTasks.creatorId,
+            clientId: creatorTasks.clientId,
+            clientName: clients.name,
+            status: creatorTasks.status,
+            description: creatorTasks.description,
+            createdBy: creatorTasks.createdBy,
+            createdAt: creatorTasks.createdAt,
+            updatedAt: creatorTasks.updatedAt,
+          })
+          .from(creatorTasks)
+          .leftJoin(clients, eq(creatorTasks.clientId, clients.id))
+          .where(where)
+          .limit(pagination.limit)
+          .offset(pagination.offset),
         db.select({ value: count() }).from(creatorTasks).where(where),
       ]);
 
@@ -94,6 +118,12 @@ export function createTasksRepository(db: typeof Db) {
         .where(and(eq(creatorTasks.tenantId, tenantId), eq(creatorTasks.id, id)))
         .returning();
       return rows[0] ?? null;
+    },
+
+    /** Nada referencia creator_tasks.id como FK — apagar é sempre permitido (depois de limpar o próprio histórico, no service). */
+    async delete(tenantId: string, id: string) {
+      const rows = await db.delete(creatorTasks).where(and(eq(creatorTasks.tenantId, tenantId), eq(creatorTasks.id, id))).returning();
+      return rows.length > 0;
     },
   };
 }

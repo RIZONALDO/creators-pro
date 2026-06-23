@@ -3,7 +3,10 @@ import { companies } from './companies';
 import { creators } from './creators';
 import { users } from './users';
 
-export const shiftStatusEnum = pgEnum('shift_status', ['pending', 'confirmed', 'completed', 'cancelled']);
+// 'pending'/'confirmed' existiam antes mas nunca tiveram função real — mesma pessoa (gestor) cria e
+// "confirma", sem ação de terceiro, notificação ou relatório que diferencie os dois. Simplificado
+// pra 3 estados que descrevem um desfecho de verdade: agendado, aconteceu, ou foi cancelado.
+export const shiftStatusEnum = pgEnum('shift_status', ['scheduled', 'completed', 'cancelled']);
 export type ShiftStatus = (typeof shiftStatusEnum.enumValues)[number];
 
 export const shifts = pgTable(
@@ -12,9 +15,10 @@ export const shifts = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     tenantId: uuid('tenant_id').notNull().references(() => companies.id, { onDelete: 'restrict' }),
     shiftDate: date('shift_date', { mode: 'string' }).notNull(),
-    creatorId: uuid('creator_id').references(() => creators.id, { onDelete: 'set null' }),
+    // restrict: creator com plantão registrado não pode ser apagado.
+    creatorId: uuid('creator_id').references(() => creators.id, { onDelete: 'restrict' }),
     notes: text('notes'),
-    status: shiftStatusEnum('status').notNull().default('pending'),
+    status: shiftStatusEnum('status').notNull().default('scheduled'),
     createdBy: uuid('created_by').notNull().references(() => users.id, { onDelete: 'restrict' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },

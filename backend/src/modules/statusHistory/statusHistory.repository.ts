@@ -36,6 +36,13 @@ export function createStatusHistoryRepository(db: typeof Db) {
         .where(and(eq(statusHistory.tenantId, tenantId), eq(statusHistory.entityType, entityType), eq(statusHistory.entityId, entityId)))
         .orderBy(asc(statusHistory.changedAt));
     },
+
+    /** Usado antes de apagar a entidade dona — status_history é polimórfica, sem FK real apontando pra ela. */
+    async deleteForEntity(tenantId: string, entityType: HistoryEntity, entityId: string) {
+      await db
+        .delete(statusHistory)
+        .where(and(eq(statusHistory.tenantId, tenantId), eq(statusHistory.entityType, entityType), eq(statusHistory.entityId, entityId)));
+    },
   };
 }
 

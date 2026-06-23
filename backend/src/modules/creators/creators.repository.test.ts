@@ -59,4 +59,38 @@ describe('creatorsRepository', () => {
     const found = await creatorsRepo.findRowById(company.id, created.id);
     expect(found?.active).toBe(false);
   });
+
+  it('listActiveIds devolve em ordem de criação por padrão (scale_order igual em todos)', async () => {
+    const { company } = await createTenantWithUser('5');
+    const ids: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const u = await usersRepo.create({ tenantId: company.id, name: `C${i}`, email: `c${i}-5@acme.com`, passwordHash: 'hash', role: 'operacional' });
+      ids.push((await creatorsRepo.createRow({ tenantId: company.id, userId: u.id, employmentType: 'fixed' })).id);
+    }
+
+    expect(await creatorsRepo.listActiveIds(company.id)).toEqual(ids);
+  });
+
+  it('reorder muda a ordem devolvida por listActiveIds, sem afetar outro tenant', async () => {
+    const { company } = await createTenantWithUser('6');
+    const ids: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const u = await usersRepo.create({ tenantId: company.id, name: `C${i}`, email: `c${i}-6@acme.com`, passwordHash: 'hash', role: 'operacional' });
+      ids.push((await creatorsRepo.createRow({ tenantId: company.id, userId: u.id, employmentType: 'fixed' })).id);
+    }
+    const [a, b, c] = ids as [string, string, string];
+
+    await creatorsRepo.reorder(company.id, [c, a, b]);
+
+    expect(await creatorsRepo.listActiveIds(company.id)).toEqual([c, a, b]);
+  });
+
+  it('reorder ignora ids que não pertencem ao tenant (não falha, simplesmente não afeta)', async () => {
+    const { company } = await createTenantWithUser('7');
+    const { company: otherCompany, user: otherUser } = await createTenantWithUser('8');
+    const otherCreator = await creatorsRepo.createRow({ tenantId: otherCompany.id, userId: otherUser.id, employmentType: 'fixed' });
+
+    await expect(creatorsRepo.reorder(company.id, [otherCreator.id])).resolves.toBeUndefined();
+    expect(await creatorsRepo.listActiveIds(otherCompany.id)).toEqual([otherCreator.id]); // não foi tocado
+  });
 });

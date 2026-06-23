@@ -95,6 +95,15 @@ export function createServicesRepository(db: typeof Db) {
         .returning();
       return rows[0] ?? null;
     },
+
+    /** Nada referencia collaborator_services.id como FK — apagar é sempre permitido (depois de limpar o histórico, no service). */
+    async delete(tenantId: string, id: string) {
+      const rows = await db
+        .delete(collaboratorServices)
+        .where(and(eq(collaboratorServices.tenantId, tenantId), eq(collaboratorServices.id, id)))
+        .returning();
+      return rows.length > 0;
+    },
   };
 }
 

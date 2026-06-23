@@ -8,6 +8,7 @@ export const newCollaboratorSchema = z.object({
   profession: z.string().min(1),
   employment_type: employmentTypeSchema,
   active: z.boolean().optional(),
+  password: z.string().min(8),
 });
 
 export const updateCollaboratorSchema = z.object({
@@ -17,4 +18,5 @@ export const updateCollaboratorSchema = z.object({
   profession: z.string().min(1).optional(),
   employment_type: employmentTypeSchema.optional(),
   active: z.boolean().optional(),
+  password: z.string().min(8).optional(),
 });

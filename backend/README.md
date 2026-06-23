@@ -94,6 +94,16 @@ Senha de demonstração local — não é segredo de produção, não usar fora 
 - **`POST /scale-months/:id/duplicate`** também não copia a atribuição se o creator tiver ausência aprovada na **data de destino** (mesma regra, evita reabrir a mesma inconsistência por outro caminho de código) — isso não estava explícito no roadmap original, mas é a mesma regra de negócio aplicada ao terceiro lugar que faz `upsertAssignment` direto.
 - **Notificação `alteracao_escala` está deferida para a Fase 6** (`notifications` ainda não existe) — há um `TODO` explícito em `schedule.service.ts` apontando para `specs/06-regras-de-negocio.md`; não esquecer ao implementar a Fase 6.
 
+## Ajuste fora do roadmap: plugando o frontend real (antes da Fase 6)
+
+Ao trocar `VITE_USE_MOCK=false` no frontend pra testar de verdade, apareceram 3 gaps que nenhuma fase anterior cobria — todos corrigidos agora:
+
+- **Faltava o módulo `/users`** — estava documentado em `specs/04-contrato-api.md` desde o início, mas nunca foi atribuído a uma fase do roadmap (descuido meu). Implementado agora: `GET/POST /users` + `PUT /users/:id`, `admin` only, reaproveitando `auth/users.repository.ts` (`listByTenant`/`findByIdInTenant`/`updateAdmin`, todos tenant-scoped) e um `sanitizeUser` compartilhado (antes duplicado dentro de `auth.service.ts`).
+- **Bug real de casing, achado só ao testar no browser de verdade** (`Shifts.tsx` quebrou com `Cannot read properties of undefined (reading 'split')`): o Drizzle nomeia objetos JS em camelCase (`shiftDate`, `tenantId`...), e isso vazava direto pro `res.json()` sem conversão — mas o resto do contrato (specs/02, specs/04, o schema SQL original, e os próprios esquemas Zod de entrada) sempre foi `snake_case`. Corrigido com um middleware global (`middleware/snakeCaseResponse.ts` + `lib/caseConvert.ts`) que converte toda resposta — sem precisar tocar rota por rota. Os ~15 testes de integração que checavam `res.body.campoEmCamelCase` foram corrigidos pra `snake_case` (eram a única coisa que escondia o bug; testes de repository não passam pelo middleware e por isso nunca o pegariam).
+- **Mesma inconsistência no campo `refreshToken`** de `/auth/refresh` e `/auth/logout` — era a única rota com body em camelCase (erro meu desde a Fase 1, `specs/03` documentava assim). Corrigido pra `refresh_token`, specs atualizados.
+
+**Por que o middleware global e não converter campo-por-campo**: qualquer rota nova (Fase 6+) já nasce correta automaticamente — não tem como esquecer de converter uma resposta nova.
+
 ## O que falta para a Fase 6
 
 - Tabelas/módulos de `messages` e `notifications` + bootstrap do Socket.IO — ver `specs/05-realtime-socketio.md` e `specs/07-roadmap-implementacao.md#fase-6--mensagens--notificações--socketio`.

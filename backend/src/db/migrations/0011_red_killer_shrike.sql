@@ -1,0 +1,2 @@
+CREATE INDEX IF NOT EXISTS "scale_entries_tenant_month_idx" ON "scale_entries" USING btree ("tenant_id","scale_month_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "scale_entries_tenant_creator_idx" ON "scale_entries" USING btree ("tenant_id","creator_id");

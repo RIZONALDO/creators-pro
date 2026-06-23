@@ -50,5 +50,14 @@ export function createTasksRouter(service: TasksService) {
     }
   });
 
+  router.delete('/tasks/:id', authorize('admin', 'gestor'), async (req, res, next) => {
+    try {
+      await service.remove(req.auth!.tenantId, req.params.id!);
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  });
+
   return router;
 }

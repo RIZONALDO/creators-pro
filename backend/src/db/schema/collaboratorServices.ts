@@ -15,7 +15,8 @@ export const collaboratorServices = pgTable(
     serviceName: varchar('service_name', { length: 255 }).notNull(),
     serviceDate: date('service_date', { mode: 'string' }),
     serviceType: varchar('service_type', { length: 100 }),
-    collaboratorId: uuid('collaborator_id').references(() => collaborators.id, { onDelete: 'set null' }),
+    // restrict (não set null): apagar um collaborator com serviços vinculados precisa falhar.
+    collaboratorId: uuid('collaborator_id').references(() => collaborators.id, { onDelete: 'restrict' }),
     clientId: uuid('client_id').references(() => clients.id, { onDelete: 'restrict' }),
     status: serviceStatusEnum('status').notNull().default('agendado'),
     notes: text('notes'),

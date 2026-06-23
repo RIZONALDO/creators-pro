@@ -41,5 +41,15 @@ export function createClientsRouter(repo: ClientsRepository) {
     }
   });
 
+  router.delete('/clients/:id', async (req, res, next) => {
+    try {
+      const deleted = await repo.delete(req.auth!.tenantId, req.params.id);
+      if (!deleted) throw notFound('CLIENT_NOT_FOUND', 'Cliente não encontrado.');
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  });
+
   return router;
 }

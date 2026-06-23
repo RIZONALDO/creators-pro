@@ -3,7 +3,7 @@ import { authenticate } from '../../middleware/authenticate.js';
 import { authorize } from '../../middleware/authorize.js';
 import { parsePagination, paginatedResponse } from '../../lib/pagination.js';
 import type { CreatorsService } from './creators.service.js';
-import { newCreatorSchema, updateCreatorSchema } from './creators.schemas.js';
+import { newCreatorSchema, reorderCreatorsSchema, updateCreatorSchema } from './creators.schemas.js';
 
 export function createCreatorsRouter(service: CreatorsService) {
   const router = Router();
@@ -29,11 +29,31 @@ export function createCreatorsRouter(service: CreatorsService) {
     }
   });
 
+  // Precisa vir ANTES de PUT /creators/:id — senão Express trata "reorder" como valor de :id.
+  router.put('/creators/reorder', async (req, res, next) => {
+    try {
+      const { creator_ids } = reorderCreatorsSchema.parse(req.body);
+      await service.reorder(req.auth!.tenantId, creator_ids);
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  });
+
   router.put('/creators/:id', async (req, res, next) => {
     try {
       const input = updateCreatorSchema.parse(req.body);
       const creator = await service.update(req.auth!.tenantId, req.params.id, input);
       res.json(creator);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.delete('/creators/:id', async (req, res, next) => {
+    try {
+      await service.remove(req.auth!.tenantId, req.params.id);
+      res.status(204).send();
     } catch (err) {
       next(err);
     }

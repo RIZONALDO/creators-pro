@@ -1,6 +1,7 @@
 import { and, count, eq } from 'drizzle-orm';
 import type { db as Db } from '../../db/client.js';
 import { collaborators, users, type EmploymentType } from '../../db/schema/index.js';
+import { rethrowAsConflictIfForeignKeyViolation } from '../../lib/dbErrors.js';
 import { firstOrThrow } from '../../lib/firstOrThrow.js';
 import type { Pagination } from '../../lib/pagination.js';
 
@@ -65,7 +66,14 @@ export function createCollaboratorsRepository(db: typeof Db) {
     return row ?? null;
   }
 
+  /** Mapeamento leve (sem JOIN/paginação) — usado por GET /users (admin) pra saber quem é Colaborador
+   * e qual a profissão real cadastrada (texto mostrado na tela, não um rótulo genérico — specs/06). */
+  async function listIdsByTenant(tenantId: string) {
+    return db.select({ id: collaborators.id, userId: collaborators.userId, profession: collaborators.profession }).from(collaborators).where(eq(collaborators.tenantId, tenantId));
+  }
+
   return {
+    listIdsByTenant,
     findRowById,
     findRowByUserId,
 
@@ -118,6 +126,16 @@ export function createCollaboratorsRepository(db: typeof Db) {
         .where(and(eq(collaborators.tenantId, tenantId), eq(collaborators.id, id)))
         .returning();
       return rows[0] ?? null;
+    },
+
+    /** Bloqueado pelo Postgres (ON DELETE RESTRICT) se houver serviço vinculado. */
+    async deleteRow(tenantId: string, id: string) {
+      try {
+        const rows = await db.delete(collaborators).where(and(eq(collaborators.tenantId, tenantId), eq(collaborators.id, id))).returning();
+        return rows[0] ?? null;
+      } catch (err) {
+        rethrowAsConflictIfForeignKeyViolation(err, 'COLLABORATOR_HAS_LINKED_RECORDS', 'Colaborador possui serviços vinculados — não é possível excluir.');
+      }
     },
   };
 }

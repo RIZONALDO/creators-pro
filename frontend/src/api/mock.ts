@@ -8,6 +8,7 @@
 import type {
   User, Creator, Collaborator, Client, CreatorTask, ServiceRow,
   ScaleMonth, ScaleEntry, Holiday, Absence, Shift, Conversation, Message, Notification,
+  StatusHistoryEntry,
 } from '@/types';
 
 const now = '2026-06-18T12:00:00Z';
@@ -52,7 +53,13 @@ export const clients: Client[] = [
   { id: 'c5', name: 'Prefeitura de Macapá', active: false, created_at: now },
 ];
 
-export const tasks: CreatorTask[] = [
+const clientNameById = new Map(clients.map((c) => [c.id, c.name]));
+/** client_name simula o LEFT JOIN que o backend faz em GET /tasks — ver tasks.repository.ts. */
+function withClientName(t: Omit<CreatorTask, 'client_name'>): CreatorTask {
+  return { ...t, client_name: t.client_id ? clientNameById.get(t.client_id) ?? null : null };
+}
+
+export const tasks: CreatorTask[] = ([
   { id: 't1', title: 'Cobertura inauguração — Story', format_type: 'Story', task_date: '2026-06-18', creator_id: 'ml', client_id: 'c1', status: 'na_fila', description: null, created_by: 'u2', created_at: now, updated_at: now },
   { id: 't2', title: 'Reels institucional Q2', format_type: 'Reels', task_date: '2026-06-18', creator_id: 'jp', client_id: 'c2', status: 'em_edicao', description: null, created_by: 'u2', created_at: now, updated_at: now },
   { id: 't3', title: 'Aftermovie evento anual', format_type: 'Aftermovie', task_date: '2026-06-19', creator_id: 'cr', client_id: 'c4', status: 'no_servidor', description: null, created_by: 'u2', created_at: now, updated_at: now },
@@ -68,7 +75,7 @@ export const tasks: CreatorTask[] = [
   { id: 't13', title: 'Reels promo (revisão cliente)', format_type: 'Reels', task_date: '2026-06-15', creator_id: 'jp', client_id: 'c3', status: 'reprovado', description: null, created_by: 'u2', created_at: now, updated_at: now },
   { id: 't14', title: 'Captação ensaio fotográfico', format_type: 'Captação', task_date: '2026-06-23', creator_id: 'ml', client_id: 'c2', status: 'falta_captacao', description: null, created_by: 'u2', created_at: now, updated_at: now },
   { id: 't15', title: 'Aftermovie feira (cancelado)', format_type: 'Aftermovie', task_date: '2026-06-14', creator_id: 'cr', client_id: 'c3', status: 'cancelado', description: null, created_by: 'u2', created_at: now, updated_at: now },
-];
+] satisfies Omit<CreatorTask, 'client_name'>[]).map(withClientName);
 
 /** collaborator_services */
 export const services: ServiceRow[] = [
@@ -82,14 +89,14 @@ export const scaleMonths: ScaleMonth[] = [
   { id: 'sm1', month: 6, year: 2026, created_by: 'u2', created_at: now },
 ];
 
-/** scale_entries (1 creator por dia útil) */
+/** scale_entries — cada linha é 1 creator atribuído em 1 dia; mais de 1 por dia é permitido (sem linha = dia vazio). */
 export const scaleEntries: ScaleEntry[] = ([
   ['2026-06-01', 'ml'], ['2026-06-02', 'jp'], ['2026-06-03', 'ac'], ['2026-06-04', 'cr'], ['2026-06-05', 'ml'],
   ['2026-06-08', 'jp'], ['2026-06-09', 'ac'], ['2026-06-10', 'ml'], ['2026-06-11', 'jp'], ['2026-06-12', 'ac'],
   ['2026-06-15', 'cr'], ['2026-06-16', 'ml'], ['2026-06-17', 'jp'], ['2026-06-18', 'ac'], ['2026-06-19', 'cr'],
-  ['2026-06-22', 'ml'], ['2026-06-23', 'jp'], ['2026-06-24', null], ['2026-06-25', 'ac'], ['2026-06-26', 'cr'],
+  ['2026-06-22', 'ml'], ['2026-06-22', 'jp'], ['2026-06-23', 'jp'], ['2026-06-25', 'ac'], ['2026-06-26', 'cr'],
   ['2026-06-29', 'ml'], ['2026-06-30', 'jp'],
-] as [string, string | null][]).map(([work_date, creator_id], i) => ({
+] as [string, string][]).map(([work_date, creator_id], i) => ({
   id: `se${i + 1}`, scale_month_id: 'sm1', creator_id, work_date, is_holiday: false, created_at: now,
 }));
 
@@ -106,12 +113,17 @@ export const absences: Absence[] = [
 ];
 
 export const shifts: Shift[] = [
-  { id: 'sh1', shift_date: '2026-06-21', creator_id: 'ml', notes: 'Turno manhã (08h–14h)', status: 'confirmed', created_by: 'u2', created_at: now },
-  { id: 'sh2', shift_date: '2026-06-22', creator_id: 'jp', notes: 'Turno manhã (08h–14h)', status: 'confirmed', created_by: 'u2', created_at: now },
-  { id: 'sh3', shift_date: '2026-06-28', creator_id: 'ac', notes: 'Turno tarde (14h–20h)', status: 'pending', created_by: 'u2', created_at: now },
-  { id: 'sh4', shift_date: '2026-06-29', creator_id: null, notes: 'A designar', status: 'pending', created_by: 'u2', created_at: now },
-  { id: 'sh5', shift_date: '2026-06-14', creator_id: 'cr', notes: 'Turno manhã (08h–14h)', status: 'completed', created_by: 'u2', created_at: now },
-  { id: 'sh6', shift_date: '2026-06-15', creator_id: 'ml', notes: 'Cancelado pelo cliente', status: 'cancelled', created_by: 'u2', created_at: now },
+  { id: 'sh1', shift_date: '2026-06-21', creator_id: 'ml', creator_name: 'Mariana Lopes', standby_creator_ids: ['jp'], standby_names: ['João Pedro'], notes: 'Turno manhã (08h–14h)', status: 'scheduled', created_by: 'u2', created_at: now },
+  { id: 'sh2', shift_date: '2026-06-22', creator_id: 'jp', creator_name: 'João Pedro', standby_creator_ids: [], standby_names: [], notes: 'Turno manhã (08h–14h)', status: 'scheduled', created_by: 'u2', created_at: now },
+  { id: 'sh3', shift_date: '2026-06-28', creator_id: 'ac', creator_name: 'Aline Costa', standby_creator_ids: ['jp', 'ml'], standby_names: ['João Pedro', 'Mariana Lopes'], notes: 'Turno tarde (14h–20h)', status: 'scheduled', created_by: 'u2', created_at: now },
+  { id: 'sh4', shift_date: '2026-06-29', creator_id: null, creator_name: null, standby_creator_ids: [], standby_names: [], notes: 'A designar', status: 'scheduled', created_by: 'u2', created_at: now },
+  { id: 'sh5', shift_date: '2026-06-14', creator_id: 'ac', creator_name: 'Aline Costa', standby_creator_ids: [], standby_names: [], notes: 'Turno manhã (08h–14h)', status: 'completed', created_by: 'u2', created_at: now },
+  { id: 'sh6', shift_date: '2026-06-15', creator_id: 'ml', creator_name: 'Mariana Lopes', standby_creator_ids: [], standby_names: [], notes: 'Cancelado pelo cliente', status: 'cancelled', created_by: 'u2', created_at: now },
+];
+
+export const statusHistory: StatusHistoryEntry[] = [
+  { id: 'st1', entity_type: 'shift', entity_id: 'sh5', old_status: 'scheduled', new_status: 'completed', changed_by: 'u2', changed_at: '2026-06-14T20:00:00Z' },
+  { id: 'st2', entity_type: 'shift', entity_id: 'sh6', old_status: 'scheduled', new_status: 'cancelled', changed_by: 'u2', changed_at: '2026-06-13T11:00:00Z' },
 ];
 
 /** Conversa derivada (não é tabela) — para a lista do chat. */

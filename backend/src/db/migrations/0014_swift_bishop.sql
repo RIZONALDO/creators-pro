@@ -1,0 +1,1 @@
+ALTER TABLE "creators" ADD COLUMN "scale_order" integer DEFAULT 0 NOT NULL;

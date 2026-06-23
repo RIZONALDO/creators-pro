@@ -2,16 +2,29 @@ import type { db as Db } from '../../db/client.js';
 import type { AuthContext } from '../../middleware/authenticate.js';
 import { badRequest, forbidden, notFound } from '../../lib/errors.js';
 import type { Pagination } from '../../lib/pagination.js';
+import { createNoopEmitter, type RealtimeEmitter } from '../../realtime/emitter.js';
+import { createNoopPushSender, type PushSender } from '../../realtime/pushSender.js';
+import { createUsersRepository } from '../auth/users.repository.js';
 import { createCreatorsRepository } from '../creators/creators.repository.js';
+import { createNotificationsService } from '../notifications/notifications.service.js';
+import { createScaleEntriesRepository } from '../schedule/scaleEntries.repository.js';
 import { createStatusHistoryRepository } from '../statusHistory/statusHistory.repository.js';
 import { createAbsencesRepository } from './absences.repository.js';
 import type { newAbsenceSchema } from './absences.schemas.js';
 import type { AbsenceStatus } from '../../db/schema/index.js';
+import { shortDate } from '../../lib/notificationText.js';
 import type { z } from 'zod';
 
-export function createAbsencesService(db: typeof Db) {
+export function createAbsencesService(
+  db: typeof Db,
+  emitter: RealtimeEmitter = createNoopEmitter(),
+  pushSender: PushSender = createNoopPushSender(),
+) {
   const absencesRepo = createAbsencesRepository(db);
   const creatorsRepo = createCreatorsRepository(db);
+  const usersRepo = createUsersRepository(db);
+  const scaleEntriesRepo = createScaleEntriesRepository(db);
+  const notificationsService = createNotificationsService(db, emitter, pushSender);
 
   return {
     /** operacional só vê as próprias ausências (resolvido pelo creator vinculado ao seu user_id). */
@@ -25,27 +38,35 @@ export function createAbsencesService(db: typeof Db) {
     },
 
     /**
-     * operacional só pode solicitar para o próprio creator vinculado; admin/gestor pode
-     * registrar em nome de qualquer creator do tenant (ex.: ausência reportada por telefone).
+     * operacional só pode solicitar para o próprio creator vinculado — se não informar
+     * creator_id, resolve pelo próprio token (é o caminho normal, já que ele não tem acesso a
+     * GET /creators pra descobrir o id). admin/gestor precisa informar (registra em nome de
+     * qualquer creator do tenant, ex.: ausência reportada por telefone).
      */
     async create(auth: AuthContext, input: z.infer<typeof newAbsenceSchema>) {
       if (input.end_date < input.start_date) {
         throw badRequest('INVALID_DATE_RANGE', 'end_date não pode ser anterior a start_date.');
       }
 
+      let creatorId: string;
+
       if (auth.role === 'operacional') {
         const own = await creatorsRepo.findRowByUserId(auth.tenantId, auth.userId);
-        if (!own || own.id !== input.creator_id) {
+        if (!own) throw forbidden('NO_CREATOR_LINKED', 'Seu usuário não está vinculado a um creator.');
+        if (input.creator_id && input.creator_id !== own.id) {
           throw forbidden('CANNOT_REQUEST_FOR_OTHER_CREATOR', 'Você só pode solicitar ausência para si mesmo.');
         }
+        creatorId = own.id;
       } else {
+        if (!input.creator_id) throw badRequest('CREATOR_ID_REQUIRED', 'Informe o creator_id.');
         const creator = await creatorsRepo.findRowById(auth.tenantId, input.creator_id);
         if (!creator) throw badRequest('INVALID_CREATOR', 'Creator inválido para este tenant.');
+        creatorId = creator.id;
       }
 
       return absencesRepo.create({
         tenantId: auth.tenantId,
-        creatorId: input.creator_id,
+        creatorId,
         startDate: input.start_date,
         endDate: input.end_date,
         reason: input.reason ?? null,
@@ -53,7 +74,7 @@ export function createAbsencesService(db: typeof Db) {
     },
 
     async review(tenantId: string, id: string, status: AbsenceStatus, reviewedBy: string) {
-      return db.transaction(async (tx) => {
+      const updated = await db.transaction(async (tx) => {
         const txAbsencesRepo = createAbsencesRepository(tx as typeof Db);
         const txHistoryRepo = createStatusHistoryRepository(tx as typeof Db);
 
@@ -70,12 +91,34 @@ export function createAbsencesService(db: typeof Db) {
           changedBy: reviewedBy,
         });
 
-        // TODO (Fase 6): emitir notification 'alteracao_escala' pro(s) coordenador(es) quando a
-        // ausência aprovada sobrepõe um dia já escalado — ver specs/06-regras-de-negocio.md.
-        // Não implementado aqui porque a tabela `notifications` só existe a partir da Fase 6.
-
-        return updated;
+        return updated!;
       });
+
+      // Notificação fora da transação (mesmo racional do tasksService.setStatus): um gatilho que
+      // falhe não pode reverter a revisão já confirmada.
+      const creator = await creatorsRepo.findById(tenantId, updated.creatorId);
+      if (creator) {
+        if (status === 'approved') {
+          await notificationsService.notify(tenantId, creator.userId, 'ausencia_aprovada', 'Ausência aprovada', `${shortDate(updated.startDate)} – ${shortDate(updated.endDate)}`);
+        } else if (status === 'rejected') {
+          await notificationsService.notify(tenantId, creator.userId, 'ausencia_rejeitada', 'Ausência rejeitada', `${shortDate(updated.startDate)} – ${shortDate(updated.endDate)}`);
+        }
+      }
+
+      // Ausência aprovada não remove atribuições de escala automaticamente (decisão deliberada,
+      // specs/06) — só avisa o(s) coordenador(es) do conflito pra decidirem manualmente quem cobre.
+      if (status === 'approved' && creator) {
+        const conflicting = await scaleEntriesRepo.listByCreatorInRange(tenantId, updated.creatorId, updated.startDate, updated.endDate);
+        if (conflicting.length > 0) {
+          const coordinatorIds = await usersRepo.findIdsByRoles(tenantId, ['gestor', 'admin']);
+          const dates = conflicting.map((e) => shortDate(e.workDate)).join(', ');
+          for (const userId of coordinatorIds) {
+            await notificationsService.notify(tenantId, userId, 'alteracao_escala', 'Conflito entre escala e ausência aprovada', `${creator.name} já estava escalado(a) em: ${dates}.`);
+          }
+        }
+      }
+
+      return updated;
     },
   };
 }

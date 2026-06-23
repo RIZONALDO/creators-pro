@@ -2,7 +2,6 @@ import bcrypt from 'bcryptjs';
 import type { db as Db } from '../../db/client.js';
 import { conflict, notFound } from '../../lib/errors.js';
 import type { Pagination } from '../../lib/pagination.js';
-import { generateOpaqueToken } from '../../lib/tokens.js';
 import { createUsersRepository } from '../auth/users.repository.js';
 import { createCollaboratorsRepository, type CollaboratorView } from './collaborators.repository.js';
 import type { newCollaboratorSchema, updateCollaboratorSchema } from './collaborators.schemas.js';
@@ -21,8 +20,7 @@ export function createCollaboratorsService(db: typeof Db) {
       const existingUser = await usersRepo.findByEmail(input.email);
       if (existingUser) throw conflict('EMAIL_TAKEN', 'Já existe um usuário com este e-mail.');
 
-      const temporaryPassword = generateOpaqueToken();
-      const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+      const passwordHash = await bcrypt.hash(input.password, 10);
 
       return db.transaction(async (tx) => {
         const txUsersRepo = createUsersRepository(tx as typeof Db);
@@ -86,9 +84,28 @@ export function createCollaboratorsService(db: typeof Db) {
           await txUsersRepo.updateProfile(row.userId, { name: input.name, email: input.email, phone: input.phone });
         }
 
+        if (input.password !== undefined) {
+          const passwordHash = await bcrypt.hash(input.password, 10);
+          await txUsersRepo.updatePassword(row.userId, passwordHash);
+        }
+
         const view = await txCollaboratorsRepo.findById(tenantId, id);
         if (!view) throw notFound('COLLABORATOR_NOT_FOUND', 'Colaborador não encontrado.');
         return view;
+      });
+    },
+
+    /** Apaga o collaborator e o usuário/login vinculado na mesma transação — ver creators.service.ts. */
+    async remove(tenantId: string, id: string) {
+      return db.transaction(async (tx) => {
+        const txCollaboratorsRepo = createCollaboratorsRepository(tx as typeof Db);
+        const txUsersRepo = createUsersRepository(tx as typeof Db);
+
+        const row = await txCollaboratorsRepo.findRowById(tenantId, id);
+        if (!row) throw notFound('COLLABORATOR_NOT_FOUND', 'Colaborador não encontrado.');
+
+        await txCollaboratorsRepo.deleteRow(tenantId, id);
+        await txUsersRepo.deleteById(tenantId, row.userId);
       });
     },
   };

@@ -8,6 +8,7 @@ export const newCreatorSchema = z.object({
   phone: z.string().nullable().optional(),
   employment_type: employmentTypeSchema,
   active: z.boolean().optional(),
+  password: z.string().min(8),
 });
 
 export const updateCreatorSchema = z.object({
@@ -16,4 +17,9 @@ export const updateCreatorSchema = z.object({
   phone: z.string().nullable().optional(),
   employment_type: employmentTypeSchema.optional(),
   active: z.boolean().optional(),
+  password: z.string().min(8).optional(),
+});
+
+export const reorderCreatorsSchema = z.object({
+  creator_ids: z.array(z.string().uuid()).min(1),
 });
