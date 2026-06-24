@@ -5,6 +5,7 @@ import { AdminLayout } from '@/components/AdminLayout';
 import { Login } from '@/screens/Login';
 import { Signup } from '@/screens/Signup';
 import { SignupSuccess } from '@/screens/SignupSuccess';
+import { ClaimInvite } from '@/screens/ClaimInvite';
 import { AdminUsers } from '@/screens/AdminUsers';
 import { AdminBilling } from '@/screens/AdminBilling';
 import { AdminSettings } from '@/screens/AdminSettings';
@@ -27,6 +28,7 @@ export function App() {
       <Routes>
         <Route path="/cadastro" element={<Signup />} />
         <Route path="/cadastro/sucesso" element={<SignupSuccess />} />
+        <Route path="/convite/:token" element={<ClaimInvite />} />
         <Route path="*" element={<Login />} />
       </Routes>
     );

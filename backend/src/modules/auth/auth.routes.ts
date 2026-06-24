@@ -4,7 +4,7 @@ import { requirePlatformSecret } from '../../middleware/requirePlatformSecret.js
 import { createRateLimiter } from '../../middleware/rateLimit.js';
 import { env } from '../../lib/env.js';
 import type { AuthService } from './auth.service.js';
-import { loginSchema, provisionCompanySchema, refreshSchema } from './auth.schemas.js';
+import { claimInviteSchema, googleLoginSchema, loginSchema, provisionCompanySchema, refreshSchema } from './auth.schemas.js';
 
 export function createAuthRouter(authService: AuthService) {
   const router = Router();
@@ -19,6 +19,29 @@ export function createAuthRouter(authService: AuthService) {
     try {
       const { email, password } = loginSchema.parse(req.body);
       const result = await authService.login(email, password, req.headers['user-agent']);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Mesmo rate limiter de /auth/login — mesma superfície de abuso (tentar emails ao acaso).
+  router.post('/auth/google', loginRateLimiter, async (req, res, next) => {
+    try {
+      const { id_token } = googleLoginSchema.parse(req.body);
+      const result = await authService.loginWithGoogle(id_token, req.headers['user-agent']);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Sem authenticate — quem chega aqui ainda não tem conta ativa nenhuma; é a própria reivindicação
+  // que cria a sessão. Mesmo rate limiter (tentar tokens/e-mails ao acaso é a mesma superfície de abuso).
+  router.post('/auth/google/claim', loginRateLimiter, async (req, res, next) => {
+    try {
+      const { token, id_token } = claimInviteSchema.parse(req.body);
+      const result = await authService.claimInviteWithGoogle(token, id_token, req.headers['user-agent']);
       res.json(result);
     } catch (err) {
       next(err);

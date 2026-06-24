@@ -94,7 +94,7 @@ export function Sidebar({ collapsed, onToggleCollapse }: { collapsed: boolean; o
             display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 10px', borderRadius: 13,
             background: 'var(--bg2)', border: '1px solid var(--line)', justifyContent: collapsed ? 'center' : 'flex-start', cursor: 'pointer',
           }}>
-            <Avatar name={user.name} size={32} />
+            <Avatar name={user.name} size={32} imageUrl={user.avatar_url} />
             {!collapsed && (
               <div style={{ lineHeight: 1.2, minWidth: 0, flex: 1, textAlign: 'left' }}>
                 <div style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.name}</div>

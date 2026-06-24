@@ -6,6 +6,8 @@ export type Theme = 'dark' | 'light';
 export interface AppContextValue {
   user: User | null;
   login: (email: string, password: string) => Promise<User>;
+  loginWithGoogle: (idToken: string) => Promise<User>;
+  claimInvite: (token: string, idToken: string) => Promise<User>;
   logout: () => void;
   theme: Theme;
   toggleTheme: () => void;

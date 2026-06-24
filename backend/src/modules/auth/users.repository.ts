@@ -10,10 +10,23 @@ export interface CreateUserInput {
   name: string;
   email: string;
   phone?: string | null;
-  passwordHash: string;
+  // null = conta 'pending' (convite só com e-mail) — login só via Google até alguém definir senha.
+  passwordHash: string | null;
   role: UserRole;
   status?: UserStatus;
   alias?: string | null;
+  // hash do token de convite — só preenchido quando passwordHash é null (conta pending). Ver
+  // creators.service.ts/collaborators.service.ts#create e auth.service.ts#claimInviteWithGoogle.
+  inviteTokenHash?: string | null;
+}
+
+export interface LinkGoogleProfileInput {
+  googleId?: string;
+  name?: string;
+  avatarUrl?: string;
+  status?: UserStatus;
+  // null pra invalidar o token depois do claim (uso único) — ver claimInviteWithGoogle.
+  inviteTokenHash?: string | null;
 }
 
 export interface UpdateUserProfileInput {
@@ -51,6 +64,12 @@ export function createUsersRepository(db: typeof Db) {
       return row ?? null;
     },
 
+    /** Usado pelo claim de convite (POST /auth/google/claim) — busca por hash, nunca pelo token cru. */
+    async findByInviteTokenHash(hash: string) {
+      const [row] = await db.select().from(users).where(eq(users.inviteTokenHash, hash)).limit(1);
+      return row ?? null;
+    },
+
     /** Usado pelos gatilhos de notificação 'alteracao_escala' — avisa todo coordenador do tenant. */
     async findIdsByRoles(tenantId: string, roles: UserRole[]) {
       const rows = await db.select({ id: users.id }).from(users).where(and(eq(users.tenantId, tenantId), inArray(users.role, roles)));
@@ -74,8 +93,35 @@ export function createUsersRepository(db: typeof Db) {
           role: input.role,
           status: input.status ?? 'active',
           alias: input.alias ?? null,
+          inviteTokenHash: input.inviteTokenHash ?? null,
         })
         .returning();
+      return firstOrThrow(rows);
+    },
+
+    /** Gera um novo link de convite (gestor perdeu/não copiou o anterior) — substitui o hash
+     * salvo, então o token antigo (se ainda existir em algum lugar) deixa de funcionar. Usado só
+     * em conta 'pending' (ver creators.service.ts/collaborators.service.ts#regenerateInvite). */
+    async regenerateInviteToken(id: string, inviteTokenHash: string) {
+      const rows = await db.update(users).set({ inviteTokenHash }).where(eq(users.id, id)).returning();
+      return firstOrThrow(rows);
+    },
+
+    /** Aplicado só no primeiro login com Google de uma conta — vincula google_id e, se a conta
+     * estava 'pending' (convite só com e-mail), captura nome/foto reais do Google e ativa. Em conta
+     * já 'active' (criada do jeito antigo, com senha), só vincula google_id como credencial extra —
+     * nunca sobrescreve nome já cadastrado. Ver auth.service.ts#loginWithGoogle.
+     * Só chamado com `input` não-vazio (o caller já garante isso) — sem caso especial de "nada pra
+     * atualizar" aqui, pra não devolver `Row | null` quando o id é sabidamente válido. */
+    async linkGoogleProfile(id: string, input: LinkGoogleProfileInput) {
+      const patch: Partial<typeof users.$inferInsert> = {};
+      if (input.googleId !== undefined) patch.googleId = input.googleId;
+      if (input.name !== undefined) patch.name = input.name;
+      if (input.avatarUrl !== undefined) patch.avatarUrl = input.avatarUrl;
+      if (input.status !== undefined) patch.status = input.status;
+      if (input.inviteTokenHash !== undefined) patch.inviteTokenHash = input.inviteTokenHash;
+
+      const rows = await db.update(users).set(patch).where(eq(users.id, id)).returning();
       return firstOrThrow(rows);
     },
 
@@ -92,9 +138,17 @@ export function createUsersRepository(db: typeof Db) {
       return firstOrThrow(rows);
     },
 
-    /** Reset de senha — usado por creators/collaborators ao editar o usuário vinculado. */
+    /** Reset de senha — usado por creators/collaborators ao editar o usuário vinculado. Conta
+     * 'pending' (convite só com e-mail, sem senha) que ganha uma senha de verdade aqui passa a
+     * 'active' — senão o gestor define a senha e a pessoa continua sem conseguir entrar (login()
+     * só libera status 'active'). Conta 'inactive' não é reativada por isso (desativação é decisão
+     * explícita do admin, resetar senha não deve desfazer). */
     async updatePassword(id: string, passwordHash: string) {
-      const rows = await db.update(users).set({ passwordHash }).where(eq(users.id, id)).returning();
+      const current = await findById(id);
+      const patch: Partial<typeof users.$inferInsert> = { passwordHash };
+      if (current?.status === 'pending') patch.status = 'active';
+
+      const rows = await db.update(users).set(patch).where(eq(users.id, id)).returning();
       return firstOrThrow(rows);
     },
 

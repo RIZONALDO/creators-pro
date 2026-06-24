@@ -48,6 +48,28 @@ describe('rotas de auth (integração)', () => {
     expect(res.body.user.creator_id).toBeNull();
   });
 
+  it('POST /auth/google sem id_token retorna 400 (validação)', async () => {
+    const res = await request(app).post('/auth/google').send({});
+    expect(res.status).toBe(400);
+  });
+
+  it('POST /auth/google retorna 400 GOOGLE_NOT_CONFIGURED quando o servidor não tem GOOGLE_CLIENT_ID (.env.test não define)', async () => {
+    const res = await request(app).post('/auth/google').send({ id_token: 'qualquer-coisa' });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('GOOGLE_NOT_CONFIGURED');
+  });
+
+  it('POST /auth/google/claim sem token ou id_token retorna 400 (validação)', async () => {
+    const res = await request(app).post('/auth/google/claim').send({ token: 'x' });
+    expect(res.status).toBe(400);
+  });
+
+  it('POST /auth/google/claim com token que não existe retorna 401 INVALID_INVITE_TOKEN (checado antes mesmo de chamar o Google)', async () => {
+    const res = await request(app).post('/auth/google/claim').send({ token: 'token-que-nunca-existiu', id_token: 'qualquer-coisa' });
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe('INVALID_INVITE_TOKEN');
+  });
+
   it('POST /auth/login de operacional com creator vinculado já inclui creator_id (sem precisar de /auth/me)', async () => {
     const { company } = await createDemoUser();
     const passwordHash = await bcrypt.hash('senha-correta', 4);

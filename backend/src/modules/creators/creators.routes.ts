@@ -50,6 +50,16 @@ export function createCreatorsRouter(service: CreatorsService) {
     }
   });
 
+  // Gera um novo link de convite — só pra conta ainda 'pending' (ver service.regenerateInvite).
+  router.post('/creators/:id/invite', async (req, res, next) => {
+    try {
+      const result = await service.regenerateInvite(req.auth!.tenantId, req.params.id);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  });
+
   router.delete('/creators/:id', async (req, res, next) => {
     try {
       await service.remove(req.auth!.tenantId, req.params.id);

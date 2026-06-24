@@ -1,10 +1,22 @@
 import bcrypt from 'bcryptjs';
-import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetDb, testDb, testPool } from '../../test/db.js';
+import type { GoogleProfile } from '../../lib/googleAuth.js';
+import { generateOpaqueToken, hashToken } from '../../lib/tokens.js';
 import { createCompaniesRepository } from './companies.repository.js';
 import { createUsersRepository } from './users.repository.js';
 import { createAuthService } from './auth.service.js';
 import { createCompanyRepository } from '../company/company.repository.js';
+import { createCreatorsService } from '../creators/creators.service.js';
+
+/** Fake — evita chamar o Google de verdade no teste (mesmo padrão de buildFakeStripe em billing.service.test.ts). */
+function fakeGoogleVerifier(profile: GoogleProfile) {
+  return vi.fn().mockResolvedValue(profile);
+}
+
+function googleProfile(overrides: Partial<GoogleProfile> = {}): GoogleProfile {
+  return { email: 'fulano@acme.com', emailVerified: true, name: 'Fulano da Silva', picture: 'https://photo.example/fulano.jpg', googleId: 'google-sub-123', ...overrides };
+}
 
 describe('authService', () => {
   const authService = createAuthService(testDb);
@@ -56,6 +68,112 @@ describe('authService', () => {
     await expect(authService.login('ninguem@acme.com', 'qualquer')).rejects.toMatchObject({
       code: 'INVALID_CREDENTIALS',
     });
+  });
+
+  it('login numa conta pending (sem senha) falha com INVALID_CREDENTIALS, nunca compara bcrypt contra null', async () => {
+    const company = await companiesRepo.create({ name: 'Acme', slug: 'acme-pending' });
+    await usersRepo.create({ tenantId: company.id, name: 'convidado@acme.com', email: 'convidado@acme.com', passwordHash: null, role: 'operacional', status: 'pending' });
+
+    await expect(authService.login('convidado@acme.com', 'qualquer-coisa')).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
+  });
+
+  it('loginWithGoogle (botão comum) numa conta pending falha com ACCOUNT_PENDING_INVITE — só o link de convite ativa', async () => {
+    const company = await companiesRepo.create({ name: 'Acme', slug: 'acme-google-1' });
+    await usersRepo.create({ tenantId: company.id, name: 'fulano@acme.com', email: 'fulano@acme.com', passwordHash: null, role: 'operacional', status: 'pending' });
+    const service = createAuthService(testDb, fakeGoogleVerifier(googleProfile()));
+
+    await expect(service.loginWithGoogle('fake-id-token')).rejects.toMatchObject({ code: 'ACCOUNT_PENDING_INVITE' });
+  });
+
+  it('loginWithGoogle numa conta já active só vincula google_id, sem sobrescrever o nome já cadastrado', async () => {
+    await createDemoUser('senha-correta'); // já active, com nome real "Fulano"
+    const service = createAuthService(testDb, fakeGoogleVerifier(googleProfile({ name: 'Outro Nome Qualquer' })));
+
+    const result = await service.loginWithGoogle('fake-id-token');
+
+    expect(result.user.name).toBe('Fulano'); // não foi sobrescrito
+    expect(result.user.avatarUrl).toBe('https://photo.example/fulano.jpg'); // estava null, preencheu
+  });
+
+  it('loginWithGoogle sem conta cadastrada para o e-mail falha com ACCOUNT_NOT_FOUND', async () => {
+    const service = createAuthService(testDb, fakeGoogleVerifier(googleProfile({ email: 'ninguem@acme.com' })));
+
+    await expect(service.loginWithGoogle('fake-id-token')).rejects.toMatchObject({ code: 'ACCOUNT_NOT_FOUND' });
+  });
+
+  it('loginWithGoogle numa conta inactive falha com ACCOUNT_NOT_FOUND (desativação não é contornável pelo Google)', async () => {
+    const company = await companiesRepo.create({ name: 'Acme', slug: 'acme-google-2' });
+    await usersRepo.create({ tenantId: company.id, name: 'Inativo', email: 'inativo@acme.com', passwordHash: null, role: 'operacional', status: 'inactive' });
+    const service = createAuthService(testDb, fakeGoogleVerifier(googleProfile({ email: 'inativo@acme.com' })));
+
+    await expect(service.loginWithGoogle('fake-id-token')).rejects.toMatchObject({ code: 'ACCOUNT_NOT_FOUND' });
+  });
+
+  it('loginWithGoogle com e-mail não verificado pelo Google falha com GOOGLE_EMAIL_NOT_VERIFIED', async () => {
+    const company = await companiesRepo.create({ name: 'Acme', slug: 'acme-google-3' });
+    await usersRepo.create({ tenantId: company.id, name: 'convidado2@acme.com', email: 'convidado2@acme.com', passwordHash: null, role: 'operacional', status: 'pending' });
+    const service = createAuthService(testDb, fakeGoogleVerifier(googleProfile({ email: 'convidado2@acme.com', emailVerified: false })));
+
+    await expect(service.loginWithGoogle('fake-id-token')).rejects.toMatchObject({ code: 'GOOGLE_EMAIL_NOT_VERIFIED' });
+  });
+
+  async function createPendingUserWithInvite(email: string, slug: string) {
+    const company = await companiesRepo.create({ name: 'Acme', slug });
+    const rawToken = generateOpaqueToken();
+    await usersRepo.create({ tenantId: company.id, name: email, email, passwordHash: null, role: 'operacional', status: 'pending', inviteTokenHash: hashToken(rawToken) });
+    return { company, rawToken };
+  }
+
+  it('claimInviteWithGoogle com token válido e e-mail batendo ativa a conta e invalida o token', async () => {
+    const { rawToken } = await createPendingUserWithInvite('convite1@acme.com', 'acme-claim-1');
+    const service = createAuthService(testDb, fakeGoogleVerifier(googleProfile({ email: 'convite1@acme.com' })));
+
+    const result = await service.claimInviteWithGoogle(rawToken, 'fake-id-token');
+
+    expect(result.token).toBeDefined();
+    expect(result.user.name).toBe('Fulano da Silva');
+    expect(result.user.status).toBe('active');
+
+    // uso único: a mesma reivindicação de novo falha, mesmo token e e-mail corretos.
+    await expect(service.claimInviteWithGoogle(rawToken, 'fake-id-token')).rejects.toMatchObject({ code: 'INVALID_INVITE_TOKEN' });
+  });
+
+  it('claimInviteWithGoogle com token inexistente/inválido falha com INVALID_INVITE_TOKEN', async () => {
+    const service = createAuthService(testDb, fakeGoogleVerifier(googleProfile()));
+    await expect(service.claimInviteWithGoogle('token-que-nunca-existiu', 'fake-id-token')).rejects.toMatchObject({ code: 'INVALID_INVITE_TOKEN' });
+  });
+
+  it('claimInviteWithGoogle com Google de um e-mail diferente do convite falha com INVITE_EMAIL_MISMATCH (token sozinho não basta)', async () => {
+    const { rawToken } = await createPendingUserWithInvite('convite2@acme.com', 'acme-claim-2');
+    // alguém com o token em mãos, mas logando com OUTRA conta Google — não pode reivindicar.
+    const service = createAuthService(testDb, fakeGoogleVerifier(googleProfile({ email: 'outra-pessoa@gmail.com' })));
+
+    await expect(service.claimInviteWithGoogle(rawToken, 'fake-id-token')).rejects.toMatchObject({ code: 'INVITE_EMAIL_MISMATCH' });
+  });
+
+  it('claimInviteWithGoogle com e-mail batendo mas token errado falha com INVALID_INVITE_TOKEN (e-mail sozinho não basta)', async () => {
+    await createPendingUserWithInvite('convite3@acme.com', 'acme-claim-3');
+    const service = createAuthService(testDb, fakeGoogleVerifier(googleProfile({ email: 'convite3@acme.com' })));
+
+    await expect(service.claimInviteWithGoogle('token-errado', 'fake-id-token')).rejects.toMatchObject({ code: 'INVALID_INVITE_TOKEN' });
+  });
+
+  it('creatorsService.regenerateInvite gera um token que funciona pro claim — o antigo (da criação) deixa de funcionar', async () => {
+    const creatorsService = createCreatorsService(testDb);
+    const company = await companiesRepo.create({ name: 'Acme', slug: 'acme-regen' });
+
+    const created = await creatorsService.create(company.id, { email: 'regen@acme.com', employment_type: 'fixed' });
+    const oldToken = created.inviteToken!;
+
+    const { inviteToken: newToken } = await creatorsService.regenerateInvite(company.id, created.id);
+    expect(newToken).not.toBe(oldToken);
+
+    const service = createAuthService(testDb, fakeGoogleVerifier(googleProfile({ email: 'regen@acme.com' })));
+
+    await expect(service.claimInviteWithGoogle(oldToken, 'fake-id-token')).rejects.toMatchObject({ code: 'INVALID_INVITE_TOKEN' });
+
+    const result = await service.claimInviteWithGoogle(newToken, 'fake-id-token');
+    expect(result.user.status).toBe('active');
   });
 
   it('refresh rotaciona o token: o antigo para de funcionar, o novo funciona', async () => {

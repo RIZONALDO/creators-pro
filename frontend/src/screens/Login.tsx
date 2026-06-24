@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Tasks, Schedule, Shift } from 'grommet-icons';
 import { useApp } from '@/context/AppContext';
 import { Spinner } from '@/components/ui';
 import { PasswordInput } from '@/components/PasswordInput';
 import { ApiError } from '@/api/client';
+import { isGoogleSignInConfigured, renderGoogleSignInButton } from '@/lib/googleIdentity';
 
 const REMEMBER_KEY = 'cp_remember_email';
 
@@ -21,12 +22,20 @@ const FEATURES = [
 ];
 
 export function Login() {
-  const { login, theme, toggleTheme } = useApp();
+  const { login, loginWithGoogle, theme, toggleTheme } = useApp();
   const [email, setEmail] = useState(() => localStorage.getItem(REMEMBER_KEY) ?? '');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(() => localStorage.getItem(REMEMBER_KEY) !== null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const googleButtonRef = useRef<HTMLDivElement>(null);
+
+  // Mesma classificação de erro do submit() por senha — reaproveitada pelos dois fluxos.
+  function describeAuthError(err: unknown): string {
+    if (err instanceof ApiError && err.status === 402) return err.message; // assinatura suspensa/cancelada (Fase 9.1)
+    if (!(err instanceof ApiError)) return 'Não foi possível conectar ao servidor. Verifique a rede/Wi-Fi.';
+    return err.message;
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -38,17 +47,33 @@ export function Login() {
       else localStorage.removeItem(REMEMBER_KEY);
     }
     catch (err) {
-      // 402 = credenciais corretas, mas a assinatura da empresa está suspensa/cancelada (Fase 9.1) — mensagem distinta de "senha errada".
-      if (err instanceof ApiError && err.status === 402) setError(err.message);
       // não é ApiError == fetchWithFallback nem chegou a receber resposta HTTP (todos os hosts
       // candidatos falharam) — é rede/host, não senha errada. Misturar os dois confundiu mais de
       // uma vez ao testar pelo IP de LAN (celular): a mensagem de "credenciais" escondia que era
       // só o IP do .env desatualizado.
-      else if (!(err instanceof ApiError)) setError('Não foi possível conectar ao servidor. Verifique a rede/Wi-Fi.');
-      else setError('Não foi possível entrar. Verifique as credenciais.');
+      if (err instanceof ApiError && err.status !== 402) setError('Não foi possível entrar. Verifique as credenciais.');
+      else setError(describeAuthError(err));
     }
     finally { setBusy(false); }
   }
+
+  // Desenha o botão oficial do Google só se houver client id configurado (mesmo padrão opcional de
+  // VAPID/Stripe) — sem isso, a tela de login não muda em nada pra quem não configurou.
+  useEffect(() => {
+    if (!isGoogleSignInConfigured() || !googleButtonRef.current) return;
+    let cancelled = false;
+    renderGoogleSignInButton(googleButtonRef.current, async (idToken) => {
+      setError(''); setBusy(true);
+      try {
+        await loginWithGoogle(idToken);
+      } catch (err) {
+        setError(describeAuthError(err));
+      } finally {
+        setBusy(false);
+      }
+    }, () => cancelled).catch(() => { if (!cancelled) setError('Não foi possível carregar o login com Google.'); });
+    return () => { cancelled = true; };
+  }, []);
 
   // 'demo1234' é a senha do seed do backend real (backend/src/db/seed.ts) — no mock qualquer senha serve.
   const fill = (e: string) => { setEmail(e); setPassword('demo1234'); };
@@ -150,6 +175,27 @@ export function Login() {
                 {busy ? <Spinner /> : 'Entrar'}
               </button>
             </form>
+
+            {/* Visível também no PWA (não só desktop) — é exatamente o login mais fácil pra
+              * operacional no celular: 1 toque, sem digitar senha. Não desenha nada (nem o
+              * separador "ou") quando VITE_GOOGLE_CLIENT_ID não está configurado. */}
+            {isGoogleSignInConfigured() && (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '18px 0' }}>
+                  <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+                  <span style={{ fontSize: 11.5, color: 'var(--tx3)' }}>ou</span>
+                  <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+                </div>
+                {/* Botão padrão do Google, sem customização (tema/tamanho/formato escolhidos pelo
+                  * próprio Google) — só sem largura forçada no ref (senão ele estica pra largura do
+                  * form em vez do tamanho natural dele). minHeight reserva o espaço do botão (40px,
+                  * tamanho padrão) desde já — sem isso, a área nasce com altura 0 e "salta"/expande
+                  * de repente quando o script do Google termina de carregar e desenha o botão. */}
+                <div style={{ display: 'flex', justifyContent: 'center', minHeight: 40 }}>
+                  <div ref={googleButtonRef} />
+                </div>
+              </>
+            )}
 
             {/* Só desktop (>=900px) — no PWA/mobile quem chega aqui já é cliente, não visitante. */}
             <div className="cp-auth-desktop-only" style={{ display: 'flex', gap: 10, marginTop: 16 }}>

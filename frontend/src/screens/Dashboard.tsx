@@ -9,7 +9,7 @@ import { TaskDetailScreen } from '@/components/TaskDetailScreen';
 import { MobileScreen } from '@/components/MobileScreen';
 import { NotificationsList } from '@/components/NotificationsList';
 import { PushPrompt } from '@/components/PushPrompt';
-import { TASK_STATUS_META, SHIFT_STATUS_META, TASK_FORMAT_COLOR, shortDate, initials } from '@/lib/display';
+import { TASK_STATUS_META, SHIFT_STATUS_META, TASK_FORMAT_COLOR, shortDate } from '@/lib/display';
 import { currentWeekWeekdays, todayIso } from '@/lib/dates';
 import type { CreatorTask, Creator, Client, Absence, Shift, ScaleEntry, NotificationType } from '@/types';
 
@@ -266,9 +266,7 @@ function OperationalHome() {
     <div className="cp-fade">
       <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 22 }}>
         <button onClick={() => navigate('/perfil')} style={{ display: 'flex', alignItems: 'center', gap: 13, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}>
-          <div style={{ width: 52, height: 52, borderRadius: '50%', flex: 'none', background: 'linear-gradient(135deg,var(--pri),var(--pri2))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 700, color: '#fff' }}>
-            {initials(user?.name ?? '')}
-          </div>
+          <Avatar name={user?.name ?? ''} size={52} imageUrl={user?.avatar_url} />
           <div style={{ lineHeight: 1.25 }}>
             <div style={{ fontSize: 13.5, color: 'var(--tx3)' }}>{greeting},</div>
             <div style={{ fontSize: 19, fontWeight: 700, fontFamily: "'Plus Jakarta Sans'" }}>{user?.name}</div>

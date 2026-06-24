@@ -1,6 +1,6 @@
 import { and, asc, count, eq, inArray } from 'drizzle-orm';
 import type { db as Db } from '../../db/client.js';
-import { creators, users, type EmploymentType } from '../../db/schema/index.js';
+import { creators, users, type EmploymentType, type UserStatus } from '../../db/schema/index.js';
 import { rethrowAsConflictIfForeignKeyViolation } from '../../lib/dbErrors.js';
 import { firstOrThrow } from '../../lib/firstOrThrow.js';
 import type { Pagination } from '../../lib/pagination.js';
@@ -15,6 +15,10 @@ export interface CreatorView {
   name: string;
   email: string | null;
   phone: string | null;
+  avatarUrl: string | null;
+  // 'pending' = convite só com e-mail, aguardando o primeiro login com Google — distinto do
+  // `active` da tabela creators (esse é "ativo na escala/produção", outro conceito).
+  status: UserStatus;
 }
 
 export interface CreateCreatorRowInput {
@@ -40,6 +44,8 @@ function toView(row: { creators: typeof creators.$inferSelect; users: typeof use
     name: row.users.name,
     email: row.users.email,
     phone: row.users.phone,
+    avatarUrl: row.users.avatarUrl,
+    status: row.users.status,
   };
 }
 

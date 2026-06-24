@@ -134,6 +134,20 @@
       "when": 1782192389702,
       "tag": "0018_overrated_richard_fisk",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1782258928113,
+      "tag": "0019_dapper_sue_storm",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1782303712093,
+      "tag": "0020_neat_the_fallen",
+      "breakpoints": true
     }
   ]
 }

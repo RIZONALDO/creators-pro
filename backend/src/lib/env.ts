@@ -32,4 +32,7 @@ export const env = {
   // https por padrão porque o Vite dev server roda com certificado mkcert quando ele existe
   // (ver frontend/vite.config.ts) — só cai pra http se backend e frontend combinarem sem TLS.
   appUrl: process.env.APP_URL ?? 'https://localhost:5173',
+  // Login com Google — opcional, mesmo padrão de VAPID/Stripe: sem isto, POST /auth/google recusa
+  // com GOOGLE_NOT_CONFIGURED, o resto do app roda normal.
+  googleClientId: process.env.GOOGLE_CLIENT_ID,
 };

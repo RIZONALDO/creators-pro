@@ -1,9 +1,22 @@
-import type { CSSProperties, ReactNode } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 import type { StatusMeta } from '@/types';
 import { avatarColor, initials } from '@/lib/display';
 
 /* ---------------- Avatar ---------------- */
-export function Avatar({ name, size = 34, seed }: { name: string; size?: number; seed?: string }) {
+/** imageUrl: foto real (ex.: do Google, login com Google) — cai pras iniciais se ausente ou se a
+ * imagem falhar ao carregar (ex.: URL do Google revogada/expirada). */
+export function Avatar({ name, size = 34, seed, imageUrl }: { name: string; size?: number; seed?: string; imageUrl?: string | null }) {
+  const [broken, setBroken] = useState(false);
+  if (imageUrl && !broken) {
+    return (
+      <img
+        src={imageUrl}
+        alt={name}
+        onError={() => setBroken(true)}
+        style={{ width: size, height: size, borderRadius: '50%', flex: 'none', objectFit: 'cover' }}
+      />
+    );
+  }
   return (
     <div
       style={{

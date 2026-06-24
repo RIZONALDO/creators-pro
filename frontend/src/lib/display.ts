@@ -4,7 +4,7 @@
  */
 import type {
   TaskFormat, TaskStatus, ServiceStatus,
-  AbsenceStatus, ShiftStatus, StatusMeta, UserRole, CompanyStatus, User,
+  AbsenceStatus, ShiftStatus, StatusMeta, UserRole, UserStatus, CompanyStatus, User,
 } from '@/types';
 
 export const TASK_STATUS_META: Record<TaskStatus, StatusMeta> = {
@@ -79,6 +79,14 @@ export function roleLabel(user: Pick<User, 'role' | 'alias' | 'collaborator_id' 
   if (user.role === 'operacional') return user.collaborator_id ? 'Colaborador' : 'Creator';
   return ROLE_META[user.role].label;
 }
+
+// 'pending' = conta criada só com e-mail, aguardando o primeiro login com Google (não é "Inativo" —
+// inativo é uma desativação explícita do admin, pending é só "ainda não fez o primeiro acesso").
+export const USER_STATUS_META: Record<UserStatus, StatusMeta> = {
+  active:   { label: 'Ativo',    color: '#22C55E', bg: 'rgba(34,197,94,.16)' },
+  inactive: { label: 'Inativo',  color: '#65657C', bg: 'rgba(101,101,124,.14)' },
+  pending:  { label: 'Pendente', color: '#F59E0B', bg: 'rgba(245,158,11,.16)' },
+};
 
 export const COMPANY_STATUS_META: Record<CompanyStatus, StatusMeta> = {
   active:    { label: 'Ativa',     color: '#22C55E', bg: 'rgba(34,197,94,.16)' },

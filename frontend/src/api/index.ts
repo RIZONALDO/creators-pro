@@ -40,6 +40,24 @@ export const auth = {
     setRefreshToken(session.refresh_token);
     return session;
   },
+  /** id_token = credential do Google Identity Services (Login.tsx). Nunca cria conta nova — só
+   * autentica/completa uma já criada por admin/gestor (ver backend auth.service.ts#loginWithGoogle). */
+  async loginWithGoogle(idToken: string): Promise<AuthSession> {
+    if (USE_MOCK) return Promise.reject(new Error('Login com Google não disponível em modo mock.'));
+    const session = await http.post<AuthSession>('/auth/google', { id_token: idToken });
+    setAuthToken(session.token);
+    setRefreshToken(session.refresh_token);
+    return session;
+  },
+  /** Ativa uma conta 'pending' (criada só com e-mail, em Cadastros) — única forma de fazer isso,
+   * nunca pelo botão de login comum (ver backend auth.service.ts#claimInviteWithGoogle pro porquê). */
+  async claimInvite(token: string, idToken: string): Promise<AuthSession> {
+    if (USE_MOCK) return Promise.reject(new Error('Convite não disponível em modo mock.'));
+    const session = await http.post<AuthSession>('/auth/google/claim', { token, id_token: idToken });
+    setAuthToken(session.token);
+    setRefreshToken(session.refresh_token);
+    return session;
+  },
   logout() {
     const refreshToken = getRefreshToken();
     setAuthToken(null);
@@ -59,7 +77,7 @@ export const usersApi = {
   list: (): Promise<User[]> => (USE_MOCK ? delay().then(() => [...db.users]) : http.getList('/users')),
   create: (data: NewUser): Promise<User> => {
     if (USE_MOCK) {
-      const u: User = { id: uid('u'), name: data.name, email: data.email, phone: data.phone, role: data.role, status: data.status, created_at: stamp(), updated_at: stamp() };
+      const u: User = { id: uid('u'), name: data.name, email: data.email, phone: data.phone, role: data.role, status: data.status, created_at: stamp(), updated_at: stamp(), avatar_url: null };
       db.users.push(u);
       return delay().then(() => u);
     }
@@ -93,10 +111,13 @@ export const creatorsApi = {
   list: (): Promise<Creator[]> => (USE_MOCK ? delay().then(() => [...db.creators]) : http.getList('/creators')),
   create: (data: NewCreator): Promise<Creator> => {
     if (USE_MOCK) {
-      // backend cria users + creators; aqui simulamos o JOIN de volta
+      // backend cria users + creators; aqui simulamos o JOIN de volta. Sem nome/senha: convite
+      // "pendente" — nome provisório é o e-mail, status fica pending até o 1º login com Google.
       const userId = uid('u');
-      db.users.push({ id: userId, name: data.name, email: data.email ?? '', phone: data.phone, role: 'operacional', status: 'active', created_at: stamp(), updated_at: stamp() });
-      const c: Creator = { id: uid('cre'), user_id: userId, employment_type: data.employment_type, active: data.active, created_at: stamp(), name: data.name, email: data.email, phone: data.phone };
+      const name = data.name?.trim() || data.email || '';
+      const status = data.password ? 'active' : 'pending';
+      db.users.push({ id: userId, name, email: data.email ?? '', phone: data.phone, role: 'operacional', status, created_at: stamp(), updated_at: stamp(), avatar_url: null });
+      const c: Creator = { id: uid('cre'), user_id: userId, employment_type: data.employment_type, active: data.active, created_at: stamp(), name, email: data.email, phone: data.phone, avatar_url: null, status };
       db.creators.push(c);
       return delay().then(() => c);
     }
@@ -127,6 +148,12 @@ export const creatorsApi = {
     }
     return http.put<void>('/creators/reorder', { creator_ids: creatorIds });
   },
+  /** Gestor perdeu o link mostrado na criação (só aparece uma vez) — gera um token novo,
+   * invalidando o anterior. Só funciona pra conta ainda pending (backend rejeita com 409 senão). */
+  regenerateInvite: (id: string): Promise<{ invite_token: string }> => {
+    if (USE_MOCK) return Promise.reject(new Error('Convite não disponível em modo mock.'));
+    return http.post(`/creators/${id}/invite`);
+  },
 };
 
 /* ============================ COLLABORATORS ============================ */
@@ -134,9 +161,12 @@ export const collaboratorsApi = {
   list: (): Promise<Collaborator[]> => (USE_MOCK ? delay().then(() => [...db.collaborators]) : http.getList('/collaborators')),
   create: (data: NewCollaborator): Promise<Collaborator> => {
     if (USE_MOCK) {
+      // Sem nome/senha: convite "pendente" — mesma lógica de creatorsApi.create.
       const userId = uid('u');
-      db.users.push({ id: userId, name: data.name, email: data.email ?? '', phone: data.phone, role: 'operacional', status: 'active', created_at: stamp(), updated_at: stamp() });
-      const c: Collaborator = { id: uid('col'), user_id: userId, profession: data.profession, employment_type: data.employment_type, active: data.active, created_at: stamp(), name: data.name, email: data.email, phone: data.phone };
+      const name = data.name?.trim() || data.email || '';
+      const status = data.password ? 'active' : 'pending';
+      db.users.push({ id: userId, name, email: data.email ?? '', phone: data.phone, role: 'operacional', status, created_at: stamp(), updated_at: stamp(), avatar_url: null });
+      const c: Collaborator = { id: uid('col'), user_id: userId, profession: data.profession, employment_type: data.employment_type, active: data.active, created_at: stamp(), name, email: data.email, phone: data.phone, avatar_url: null, status };
       db.collaborators.push(c);
       return delay().then(() => c);
     }
@@ -158,6 +188,11 @@ export const collaboratorsApi = {
       return delay();
     }
     return http.del<void>(`/collaborators/${id}`);
+  },
+  /** Mesma lógica de creatorsApi.regenerateInvite. */
+  regenerateInvite: (id: string): Promise<{ invite_token: string }> => {
+    if (USE_MOCK) return Promise.reject(new Error('Convite não disponível em modo mock.'));
+    return http.post(`/collaborators/${id}/invite`);
   },
 };
 

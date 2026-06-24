@@ -3,9 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
 import { TextInput } from '@/components/Modal';
 import { MobileField, MOBILE_INPUT_STYLE } from '@/components/MobileField';
-import { Button } from '@/components/ui';
+import { Avatar, Button } from '@/components/ui';
 import { PushToggle } from '@/components/PushToggle';
-import { initials } from '@/lib/display';
 
 /** Página de perfil do app mobile — navegação por seta de voltar (padrão mobile), não modal. */
 export function Profile() {
@@ -24,9 +23,7 @@ export function Profile() {
 
       <div style={{ padding: '0 18px 28px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 28 }}>
-          <div style={{ width: 76, height: 76, borderRadius: '50%', flex: 'none', background: 'linear-gradient(135deg,var(--pri),var(--pri2))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 700, color: '#fff' }}>
-            {initials(user?.name ?? '')}
-          </div>
+          <Avatar name={user?.name ?? ''} size={76} imageUrl={user?.avatar_url} />
           <button style={{ padding: '12px 18px', borderRadius: 12, background: 'var(--bg2)', border: '1px solid var(--line)', color: 'var(--tx2)', fontSize: 16, fontWeight: 600, cursor: 'pointer' }}>Trocar foto</button>
         </div>
 

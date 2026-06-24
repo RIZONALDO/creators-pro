@@ -48,6 +48,52 @@ describe('rotas de collaborators (integração)', () => {
     expect(login.body.user.role).toBe('operacional');
   });
 
+  it('POST /collaborators só com e-mail (sem nome/senha) cria conta pending, com o e-mail como nome provisório', async () => {
+    const { token } = await loginAsGestor();
+
+    const res = await request(app).post('/collaborators').set('Authorization', `Bearer ${token}`).send({ email: 'convite-colab@acme.com', profession: 'Editor', employment_type: 'freelancer' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.name).toBe('convite-colab@acme.com');
+
+    const login = await request(app).post('/auth/login').send({ email: 'convite-colab@acme.com', password: 'qualquer-coisa' });
+    expect(login.status).toBe(401);
+  });
+
+  it('POST /collaborators sem senha devolve invite_token (link de convite) — com senha, não devolve nenhum', async () => {
+    const { token } = await loginAsGestor();
+
+    const pending = await request(app).post('/collaborators').set('Authorization', `Bearer ${token}`).send({ email: 'convite-colab-token@acme.com', profession: 'Editor', employment_type: 'freelancer' });
+    expect(pending.status).toBe(201);
+    expect(typeof pending.body.invite_token).toBe('string');
+    expect(pending.body.invite_token.length).toBeGreaterThan(20);
+
+    const withPassword = await request(app).post('/collaborators').set('Authorization', `Bearer ${token}`).send({ name: 'Com Senha', email: 'com-senha-colab@acme.com', profession: 'Editor', employment_type: 'freelancer', password: 'senha12345' });
+    expect(withPassword.status).toBe(201);
+    expect(withPassword.body.invite_token).toBeUndefined();
+  });
+
+  it('POST /collaborators/:id/invite numa conta pending gera um invite_token novo, diferente do original', async () => {
+    const { token } = await loginAsGestor();
+    const created = await request(app).post('/collaborators').set('Authorization', `Bearer ${token}`).send({ email: 'regen-colab@acme.com', profession: 'Editor', employment_type: 'freelancer' });
+
+    const res = await request(app).post(`/collaborators/${created.body.id}/invite`).set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(typeof res.body.invite_token).toBe('string');
+    expect(res.body.invite_token).not.toBe(created.body.invite_token);
+  });
+
+  it('POST /collaborators/:id/invite numa conta já ativa falha com 409 NOT_PENDING', async () => {
+    const { token } = await loginAsGestor();
+    const created = await request(app).post('/collaborators').set('Authorization', `Bearer ${token}`).send({ name: 'Ativo', email: 'colab-ja-ativo@acme.com', profession: 'Editor', employment_type: 'freelancer', password: 'senha12345' });
+
+    const res = await request(app).post(`/collaborators/${created.body.id}/invite`).set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('NOT_PENDING');
+  });
+
   it('PUT /collaborators/:id com password reseta a senha — a antiga deixa de funcionar', async () => {
     const { token } = await loginAsGestor();
     const created = await request(app).post('/collaborators').set('Authorization', `Bearer ${token}`).send({ name: 'Reset', email: 'reset-colab@acme.com', profession: 'Editor', employment_type: 'freelancer', password: 'senhaAntiga1' });

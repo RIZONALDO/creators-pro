@@ -71,6 +71,64 @@ describe('rotas de creators (integração)', () => {
     expect(newLogin.status).toBe(200);
   });
 
+  it('POST /creators só com e-mail (sem nome/senha) cria conta pending, com o e-mail como nome provisório', async () => {
+    const { token } = await loginAsGestor();
+
+    const res = await request(app).post('/creators').set('Authorization', `Bearer ${token}`).send({ email: 'convite@acme.com', employment_type: 'freelancer' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.name).toBe('convite@acme.com');
+
+    // login por senha não funciona ainda — só via Google (testado em auth.service.test.ts).
+    const login = await request(app).post('/auth/login').send({ email: 'convite@acme.com', password: 'qualquer-coisa' });
+    expect(login.status).toBe(401);
+  });
+
+  it('POST /creators sem senha devolve invite_token (link de convite) — com senha, não devolve nenhum', async () => {
+    const { token } = await loginAsGestor();
+
+    const pending = await request(app).post('/creators').set('Authorization', `Bearer ${token}`).send({ email: 'convite-token@acme.com', employment_type: 'freelancer' });
+    expect(pending.status).toBe(201);
+    expect(typeof pending.body.invite_token).toBe('string');
+    expect(pending.body.invite_token.length).toBeGreaterThan(20);
+
+    const withPassword = await request(app).post('/creators').set('Authorization', `Bearer ${token}`).send({ name: 'Com Senha', email: 'com-senha-token@acme.com', employment_type: 'freelancer', password: 'senha12345' });
+    expect(withPassword.status).toBe(201);
+    expect(withPassword.body.invite_token).toBeUndefined();
+  });
+
+  it('POST /creators/:id/invite numa conta pending gera um invite_token novo, diferente do original', async () => {
+    const { token } = await loginAsGestor();
+    const created = await request(app).post('/creators').set('Authorization', `Bearer ${token}`).send({ email: 'regen-route@acme.com', employment_type: 'fixed' });
+
+    const res = await request(app).post(`/creators/${created.body.id}/invite`).set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(typeof res.body.invite_token).toBe('string');
+    expect(res.body.invite_token).not.toBe(created.body.invite_token);
+  });
+
+  it('POST /creators/:id/invite numa conta já ativa (com senha) falha com 409 NOT_PENDING', async () => {
+    const { token } = await loginAsGestor();
+    const created = await request(app).post('/creators').set('Authorization', `Bearer ${token}`).send({ name: 'Ativo', email: 'ja-ativo@acme.com', employment_type: 'fixed', password: 'senha12345' });
+
+    const res = await request(app).post(`/creators/${created.body.id}/invite`).set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('NOT_PENDING');
+  });
+
+  it('PUT /creators/:id define senha numa conta pending — depois disso o login por senha funciona', async () => {
+    const { token } = await loginAsGestor();
+    const created = await request(app).post('/creators').set('Authorization', `Bearer ${token}`).send({ email: 'pendente-vira-ativo@acme.com', employment_type: 'fixed' });
+
+    const updateRes = await request(app).put(`/creators/${created.body.id}`).set('Authorization', `Bearer ${token}`).send({ password: 'senhaDefinida1' });
+    expect(updateRes.status).toBe(200);
+
+    const login = await request(app).post('/auth/login').send({ email: 'pendente-vira-ativo@acme.com', password: 'senhaDefinida1' });
+    expect(login.status).toBe(200);
+  });
+
   it('POST /creators com e-mail duplicado retorna 409', async () => {
     const { token } = await loginAsGestor();
     await request(app).post('/creators').set('Authorization', `Bearer ${token}`).send({ name: 'A', email: 'dup@acme.com', employment_type: 'fixed', password: 'senha12345' });

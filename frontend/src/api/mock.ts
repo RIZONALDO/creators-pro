@@ -14,16 +14,16 @@ import type {
 const now = '2026-06-18T12:00:00Z';
 
 export const users: User[] = [
-  { id: 'u1', name: 'Carlos Andrade', email: 'carlos@studionorte.com', phone: '(96) 99100-2030', role: 'admin', status: 'active', created_at: '2026-02-02T10:00:00Z', updated_at: now },
-  { id: 'u2', name: 'Fernanda Lima', email: 'fernanda@studionorte.com', phone: '(96) 99444-1010', role: 'gestor', status: 'active', created_at: '2026-02-05T10:00:00Z', updated_at: now },
-  { id: 'u3', name: 'Mariana Lopes', email: 'mariana@studionorte.com', phone: '(96) 98888-2020', role: 'operacional', status: 'active', created_at: '2026-03-01T10:00:00Z', updated_at: now },
-  { id: 'u4', name: 'João Pedro', email: 'joao@studionorte.com', phone: null, role: 'operacional', status: 'active', created_at: now, updated_at: now },
-  { id: 'u5', name: 'Aline Costa', email: 'aline@studionorte.com', phone: null, role: 'operacional', status: 'active', created_at: now, updated_at: now },
-  { id: 'u6', name: 'Rafael Souza', email: 'rafael@studionorte.com', phone: null, role: 'operacional', status: 'active', created_at: now, updated_at: now },
-  { id: 'u7', name: 'Bruno Tavares', email: 'bruno@studionorte.com', phone: null, role: 'operacional', status: 'active', created_at: now, updated_at: now },
-  { id: 'u8', name: 'Camila Reis', email: 'camila@studionorte.com', phone: null, role: 'operacional', status: 'active', created_at: now, updated_at: now },
-  { id: 'u9', name: 'Larissa Maia', email: 'larissa@studionorte.com', phone: null, role: 'operacional', status: 'active', created_at: now, updated_at: now },
-  { id: 'u10', name: 'Diego Alves', email: 'diego@studionorte.com', phone: null, role: 'operacional', status: 'active', created_at: now, updated_at: now },
+  { id: 'u1', name: 'Carlos Andrade', email: 'carlos@studionorte.com', phone: '(96) 99100-2030', role: 'admin', status: 'active', created_at: '2026-02-02T10:00:00Z', updated_at: now, avatar_url: null },
+  { id: 'u2', name: 'Fernanda Lima', email: 'fernanda@studionorte.com', phone: '(96) 99444-1010', role: 'gestor', status: 'active', created_at: '2026-02-05T10:00:00Z', updated_at: now, avatar_url: null },
+  { id: 'u3', name: 'Mariana Lopes', email: 'mariana@studionorte.com', phone: '(96) 98888-2020', role: 'operacional', status: 'active', created_at: '2026-03-01T10:00:00Z', updated_at: now, avatar_url: null },
+  { id: 'u4', name: 'João Pedro', email: 'joao@studionorte.com', phone: null, role: 'operacional', status: 'active', created_at: now, updated_at: now, avatar_url: null },
+  { id: 'u5', name: 'Aline Costa', email: 'aline@studionorte.com', phone: null, role: 'operacional', status: 'active', created_at: now, updated_at: now, avatar_url: null },
+  { id: 'u6', name: 'Rafael Souza', email: 'rafael@studionorte.com', phone: null, role: 'operacional', status: 'active', created_at: now, updated_at: now, avatar_url: null },
+  { id: 'u7', name: 'Bruno Tavares', email: 'bruno@studionorte.com', phone: null, role: 'operacional', status: 'active', created_at: now, updated_at: now, avatar_url: null },
+  { id: 'u8', name: 'Camila Reis', email: 'camila@studionorte.com', phone: null, role: 'operacional', status: 'active', created_at: now, updated_at: now, avatar_url: null },
+  { id: 'u9', name: 'Larissa Maia', email: 'larissa@studionorte.com', phone: null, role: 'operacional', status: 'active', created_at: now, updated_at: now, avatar_url: null },
+  { id: 'u10', name: 'Diego Alves', email: 'diego@studionorte.com', phone: null, role: 'operacional', status: 'active', created_at: now, updated_at: now, avatar_url: null },
 ];
 
 /** collaborators.profession é VARCHAR — lista de valores usados (não é tabela). */
@@ -31,18 +31,18 @@ export const PROFESSIONS = ['Creator', 'Fotógrafo', 'Operador de Drone', 'Edito
 
 /** creators (JOIN users → name/email/phone) */
 export const creators: Creator[] = [
-  { id: 'ml', user_id: 'u3', employment_type: 'fixed', active: true, created_at: now, name: 'Mariana Lopes', email: 'mariana@studionorte.com', phone: null },
-  { id: 'jp', user_id: 'u4', employment_type: 'fixed', active: true, created_at: now, name: 'João Pedro', email: 'joao@studionorte.com', phone: null },
-  { id: 'ac', user_id: 'u5', employment_type: 'freelancer', active: true, created_at: now, name: 'Aline Costa', email: 'aline@studionorte.com', phone: null },
+  { id: 'ml', user_id: 'u3', employment_type: 'fixed', active: true, created_at: now, name: 'Mariana Lopes', email: 'mariana@studionorte.com', phone: null, avatar_url: null, status: 'active' },
+  { id: 'jp', user_id: 'u4', employment_type: 'fixed', active: true, created_at: now, name: 'João Pedro', email: 'joao@studionorte.com', phone: null, avatar_url: null, status: 'active' },
+  { id: 'ac', user_id: 'u5', employment_type: 'freelancer', active: true, created_at: now, name: 'Aline Costa', email: 'aline@studionorte.com', phone: null, avatar_url: null, status: 'active' },
 ];
 
 /** collaborators (JOIN users) */
 export const collaborators: Collaborator[] = [
-  { id: 'rs', user_id: 'u6', profession: 'Fotógrafo', employment_type: 'freelancer', active: true, created_at: now, name: 'Rafael Souza', email: 'rafael@studionorte.com', phone: null },
-  { id: 'bt', user_id: 'u7', profession: 'Operador de Drone', employment_type: 'fixed', active: true, created_at: now, name: 'Bruno Tavares', email: 'bruno@studionorte.com', phone: null },
-  { id: 'cr', user_id: 'u8', profession: 'Editor', employment_type: 'fixed', active: true, created_at: now, name: 'Camila Reis', email: 'camila@studionorte.com', phone: null },
-  { id: 'lm', user_id: 'u9', profession: 'Roteirista', employment_type: 'freelancer', active: true, created_at: now, name: 'Larissa Maia', email: 'larissa@studionorte.com', phone: null },
-  { id: 'da', user_id: 'u10', profession: 'Sonoplasta', employment_type: 'freelancer', active: true, created_at: now, name: 'Diego Alves', email: 'diego@studionorte.com', phone: null },
+  { id: 'rs', user_id: 'u6', profession: 'Fotógrafo', employment_type: 'freelancer', active: true, created_at: now, name: 'Rafael Souza', email: 'rafael@studionorte.com', phone: null, avatar_url: null, status: 'active' },
+  { id: 'bt', user_id: 'u7', profession: 'Operador de Drone', employment_type: 'fixed', active: true, created_at: now, name: 'Bruno Tavares', email: 'bruno@studionorte.com', phone: null, avatar_url: null, status: 'active' },
+  { id: 'cr', user_id: 'u8', profession: 'Editor', employment_type: 'fixed', active: true, created_at: now, name: 'Camila Reis', email: 'camila@studionorte.com', phone: null, avatar_url: null, status: 'active' },
+  { id: 'lm', user_id: 'u9', profession: 'Roteirista', employment_type: 'freelancer', active: true, created_at: now, name: 'Larissa Maia', email: 'larissa@studionorte.com', phone: null, avatar_url: null, status: 'active' },
+  { id: 'da', user_id: 'u10', profession: 'Sonoplasta', employment_type: 'freelancer', active: true, created_at: now, name: 'Diego Alves', email: 'diego@studionorte.com', phone: null, avatar_url: null, status: 'active' },
 ];
 
 export const clients: Client[] = [

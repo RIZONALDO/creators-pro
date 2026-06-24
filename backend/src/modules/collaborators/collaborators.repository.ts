@@ -1,6 +1,6 @@
 import { and, count, eq } from 'drizzle-orm';
 import type { db as Db } from '../../db/client.js';
-import { collaborators, users, type EmploymentType } from '../../db/schema/index.js';
+import { collaborators, users, type EmploymentType, type UserStatus } from '../../db/schema/index.js';
 import { rethrowAsConflictIfForeignKeyViolation } from '../../lib/dbErrors.js';
 import { firstOrThrow } from '../../lib/firstOrThrow.js';
 import type { Pagination } from '../../lib/pagination.js';
@@ -16,6 +16,9 @@ export interface CollaboratorView {
   name: string;
   email: string | null;
   phone: string | null;
+  avatarUrl: string | null;
+  // 'pending' = convite só com e-mail, aguardando o primeiro login com Google.
+  status: UserStatus;
 }
 
 export interface CreateCollaboratorRowInput {
@@ -44,6 +47,8 @@ function toView(row: { collaborators: typeof collaborators.$inferSelect; users: 
     name: row.users.name,
     email: row.users.email,
     phone: row.users.phone,
+    avatarUrl: row.users.avatarUrl,
+    status: row.users.status,
   };
 }
 

@@ -2,13 +2,14 @@ import { z } from 'zod';
 import { employmentTypeSchema } from '../creators/creators.schemas.js';
 
 export const newCollaboratorSchema = z.object({
-  name: z.string().min(1),
+  // Ambos opcionais: mesma lógica de convite "pendente" de creators.schemas.ts.
+  name: z.string().min(1).optional(),
   email: z.string().email(),
   phone: z.string().nullable().optional(),
   profession: z.string().min(1),
   employment_type: employmentTypeSchema,
   active: z.boolean().optional(),
-  password: z.string().min(8),
+  password: z.string().min(8).optional(),
 });
 
 export const updateCollaboratorSchema = z.object({

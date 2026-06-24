@@ -1,9 +1,9 @@
 import { api } from '@/api';
 import { useAsync } from '@/lib/useAsync';
 import { useToast } from '@/context/ToastContext';
-import { Avatar, Button } from '@/components/ui';
+import { Avatar, Button, StatusPill } from '@/components/ui';
 import { Modal, Field, TextInput, Select } from '@/components/Modal';
-import { ROLE_META, roleLabel } from '@/lib/display';
+import { ROLE_META, USER_STATUS_META, roleLabel } from '@/lib/display';
 import { useState } from 'react';
 import type { User, NewUser, Creator, Collaborator, EmploymentType, UserStatus } from '@/types';
 
@@ -80,11 +80,11 @@ export function AdminUsers() {
           const alias = aliasOf(u);
           return (
             <div key={u.id} onClick={() => openEdit(u)} style={{ display: 'grid', gridTemplateColumns: '1.8fr 1.8fr 1.2fr 1fr 1fr', gap: 14, padding: '14px 20px', borderBottom: '1px solid var(--line)', alignItems: 'center', fontSize: 12.5, cursor: 'pointer' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 11 }}><Avatar name={u.name} size={34} seed={u.id} /><span style={{ fontWeight: 600 }}>{u.name}</span></span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 11 }}><Avatar name={u.name} size={34} seed={u.id} imageUrl={u.avatar_url} /><span style={{ fontWeight: 600 }}>{u.name}</span></span>
               <span style={{ color: 'var(--tx2)' }}>{u.email}</span>
               <span style={{ color: 'var(--tx2)' }}>{u.phone}</span>
               <span><span style={{ fontSize: 11, fontWeight: 700, color: ALIAS_BADGE_COLOR[alias].color, background: ALIAS_BADGE_COLOR[alias].bg, padding: '3px 10px', borderRadius: 7 }}>{roleLabel(u)}</span></span>
-              <span style={{ color: u.status === 'active' ? '#22C55E' : '#65657C' }}>{u.status === 'active' ? 'Ativo' : 'Inativo'}</span>
+              <span><StatusPill meta={USER_STATUS_META[u.status]} /></span>
             </div>
           );
         })}

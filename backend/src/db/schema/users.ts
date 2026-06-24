@@ -2,7 +2,9 @@ import { index, pgEnum, pgTable, text, timestamp, uuid, varchar } from 'drizzle-
 import { companies } from './companies';
 
 export const userRoleEnum = pgEnum('user_role', ['admin', 'gestor', 'operacional']);
-export const userStatusEnum = pgEnum('user_status', ['active', 'inactive']);
+// 'pending': conta criada só com e-mail (sem senha) — aguarda o primeiro login com Google pra
+// capturar nome/foto reais e virar 'active'. Ver auth.service.ts#loginWithGoogle.
+export const userStatusEnum = pgEnum('user_status', ['active', 'inactive', 'pending']);
 
 export type UserRole = (typeof userRoleEnum.enumValues)[number];
 export type UserStatus = (typeof userStatusEnum.enumValues)[number];
@@ -15,8 +17,16 @@ export const users = pgTable(
     name: varchar('name', { length: 255 }).notNull(),
     email: varchar('email', { length: 255 }).notNull().unique(),
     phone: varchar('phone', { length: 50 }),
-    passwordHash: text('password_hash').notNull(),
+    // null enquanto a conta está 'pending' (convite só com e-mail, sem senha — login só via Google
+    // até alguém definir uma senha de fato). Nunca comparar bcrypt contra null (ver auth.service.ts).
+    passwordHash: text('password_hash'),
     avatarUrl: text('avatar_url'),
+    // sub do Google (claim "sub" do ID token) — null até o primeiro login com Google.
+    googleId: varchar('google_id', { length: 255 }).unique(),
+    // hash (sha256) do token de convite — só existe enquanto a conta está 'pending'. Sem ele,
+    // bastava o e-mail bater no Google pra reivindicar uma conta que ninguém provou ser sua;
+    // null de novo depois do primeiro claim (token de uso único). Ver auth.service.ts#claimInviteWithGoogle.
+    inviteTokenHash: varchar('invite_token_hash', { length: 64 }).unique(),
     // Apelido de exibição (ex.: "Coordenador", "Admin") — default vem do role, mas o admin pode
     // sobrescrever por conta (ex.: "Diretor" em vez de "Admin"). Só usado por admin/gestor: conta
     // operacional usa Creator/Colaborador, escolha estrutural (define a tabela), não texto livre.

@@ -13,7 +13,10 @@
 /* ============================ ENUMS ============================ */
 
 export type UserRole = 'admin' | 'gestor' | 'operacional';
-export type UserStatus = 'active' | 'inactive';
+// 'pending': conta criada só com e-mail (sem senha) — login só via Google até a primeira
+// autenticação, que captura nome/foto reais e ativa a conta (ver lib/display.ts#roleLabel e
+// screens/Login.tsx#GoogleSignInButton).
+export type UserStatus = 'active' | 'inactive' | 'pending';
 
 /** creators.employment_type / collaborators.employment_type */
 export type EmploymentType = 'fixed' | 'freelancer';
@@ -58,6 +61,8 @@ export interface User {
   status: UserStatus;
   created_at: string;
   updated_at: string;
+  // Foto do Google (login com Google) — null até o primeiro login com Google, ou se a conta nunca usou Google.
+  avatar_url: string | null;
   // Função/cargo digitado pelo admin (ex.: "Diretor", "Supervisor") — texto livre e opcional, só
   // admin/gestor; sem valor cadastrado, a UI cai pro nome do tipo de acesso (Gestor/Admin), nunca
   // assume um cargo específico. Operacional usa Creator/Colaborador (estrutural, não texto livre).
@@ -254,6 +259,13 @@ export interface Creator extends CreatorRow {
   name: string;
   email: string | null;
   phone: string | null;
+  avatar_url: string | null;
+  // 'pending' = convite só com e-mail, aguardando o primeiro login com Google — distinto do
+  // `active` de CreatorRow (esse é "ativo na escala/produção", outro conceito).
+  status: UserStatus;
+  // Token cru do link de convite (/convite/<token>) — só vem preenchido na resposta do POST que
+  // criou a conta pending; nunca aparece de novo em GET /creators (só o hash fica salvo).
+  invite_token?: string;
 }
 
 /** collaborators JOIN users */
@@ -261,6 +273,9 @@ export interface Collaborator extends CollaboratorRow {
   name: string;
   email: string | null;
   phone: string | null;
+  avatar_url: string | null;
+  status: UserStatus;
+  invite_token?: string;
 }
 
 /** Conversa derivada (NÃO é tabela): agrupamento de messages por par de usuários. */
@@ -353,9 +368,11 @@ export interface AuthSession {
 // 'operacional' não é uma opção aqui de propósito — essa conta só nasce vinculada a um creator ou
 // collaborator (ver NewCreator/NewCollaborator), nunca solta.
 export type NewUser = Pick<User, 'name' | 'email' | 'phone' | 'status' | 'alias'> & { role: 'admin' | 'gestor'; password: string };
-/** creator: cria users + creators. O backend separa nas duas tabelas. */
-export type NewCreator = { name: string; email: string | null; phone: string | null; employment_type: EmploymentType; active: boolean; password: string };
-export type NewCollaborator = { name: string; email: string | null; phone: string | null; profession: string; employment_type: EmploymentType; active: boolean; password: string };
+/** creator: cria users + creators. O backend separa nas duas tabelas.
+ * name/password opcionais: omitir os dois cria um convite "pendente" — a pessoa entra com Google na
+ * primeira vez, que captura nome/foto reais e ativa a conta (ver specs — login com Google). */
+export type NewCreator = { name?: string; email: string | null; phone: string | null; employment_type: EmploymentType; active: boolean; password?: string };
+export type NewCollaborator = { name?: string; email: string | null; phone: string | null; profession: string; employment_type: EmploymentType; active: boolean; password?: string };
 export type NewClient = Pick<Client, 'name' | 'active'>;
 export type NewTask = Pick<CreatorTask, 'title' | 'format_type' | 'task_date' | 'creator_id' | 'client_id' | 'status' | 'description'>;
 export type NewService = Pick<ServiceRow, 'service_name' | 'service_type' | 'collaborator_id' | 'client_id' | 'service_date' | 'status' | 'notes'>;
