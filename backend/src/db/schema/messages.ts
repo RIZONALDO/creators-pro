@@ -1,6 +1,6 @@
 import { boolean, index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
-import { companies } from './companies';
-import { users } from './users';
+import { companies } from './companies.js';
+import { users } from './users.js';
 
 export const messages = pgTable(
   'messages',

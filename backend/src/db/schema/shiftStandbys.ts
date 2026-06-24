@@ -1,7 +1,7 @@
 import { index, pgTable, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
-import { companies } from './companies';
-import { shifts } from './shifts';
-import { creators } from './creators';
+import { companies } from './companies.js';
+import { shifts } from './shifts.js';
+import { creators } from './creators.js';
 
 // Sobreaviso: 0+ creators de backup por plantão, além do plantonista titular (shifts.creator_id).
 // Recebem a mesma notificação 'novo_plantao' do titular — ver shifts.service.ts.

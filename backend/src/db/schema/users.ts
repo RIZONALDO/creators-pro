@@ -1,5 +1,5 @@
 import { index, pgEnum, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
-import { companies } from './companies';
+import { companies } from './companies.js';
 
 export const userRoleEnum = pgEnum('user_role', ['admin', 'gestor', 'operacional']);
 // 'pending': conta criada só com e-mail (sem senha) — aguarda o primeiro login com Google pra

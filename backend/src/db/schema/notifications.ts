@@ -1,6 +1,6 @@
 import { boolean, index, pgEnum, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
-import { companies } from './companies';
-import { users } from './users';
+import { companies } from './companies.js';
+import { users } from './users.js';
 
 // Ver specs/06-regras-de-negocio.md#gatilhos-de-notificação.
 export const notificationTypeEnum = pgEnum('notification_type', [

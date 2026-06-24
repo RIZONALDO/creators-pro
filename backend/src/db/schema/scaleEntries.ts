@@ -1,7 +1,7 @@
 import { boolean, date, index, pgTable, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
-import { companies } from './companies';
-import { scaleMonths } from './scaleMonths';
-import { creators } from './creators';
+import { companies } from './companies.js';
+import { scaleMonths } from './scaleMonths.js';
+import { creators } from './creators.js';
 
 export const scaleEntries = pgTable(
   'scale_entries',

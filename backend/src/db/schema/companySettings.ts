@@ -1,5 +1,5 @@
 import { pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
-import { companies } from './companies';
+import { companies } from './companies.js';
 
 /** Uma linha por tenant (tenant_id é PK e FK ao mesmo tempo) — cobre a permissão "Configurações
  * gerais" do Admin, que não tinha tabela correspondente.

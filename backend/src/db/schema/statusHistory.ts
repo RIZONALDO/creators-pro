@@ -1,6 +1,6 @@
 import { index, pgEnum, pgTable, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
-import { companies } from './companies';
-import { users } from './users';
+import { companies } from './companies.js';
+import { users } from './users.js';
 
 // Polimórfica: cobre task | absence | shift | service com uma única tabela (mesmo padrão de attachments).
 export const historyEntityEnum = pgEnum('history_entity', ['task', 'absence', 'shift', 'service']);

@@ -1,7 +1,7 @@
 import { boolean, index, integer, pgTable, timestamp, uuid } from 'drizzle-orm/pg-core';
-import { companies } from './companies';
-import { users } from './users';
-import { employmentTypeEnum } from './enums';
+import { companies } from './companies.js';
+import { users } from './users.js';
+import { employmentTypeEnum } from './enums.js';
 
 export const creators = pgTable(
   'creators',

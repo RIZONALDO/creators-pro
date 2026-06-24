@@ -1,5 +1,5 @@
 import { boolean, index, pgTable, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
-import { companies } from './companies';
+import { companies } from './companies.js';
 
 export const clients = pgTable(
   'clients',

@@ -1,8 +1,8 @@
 import { date, index, pgEnum, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
-import { companies } from './companies';
-import { collaborators } from './collaborators';
-import { clients } from './clients';
-import { users } from './users';
+import { companies } from './companies.js';
+import { collaborators } from './collaborators.js';
+import { clients } from './clients.js';
+import { users } from './users.js';
 
 export const serviceStatusEnum = pgEnum('service_status', ['agendado', 'em_andamento', 'concluido', 'cancelado']);
 export type ServiceStatus = (typeof serviceStatusEnum.enumValues)[number];

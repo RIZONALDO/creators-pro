@@ -1,6 +1,6 @@
 import { bigint, index, pgEnum, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
-import { companies } from './companies';
-import { users } from './users';
+import { companies } from './companies.js';
+import { users } from './users.js';
 
 // Polimórfica: cobre task | service | absence | shift | message (mesmo padrão de status_history).
 export const attachmentEntityEnum = pgEnum('attachment_entity', ['task', 'service', 'absence', 'shift', 'message']);

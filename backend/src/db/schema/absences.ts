@@ -1,7 +1,7 @@
 import { date, index, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
-import { companies } from './companies';
-import { creators } from './creators';
-import { users } from './users';
+import { companies } from './companies.js';
+import { creators } from './creators.js';
+import { users } from './users.js';
 
 export const absenceStatusEnum = pgEnum('absence_status', ['pending', 'approved', 'rejected']);
 export type AbsenceStatus = (typeof absenceStatusEnum.enumValues)[number];

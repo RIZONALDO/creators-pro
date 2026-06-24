@@ -1,6 +1,6 @@
 import { index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
-import { companies } from './companies';
-import { users } from './users';
+import { companies } from './companies.js';
+import { users } from './users.js';
 
 /** Uma linha por dispositivo/navegador inscrito (PushSubscription da Push API) — um usuário pode ter várias. */
 export const pushSubscriptions = pgTable(

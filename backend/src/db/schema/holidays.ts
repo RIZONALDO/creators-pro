@@ -1,5 +1,5 @@
 import { date, pgTable, unique, uuid, varchar } from 'drizzle-orm/pg-core';
-import { companies } from './companies';
+import { companies } from './companies.js';
 
 export const holidays = pgTable(
   'holidays',
