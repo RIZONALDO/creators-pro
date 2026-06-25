@@ -8,7 +8,8 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[] = []) {
   const run = useCallback(() => {
     let alive = true;
     setLoading(true);
-    fn().then((d) => { if (alive) { setData(d); setLoading(false); } });
+    fn().then((d) => { if (alive) { setData(d); setLoading(false); } })
+        .catch(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
