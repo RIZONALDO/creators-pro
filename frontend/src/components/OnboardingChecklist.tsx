@@ -36,10 +36,10 @@ function StepNumber({ n, done, current }: { n: number; done: boolean; current: b
   );
 }
 
-export function OnboardingChecklist() {
+export function OnboardingChecklist({ refreshToken = 0 }: { refreshToken?: number }) {
   const { user } = useApp();
   const [dismissed, setDismissed] = useState(() => localStorage.getItem('cp_onboarding_dismissed') === '1');
-  const statusReq = useAsync<OnboardingStatus>(() => api.onboarding.status(), []);
+  const statusReq = useAsync<OnboardingStatus>(() => api.onboarding.status(), [refreshToken]);
 
   if (dismissed || statusReq.loading || !statusReq.data) return null;
 

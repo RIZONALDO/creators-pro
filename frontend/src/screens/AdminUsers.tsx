@@ -15,6 +15,8 @@ export function AdminUsers() {
   const users = useAsync<User[]>(() => api.users.list(), []);
   const [newModal, setNewModal] = useState(false);
   const [editTarget, setEditTarget] = useState<User | null>(null);
+  const [deleteError, setDeleteError] = useState(false);
+  const [checklistToken, setChecklistToken] = useState(0);
   const list = users.data ?? [];
 
   const stats = {
@@ -23,20 +25,30 @@ export function AdminUsers() {
   };
 
   async function handleDelete(id: string) {
-    if (!(await confirm({ title: 'Excluir gestor', description: 'Excluir esse acesso de gestor? Essa ação não pode ser desfeita.' }))) return;
+    if (!(await confirm({
+      title: 'Excluir gestor',
+      description: 'Remove o acesso deste gestor à plataforma. Só é possível excluir gestores que ainda não possuem dados cadastrados.',
+    }))) return;
+    setDeleteError(false);
     try {
       await api.users.delete(id);
       users.setData((p) => (p ?? []).filter((u) => u.id !== id));
       setEditTarget(null);
+      setChecklistToken((t) => t + 1);
       toast.success('Gestor excluído');
     } catch (err) {
-      toast.error('Não foi possível excluir', err instanceof Error ? err.message : 'Tente novamente.');
+      const code = (err as { code?: string })?.code;
+      if (code === 'USER_HAS_LINKED_RECORDS') {
+        setDeleteError(true);
+      } else {
+        toast.error('Não foi possível excluir', err instanceof Error ? err.message : 'Tente novamente.');
+      }
     }
   }
 
   return (
     <div className="cp-fade">
-      <OnboardingChecklist />
+      <OnboardingChecklist refreshToken={checklistToken} />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 14, marginBottom: 22 }}>
         <Stat label="Gestores" value={stats.gestores} color="var(--pri)" />
         <Stat label="Total de usuários" value={stats.total} color="var(--tx)" />
@@ -79,7 +91,9 @@ export function AdminUsers() {
       {editTarget && (
         <EditUserModal
           user={editTarget}
-          onClose={() => setEditTarget(null)}
+          deleteError={deleteError}
+          onClearDeleteError={() => setDeleteError(false)}
+          onClose={() => { setEditTarget(null); setDeleteError(false); }}
           onDelete={() => handleDelete(editTarget.id)}
           onUpdateUser={async (id, d) => {
             try {
@@ -141,11 +155,13 @@ function NewUserModal({ onClose, onCreateUser }: {
 }
 
 /** Só gestor chega aqui (admin é leitura na tabela, nunca abre esse modal — ver AdminUsers()). */
-function EditUserModal({ user, onClose, onUpdateUser, onDelete }: {
+function EditUserModal({ user, onClose, onUpdateUser, onDelete, deleteError, onClearDeleteError }: {
   user: User;
   onClose: () => void;
   onUpdateUser: (id: string, d: Partial<Pick<User, 'name' | 'email' | 'phone' | 'status' | 'alias'>> & { password?: string }) => void;
   onDelete: () => void;
+  deleteError: boolean;
+  onClearDeleteError: () => void;
 }) {
   const [f, setF] = useState({ name: user.name, email: user.email, phone: user.phone, status: user.status, funcao: user.alias ?? '', password: '' });
 
@@ -166,6 +182,24 @@ function EditUserModal({ user, onClose, onUpdateUser, onDelete }: {
         <Button variant="ghost" onClick={onClose}>Cancelar</Button>
         <Button onClick={submit}>Salvar</Button>
       </>}>
+
+      {deleteError && (
+        <div style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.25)', borderRadius: 12, padding: '12px 14px', marginBottom: 4, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(239,68,68,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', marginTop: 1 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2.2" strokeLinecap="round"><path d="M12 9v5M12 17.5v.5"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#EF4444', marginBottom: 4 }}>Não é possível excluir este gestor</div>
+            <div style={{ fontSize: 12, color: 'var(--tx2)', lineHeight: 1.55 }}>
+              Ele possui registros vinculados na plataforma — tarefas, creators, colaboradores ou outros dados. Para excluir, transfira ou remova esses dados primeiro.
+            </div>
+          </div>
+          <button onClick={onClearDeleteError} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--tx3)', padding: 2, lineHeight: 1, flex: 'none' }}>
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
+          </button>
+        </div>
+      )}
+
       <Field label="Nome completo"><TextInput value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <Field label="E-mail"><TextInput value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
