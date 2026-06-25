@@ -86,6 +86,8 @@ export function createApp(
   app.use(snakeCaseResponse);
 
   app.use(createAuthRouter(authService));
+  app.use(createPlatformAuthRouter(createPlatformAuthService(db)));
+  app.use(createPlatformTenantsRouter(createPlatformTenantsService(db)));
   app.use(createBillingRouter(billingService));
   app.use(createCreatorsRouter(createCreatorsService(db)));
   app.use(createCollaboratorsRouter(createCollaboratorsService(db)));
@@ -106,8 +108,6 @@ export function createApp(
   app.use(createCompanyRouter(createCompanyService(db)));
   app.use(createAccountRouter(createAccountService(db)));
   app.use(createOnboardingRouter(createOnboardingService(db)));
-  app.use(createPlatformAuthRouter(createPlatformAuthService(db)));
-  app.use(createPlatformTenantsRouter(createPlatformTenantsService(db)));
 
   app.use(errorHandler);
   return app;
