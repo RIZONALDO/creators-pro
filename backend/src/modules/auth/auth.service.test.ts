@@ -242,4 +242,57 @@ describe('authService', () => {
       }),
     ).rejects.toMatchObject({ code: 'SLUG_TAKEN' });
   });
+
+  it('startTrial cria empresa em trial (4h) + admin, e já devolve sessão (login automático)', async () => {
+    const result = await authService.startTrial({
+      companyName: 'Empresa Trial',
+      adminName: 'Admin Trial',
+      adminEmail: 'admin@trial.com',
+      adminPassword: 'senha12345',
+    });
+
+    expect(result.token).toBeDefined();
+    expect(result.refreshToken).toBeDefined();
+    expect(result.user.email).toBe('admin@trial.com');
+    expect(result.user.role).toBe('admin');
+
+    const company = await companiesRepo.findById(result.user.tenantId);
+    expect(company?.status).toBe('trial');
+    expect(company?.trialEndsAt).toBeInstanceOf(Date);
+    // ~4h no futuro (margem generosa pra não ficar flaky por timing).
+    const hoursAhead = (company!.trialEndsAt!.getTime() - Date.now()) / (60 * 60 * 1000);
+    expect(hoursAhead).toBeGreaterThan(3.9);
+    expect(hoursAhead).toBeLessThan(4.1);
+  });
+
+  it('startTrial recusa e-mail já em uso', async () => {
+    await createDemoUser('senha-correta');
+    await expect(
+      authService.startTrial({ companyName: 'Outra', adminName: 'X', adminEmail: 'fulano@acme.com', adminPassword: 'senha12345' }),
+    ).rejects.toMatchObject({ code: 'EMAIL_TAKEN' });
+  });
+
+  it('login funciona normalmente dentro do prazo do trial', async () => {
+    await authService.startTrial({ companyName: 'Trial Válido', adminName: 'Admin', adminEmail: 'valido@trial.com', adminPassword: 'senha12345' });
+
+    const result = await authService.login('valido@trial.com', 'senha12345');
+    expect(result.user.email).toBe('valido@trial.com');
+  });
+
+  it('login falha com TRIAL_EXPIRED depois que trial_ends_at passou (402, não 401 — não é senha errada)', async () => {
+    await authService.startTrial({ companyName: 'Trial Vencido', adminName: 'Admin', adminEmail: 'vencido@trial.com', adminPassword: 'senha12345' });
+    const user = await usersRepo.findByEmail('vencido@trial.com');
+    // força o vencimento direto no banco, sem esperar 4h de verdade.
+    await companiesRepo.setTrialEndsAt(user!.tenantId, new Date(Date.now() - 60_000));
+
+    await expect(authService.login('vencido@trial.com', 'senha12345')).rejects.toMatchObject({ status: 402, code: 'TRIAL_EXPIRED' });
+  });
+
+  it('refresh também bloqueia depois do trial vencer — sessão aberta não escapa do bloqueio', async () => {
+    const { refreshToken } = await authService.startTrial({ companyName: 'Trial Refresh', adminName: 'Admin', adminEmail: 'refresh@trial.com', adminPassword: 'senha12345' });
+    const user = await usersRepo.findByEmail('refresh@trial.com');
+    await companiesRepo.setTrialEndsAt(user!.tenantId, new Date(Date.now() - 60_000));
+
+    await expect(authService.refresh(refreshToken)).rejects.toMatchObject({ code: 'TRIAL_EXPIRED' });
+  });
 });

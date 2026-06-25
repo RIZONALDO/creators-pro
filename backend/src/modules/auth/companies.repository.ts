@@ -6,6 +6,8 @@ import { companies, type CompanyStatus } from '../../db/schema/index.js';
 export interface CreateCompanyInput {
   name: string;
   slug: string;
+  status?: CompanyStatus;
+  trialEndsAt?: Date | null;
 }
 
 export function createCompaniesRepository(db: typeof Db) {
@@ -26,7 +28,10 @@ export function createCompaniesRepository(db: typeof Db) {
     },
 
     async create(input: CreateCompanyInput) {
-      const rows = await db.insert(companies).values({ name: input.name, slug: input.slug }).returning();
+      const rows = await db
+        .insert(companies)
+        .values({ name: input.name, slug: input.slug, status: input.status ?? 'active', trialEndsAt: input.trialEndsAt ?? null })
+        .returning();
       return firstOrThrow(rows);
     },
 
@@ -38,6 +43,12 @@ export function createCompaniesRepository(db: typeof Db) {
 
     async updateStatus(id: string, status: CompanyStatus) {
       const rows = await db.update(companies).set({ status }).where(eq(companies.id, id)).returning();
+      return rows[0] ?? null;
+    },
+
+    /** Só pra teste forçar o vencimento do trial sem esperar 4h de verdade. */
+    async setTrialEndsAt(id: string, trialEndsAt: Date) {
+      const rows = await db.update(companies).set({ trialEndsAt }).where(eq(companies.id, id)).returning();
       return rows[0] ?? null;
     },
   };

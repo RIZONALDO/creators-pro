@@ -11,7 +11,7 @@
     "lint": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:generate": "drizzle-kit generate",
+    "db:generate": "NODE_OPTIONS=--import=tsx drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:migrate:test": "DOTENV_CONFIG_PATH=.env.test tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts"

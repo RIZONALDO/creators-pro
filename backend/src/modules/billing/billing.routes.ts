@@ -6,7 +6,7 @@ import { createRateLimiter } from '../../middleware/rateLimit.js';
 import { stripeClient } from '../../lib/stripe.js';
 import { env } from '../../lib/env.js';
 import { badRequest } from '../../lib/errors.js';
-import { signupSchema } from './billing.schemas.js';
+import { signupSchema, trialSignupSchema, upgradeTrialSchema } from './billing.schemas.js';
 import type { BillingService } from './billing.service.js';
 
 export function createBillingRouter(service: BillingService) {
@@ -25,6 +25,30 @@ export function createBillingRouter(service: BillingService) {
       const input = signupSchema.parse(req.body);
       const result = await service.startSignup(input);
       res.status(201).json({ data: result });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Sem cartão, sem Stripe — cria a empresa direto e já devolve sessão (ver service.startTrial).
+  router.post('/signup/trial', signupRateLimiter, async (req, res, next) => {
+    try {
+      const input = trialSignupSchema.parse(req.body);
+      const result = await service.startTrial(input);
+      res.status(201).json(result);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Sem authenticate de propósito: se o trial já venceu, o login normal está bloqueado (não tem
+  // como chegar a um token) — confirmar e-mail+senha de novo é o único jeito de provar identidade
+  // pra abrir o checkout. Mesmo rate limiter de login/signup (mesma superfície de abuso).
+  router.post('/billing/upgrade-trial', signupRateLimiter, async (req, res, next) => {
+    try {
+      const input = upgradeTrialSchema.parse(req.body);
+      const result = await service.upgradeTrial(input);
+      res.json({ data: result });
     } catch (err) {
       next(err);
     }

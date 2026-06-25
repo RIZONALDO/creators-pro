@@ -4,6 +4,7 @@ import { Tasks, Schedule, Shift } from 'grommet-icons';
 import { useApp } from '@/context/AppContext';
 import { Spinner } from '@/components/ui';
 import { PasswordInput } from '@/components/PasswordInput';
+import { api } from '@/api';
 import { ApiError } from '@/api/client';
 import { isGoogleSignInConfigured, renderGoogleSignInButton } from '@/lib/googleIdentity';
 
@@ -28,11 +29,16 @@ export function Login() {
   const [remember, setRemember] = useState(() => localStorage.getItem(REMEMBER_KEY) !== null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // Trial vencido tem um caminho de recuperação próprio (assinar com as mesmas credenciais já
+  // digitadas) — diferente de SUBSCRIPTION_INACTIVE (também 402), que não tem ação possível aqui
+  // dentro (ver auth.service.ts#assertCompanyUsable pro porquê dos dois serem distintos).
+  const [trialExpired, setTrialExpired] = useState(false);
+  const [upgradeBusy, setUpgradeBusy] = useState(false);
   const googleButtonRef = useRef<HTMLDivElement>(null);
 
   // Mesma classificação de erro do submit() por senha — reaproveitada pelos dois fluxos.
   function describeAuthError(err: unknown): string {
-    if (err instanceof ApiError && err.status === 402) return err.message; // assinatura suspensa/cancelada (Fase 9.1)
+    if (err instanceof ApiError && err.status === 402) return err.message; // assinatura suspensa/cancelada/trial vencido (Fase 9.1)
     if (!(err instanceof ApiError)) return 'Não foi possível conectar ao servidor. Verifique a rede/Wi-Fi.';
     return err.message;
   }
@@ -40,7 +46,7 @@ export function Login() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!email || !password) { setError('Informe e-mail e senha.'); return; }
-    setError(''); setBusy(true);
+    setError(''); setTrialExpired(false); setBusy(true);
     try {
       await login(email, password);
       if (remember) localStorage.setItem(REMEMBER_KEY, email);
@@ -52,9 +58,23 @@ export function Login() {
       // uma vez ao testar pelo IP de LAN (celular): a mensagem de "credenciais" escondia que era
       // só o IP do .env desatualizado.
       if (err instanceof ApiError && err.status !== 402) setError('Não foi possível entrar. Verifique as credenciais.');
-      else setError(describeAuthError(err));
+      else {
+        setError(describeAuthError(err));
+        if (err instanceof ApiError && err.code === 'TRIAL_EXPIRED') setTrialExpired(true);
+      }
     }
     finally { setBusy(false); }
+  }
+
+  async function upgrade() {
+    setUpgradeBusy(true);
+    try {
+      const { checkout_url } = await api.billing.upgradeTrial(email, password);
+      window.location.href = checkout_url;
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Não foi possível iniciar a assinatura. Tente novamente.');
+      setUpgradeBusy(false);
+    }
   }
 
   // Desenha o botão oficial do Google só se houver client id configurado (mesmo padrão opcional de
@@ -74,9 +94,6 @@ export function Login() {
     }, () => cancelled).catch(() => { if (!cancelled) setError('Não foi possível carregar o login com Google.'); });
     return () => { cancelled = true; };
   }, []);
-
-  // 'demo1234' é a senha do seed do backend real (backend/src/db/seed.ts) — no mock qualquer senha serve.
-  const fill = (e: string) => { setEmail(e); setPassword('demo1234'); };
 
   return (
     <div className="cp-auth-page">
@@ -170,10 +187,17 @@ export function Login() {
                 </div>
               )}
 
-              <button type="submit" disabled={busy}
-                style={{ width: '100%', height: 46, borderRadius: 13, border: 'none', background: 'linear-gradient(135deg,var(--pri),var(--pri2))', color: '#fff', fontWeight: 700, fontSize: 14, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.75 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 8px 22px rgba(108,99,255,.4)' }}>
-                {busy ? <Spinner /> : 'Entrar'}
-              </button>
+              {trialExpired ? (
+                <button type="button" disabled={upgradeBusy} onClick={upgrade}
+                  style={{ width: '100%', height: 46, borderRadius: 13, border: 'none', background: 'linear-gradient(135deg,var(--pri),var(--pri2))', color: '#fff', fontWeight: 700, fontSize: 14, cursor: upgradeBusy ? 'default' : 'pointer', opacity: upgradeBusy ? 0.75 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 8px 22px rgba(108,99,255,.4)' }}>
+                  {upgradeBusy ? <Spinner /> : 'Assinar agora — R$ 199,90/mês'}
+                </button>
+              ) : (
+                <button type="submit" disabled={busy}
+                  style={{ width: '100%', height: 46, borderRadius: 13, border: 'none', background: 'linear-gradient(135deg,var(--pri),var(--pri2))', color: '#fff', fontWeight: 700, fontSize: 14, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.75 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 8px 22px rgba(108,99,255,.4)' }}>
+                  {busy ? <Spinner /> : 'Entrar'}
+                </button>
+              )}
             </form>
 
             {/* Visível também no PWA (não só desktop) — é exatamente o login mais fácil pra
@@ -197,12 +221,6 @@ export function Login() {
               </>
             )}
 
-            {/* Só desktop (>=900px) — no PWA/mobile quem chega aqui já é cliente, não visitante. */}
-            <div className="cp-auth-desktop-only" style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-              <button onClick={() => fill('fernanda@studionorte.com')} style={demoBtn}>Gestor</button>
-              <button onClick={() => fill('carlos@studionorte.com')} style={demoBtn}>Admin</button>
-            </div>
-            <div className="cp-auth-desktop-only" style={{ fontSize: 11, color: 'var(--tx3)', textAlign: 'center', marginTop: 10 }}>Acessos demo · clique e entre</div>
           </div>
 
           <div className="cp-auth-desktop-only" style={{ fontSize: 12.5, color: 'var(--tx3)', textAlign: 'center', marginTop: 18 }}>
@@ -213,8 +231,3 @@ export function Login() {
     </div>
   );
 }
-
-const demoBtn: React.CSSProperties = {
-  flex: 1, height: 44, borderRadius: 13, background: 'var(--bg2)', border: '1px solid var(--line2)',
-  color: 'var(--tx)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer',
-};

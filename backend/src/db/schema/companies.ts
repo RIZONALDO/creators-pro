@@ -1,6 +1,10 @@
 import { pgEnum, pgTable, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
 
-export const companyStatusEnum = pgEnum('company_status', ['active', 'suspended', 'cancelled']);
+// 'trial': self-service sem cartão (4h grátis, ver auth.service.ts#startTrial) — login só funciona
+// enquanto trial_ends_at não passou; depois disso é bloqueado igual 'suspended', mas com um motivo
+// (TRIAL_EXPIRED) e um caminho de upgrade próprio (billing.service.ts#upgradeTrial), já que não
+// existe assinatura Stripe nenhuma ainda nesse estado pra mandar e-mail de cobrança.
+export const companyStatusEnum = pgEnum('company_status', ['active', 'suspended', 'cancelled', 'trial']);
 export type CompanyStatus = (typeof companyStatusEnum.enumValues)[number];
 
 export const companies = pgTable('companies', {
@@ -12,6 +16,8 @@ export const companies = pgTable('companies', {
   // (/internal/companies), preenchido só pros que vieram do fluxo de assinatura via Stripe.
   stripeCustomerId: varchar('stripe_customer_id', { length: 255 }).unique(),
   stripeSubscriptionId: varchar('stripe_subscription_id', { length: 255 }),
+  // Só preenchido quando status = 'trial' — momento em que o login passa a ser bloqueado.
+  trialEndsAt: timestamp('trial_ends_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

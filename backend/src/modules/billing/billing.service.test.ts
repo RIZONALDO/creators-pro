@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs';
 import type Stripe from 'stripe';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetDb, testDb, testPool } from '../../test/db.js';
@@ -164,5 +165,60 @@ describe('billingService', () => {
     const result = await service.createPortalSession({ tenantId: company.id, userId: admin.id, role: 'admin' });
     expect(result.portal_url).toBe('https://billing.stripe.com/fake-portal');
     expect(portalCreate).toHaveBeenCalledWith(expect.objectContaining({ customer: 'cus_999' }));
+  });
+
+  it('startTrial delega pro authService.startTrial (sem tocar no Stripe)', async () => {
+    const { stripe, checkoutCreate } = buildFakeStripe();
+    const service = createBillingService(testDb, authService, stripe, 'price_123');
+
+    const result = await service.startTrial({ company_name: 'Trial Billing', admin_name: 'Admin', admin_email: 'admin@trialbilling.com', admin_password: 'senha12345' });
+
+    expect(result.user.email).toBe('admin@trialbilling.com');
+    expect(checkoutCreate).not.toHaveBeenCalled();
+    expect(await companiesRepo.findBySlug('trial-billing')).toMatchObject({ status: 'trial' });
+  });
+
+  it('upgradeTrial recusa credenciais inválidas', async () => {
+    await authService.startTrial({ companyName: 'Trial Senha', adminName: 'Admin', adminEmail: 'senha@trial.com', adminPassword: 'senha-correta' });
+    const service = createBillingService(testDb, authService, buildFakeStripe().stripe, 'price_123');
+
+    await expect(service.upgradeTrial({ email: 'senha@trial.com', password: 'senha-errada' })).rejects.toMatchObject({ status: 401, code: 'INVALID_CREDENTIALS' });
+  });
+
+  it('upgradeTrial recusa empresa que não está em trial (já ativa)', async () => {
+    const company = await companiesRepo.create({ name: 'Já Ativa', slug: 'ja-ativa' });
+    const passwordHash = await bcrypt.hash('senha12345', 4);
+    await usersRepo.create({ tenantId: company.id, name: 'Admin', email: 'admin@ja-ativa.com', passwordHash, role: 'admin' });
+
+    const service = createBillingService(testDb, authService, buildFakeStripe().stripe, 'price_123');
+    await expect(service.upgradeTrial({ email: 'admin@ja-ativa.com', password: 'senha12345' })).rejects.toMatchObject({ status: 400, code: 'NOT_A_TRIAL' });
+  });
+
+  it('upgradeTrial abre checkout com metadata upgrade_company_id (não cria empresa nova)', async () => {
+    const { user } = await authService.startTrial({ companyName: 'Trial Upgrade', adminName: 'Admin', adminEmail: 'admin@trialupgrade.com', adminPassword: 'senha12345' });
+    const { stripe, checkoutCreate } = buildFakeStripe({ checkoutUrl: 'https://checkout.stripe.com/upgrade' });
+    const service = createBillingService(testDb, authService, stripe, 'price_123');
+
+    const result = await service.upgradeTrial({ email: 'admin@trialupgrade.com', password: 'senha12345' });
+
+    expect(result.checkout_url).toBe('https://checkout.stripe.com/upgrade');
+    expect(checkoutCreate).toHaveBeenCalledWith(expect.objectContaining({ metadata: { upgrade_company_id: user.tenantId } }));
+  });
+
+  it('webhook checkout.session.completed com upgrade_company_id ativa a MESMA empresa (mantém os dados)', async () => {
+    const { user } = await authService.startTrial({ companyName: 'Trial Webhook', adminName: 'Admin', adminEmail: 'admin@trialwebhook.com', adminPassword: 'senha12345' });
+    const service = createBillingService(testDb, authService, buildFakeStripe().stripe, 'price_123');
+
+    const adminIdBefore = (await usersRepo.findByEmail('admin@trialwebhook.com'))!.id;
+
+    const event = buildCheckoutCompletedEvent({ upgrade_company_id: user.tenantId }, 'cus_trial_up', 'sub_trial_up');
+    await service.handleWebhookEvent(event);
+
+    const company = await companiesRepo.findById(user.tenantId);
+    expect(company).toMatchObject({ status: 'active', stripeCustomerId: 'cus_trial_up', stripeSubscriptionId: 'sub_trial_up' });
+
+    // mesmo admin de antes — não duplicou nem criou outro usuário/empresa.
+    const adminAfter = await usersRepo.findByEmail('admin@trialwebhook.com');
+    expect(adminAfter!.id).toBe(adminIdBefore);
   });
 });

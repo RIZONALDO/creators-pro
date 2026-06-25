@@ -541,7 +541,7 @@ export interface SignupInput {
 }
 
 export interface BillingStatus {
-  status: 'active' | 'suspended' | 'cancelled';
+  status: 'active' | 'suspended' | 'cancelled' | 'trial';
   has_subscription: boolean;
 }
 
@@ -549,6 +549,21 @@ export const billingApi = {
   signup: (input: SignupInput): Promise<{ checkout_url: string }> => {
     if (USE_MOCK) return Promise.reject(new Error('Cadastro não disponível em modo mock.'));
     return http.post<{ data: { checkout_url: string } }>('/signup', input).then((r) => r.data);
+  },
+  /** Sem cartão, sem Stripe — cria a empresa direto e já devolve sessão (login automático). */
+  startTrial: (input: SignupInput): Promise<AuthSession> => {
+    if (USE_MOCK) return Promise.reject(new Error('Teste grátis não disponível em modo mock.'));
+    return http.post<AuthSession>('/signup/trial', input).then((session) => {
+      setAuthToken(session.token);
+      setRefreshToken(session.refresh_token);
+      return session;
+    });
+  },
+  /** Sem sessão de propósito (trial vencido = login bloqueado) — confirma e-mail+senha de novo pra
+   * provar identidade e abrir o checkout, mantendo a MESMA empresa (ver billing.service.ts#upgradeTrial). */
+  upgradeTrial: (email: string, password: string): Promise<{ checkout_url: string }> => {
+    if (USE_MOCK) return Promise.reject(new Error('Assinatura não disponível em modo mock.'));
+    return http.post<{ data: { checkout_url: string } }>('/billing/upgrade-trial', { email, password }).then((r) => r.data);
   },
   /** Admin já logado, gerenciando a própria cobrança (seção Cobrança) — Stripe Customer Portal. */
   portal: (): Promise<{ portal_url: string }> => {

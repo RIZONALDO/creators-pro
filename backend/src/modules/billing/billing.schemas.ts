@@ -6,3 +6,11 @@ export const signupSchema = z.object({
   admin_email: z.string().trim().toLowerCase().email('E-mail inválido.'),
   admin_password: z.string().min(8, 'Senha precisa ter pelo menos 8 caracteres.'),
 });
+
+/** Mesmo formato de signupSchema — usado pra criar a empresa/admin direto, sem Stripe (trial de 4h). */
+export const trialSignupSchema = signupSchema;
+
+export const upgradeTrialSchema = z.object({
+  email: z.string().trim().toLowerCase().email('E-mail inválido.'),
+  password: z.string().min(1, 'Informe a senha.'),
+});

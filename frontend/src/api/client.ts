@@ -81,7 +81,7 @@ export function setOnSessionExpired(cb: (() => void) | null) {
 }
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(public status: number, message: string, public code?: string) {
     super(message);
     this.name = 'ApiError';
   }
@@ -136,9 +136,14 @@ async function request<T>(method: string, path: string, body?: unknown, isRetry 
 
   if (!res.ok) {
     let msg = res.statusText;
+    let code: string | undefined;
     // backend real responde { error: { code, message } } — mock antigo esperava { message } direto.
-    try { msg = (await res.json()).error?.message ?? msg; } catch { /* ignore */ }
-    throw new ApiError(res.status, msg);
+    try {
+      const body = (await res.json()).error;
+      msg = body?.message ?? msg;
+      code = body?.code;
+    } catch { /* ignore */ }
+    throw new ApiError(res.status, msg, code);
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;

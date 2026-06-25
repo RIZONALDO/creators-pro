@@ -92,6 +92,7 @@ export const COMPANY_STATUS_META: Record<CompanyStatus, StatusMeta> = {
   active:    { label: 'Ativa',     color: '#22C55E', bg: 'rgba(34,197,94,.16)' },
   suspended: { label: 'Suspensa',  color: '#F59E0B', bg: 'rgba(245,158,11,.16)' },
   cancelled: { label: 'Cancelada', color: '#EF4444', bg: 'rgba(239,68,68,.16)' },
+  trial:     { label: 'Teste',     color: '#6C63FF', bg: 'rgba(108,99,255,.16)' },
 };
 
 /** Paleta determinística para avatares, derivada do id/nome. */

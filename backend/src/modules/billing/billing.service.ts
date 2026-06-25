@@ -2,27 +2,18 @@ import bcrypt from 'bcryptjs';
 import type Stripe from 'stripe';
 import type { db as Db } from '../../db/client.js';
 import type { AuthContext } from '../../middleware/authenticate.js';
-import { badRequest, conflict } from '../../lib/errors.js';
+import { badRequest, conflict, unauthorized } from '../../lib/errors.js';
 import { stripeClient } from '../../lib/stripe.js';
 import { env } from '../../lib/env.js';
+import { slugify, uniqueSlug } from '../../lib/slug.js';
 import { createCompaniesRepository } from '../auth/companies.repository.js';
 import { createUsersRepository } from '../auth/users.repository.js';
 import type { AuthService } from '../auth/auth.service.js';
-import type { signupSchema } from './billing.schemas.js';
+import type { signupSchema, upgradeTrialSchema } from './billing.schemas.js';
 import type { z } from 'zod';
 
 type SignupInput = z.infer<typeof signupSchema>;
-
-function slugify(name: string): string {
-  const base = name
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 80);
-  return base || 'empresa';
-}
+type UpgradeTrialInput = z.infer<typeof upgradeTrialSchema>;
 
 /**
  * `stripe`/`priceId` são injetáveis (mesmo padrão de emitter/pushSender) — o teste constrói o
@@ -44,14 +35,8 @@ export function createBillingService(
     return { stripe, priceId };
   }
 
-  async function uniqueSlug(base: string): Promise<string> {
-    let slug = base;
-    let attempt = 1;
-    while (await companiesRepo.findBySlug(slug)) {
-      attempt += 1;
-      slug = `${base}-${attempt}`;
-    }
-    return slug;
+  async function uniqueCompanySlug(base: string): Promise<string> {
+    return uniqueSlug(base, async (slug) => !!(await companiesRepo.findBySlug(slug)));
   }
 
   return {
@@ -86,15 +71,29 @@ export function createBillingService(
       return { checkout_url: session.url };
     },
 
-    /** Webhook Stripe — único lugar que de fato cria empresa/admin (pagamento) ou suspende (cancelamento/falha). */
+    /** Webhook Stripe — único lugar que de fato cria empresa/admin (pagamento), ativa um trial que
+     * decidiu assinar (upgradeTrial), ou suspende (cancelamento/falha). */
     async handleWebhookEvent(event: Stripe.Event) {
       if (event.type === 'checkout.session.completed') {
         const session = event.data.object as Stripe.Checkout.Session;
         const meta = session.metadata;
+
+        // Upgrade de trial: empresa já existe (com os dados que a pessoa cadastrou nas 4h de
+        // teste) — só ativa e liga a assinatura, nunca cria nada novo (senão perderia tudo que
+        // ela já tinha configurado).
+        if (meta?.upgrade_company_id) {
+          await companiesRepo.updateStatus(meta.upgrade_company_id, 'active');
+          await companiesRepo.setStripeIds(meta.upgrade_company_id, {
+            stripeCustomerId: String(session.customer),
+            stripeSubscriptionId: session.subscription ? String(session.subscription) : null,
+          });
+          return;
+        }
+
         // sessão sem esses campos não é um signup nosso (ex.: checkout criado por outro fluxo) — ignora.
         if (!meta?.company_name || !meta.admin_name || !meta.admin_email || !meta.admin_password_hash) return;
 
-        const slug = await uniqueSlug(slugify(meta.company_name));
+        const slug = await uniqueCompanySlug(slugify(meta.company_name));
         const { company } = await authService.provisionCompanyFromHash({
           name: meta.company_name,
           slug,
@@ -147,6 +146,54 @@ export function createBillingService(
       const company = await companiesRepo.findById(auth.tenantId);
       if (!company) throw badRequest('COMPANY_NOT_FOUND', 'Empresa não encontrada.');
       return { status: company.status, has_subscription: !!company.stripeSubscriptionId };
+    },
+
+    /** Teste de 4h sem cartão — não passa pela Stripe (decisão deliberada: cobrança automática
+     * numa janela tão curta é risco de disputa/reputação numa marca nova; ver upgradeTrial pro
+     * caminho de quem decide continuar). Delega pro auth.service.ts, que já sabe criar
+     * empresa+admin+sessão (mesmo núcleo do provisionamento manual). */
+    async startTrial(input: SignupInput) {
+      return authService.startTrial({
+        companyName: input.company_name,
+        adminName: input.admin_name,
+        adminEmail: input.admin_email,
+        adminPassword: input.admin_password,
+      });
+    },
+
+    /**
+     * Quem decide assinar (trial ainda válido ou já vencido) confirma a própria senha de novo —
+     * não tem sessão pra reaproveitar aqui de propósito: se o trial já venceu, o login está
+     * bloqueado (ver auth.service.ts#login), então pedir e-mail+senha de novo é o único jeito de
+     * provar identidade sem precisar reativar o acesso primeiro. Mantém a MESMA empresa (e os
+     * dados que já tinha) — nunca cria uma nova.
+     */
+    async upgradeTrial(input: UpgradeTrialInput) {
+      const { stripe, priceId } = requireStripe();
+
+      const user = await usersRepo.findByEmail(input.email);
+      if (!user || user.role !== 'admin' || !user.passwordHash) {
+        throw unauthorized('INVALID_CREDENTIALS', 'E-mail ou senha inválidos.');
+      }
+      const passwordOk = await bcrypt.compare(input.password, user.passwordHash);
+      if (!passwordOk) throw unauthorized('INVALID_CREDENTIALS', 'E-mail ou senha inválidos.');
+
+      const company = await companiesRepo.findById(user.tenantId);
+      if (!company || company.status !== 'trial') {
+        throw badRequest('NOT_A_TRIAL', 'Esta conta não está em período de teste.');
+      }
+
+      const session = await stripe.checkout.sessions.create({
+        mode: 'subscription',
+        line_items: [{ price: priceId, quantity: 1 }],
+        customer_email: user.email,
+        success_url: `${env.appUrl}/login`,
+        cancel_url: `${env.appUrl}/login`,
+        metadata: { upgrade_company_id: company.id },
+      });
+
+      if (!session.url) throw badRequest('CHECKOUT_SESSION_ERROR', 'Não foi possível iniciar o checkout.');
+      return { checkout_url: session.url };
     },
   };
 }

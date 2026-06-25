@@ -4,7 +4,9 @@ import { conflict, paymentRequired, unauthorized } from '../../lib/errors.js';
 import { verifyGoogleIdToken as defaultVerifyGoogleIdToken, type GoogleProfile } from '../../lib/googleAuth.js';
 import { signAccessToken } from '../../lib/jwt.js';
 import { sanitizeUser } from '../../lib/sanitizeUser.js';
+import { slugify, uniqueSlug } from '../../lib/slug.js';
 import { generateOpaqueToken, hashToken } from '../../lib/tokens.js';
+import type { CompanyStatus } from '../../db/schema/index.js';
 import { createCreatorsRepository } from '../creators/creators.repository.js';
 import { createCollaboratorsRepository } from '../collaborators/collaborators.repository.js';
 import { createCompanyRepository } from '../company/company.repository.js';
@@ -13,6 +15,7 @@ import { createRefreshTokensRepository } from './refreshTokens.repository.js';
 import { createUsersRepository, type CreateUserInput, type LinkGoogleProfileInput } from './users.repository.js';
 
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
+const TRIAL_DURATION_MS = 4 * 60 * 60 * 1000; // 4 horas
 
 /** verifyGoogleIdToken é injetável (mesmo padrão de stripe em billing.service.ts) — o teste injeta
  * um fake em vez de chamar o Google de verdade. */
@@ -43,6 +46,26 @@ export function createAuthService(
     };
   }
 
+  /** Checagem compartilhada por login/loginWithGoogle/claimInviteWithGoogle/refresh — única fonte
+   * de verdade pra "essa empresa pode usar o sistema agora". 'trial' só passa enquanto
+   * trial_ends_at não chegou; depois disso é bloqueada com um motivo (TRIAL_EXPIRED) diferente de
+   * suspensão por pagamento, já que não existe assinatura Stripe nenhuma nesse estado pra avisar
+   * o cliente por e-mail — o aviso só pode vir daqui. Sem essa checagem em refresh() também, uma
+   * sessão aberta antes do trial vencer renovaria o access token pra sempre via refresh_token (30
+   * dias), nunca sendo de fato bloqueada — o mesmo já valeria pra empresa suspensa por pagamento. */
+  function assertCompanyUsable(company: { status: CompanyStatus; trialEndsAt: Date | null } | null) {
+    if (!company) throw paymentRequired('SUBSCRIPTION_INACTIVE', 'Assinatura suspensa ou cancelada. Atualize o pagamento para continuar.');
+    if (company.status === 'trial') {
+      if (!company.trialEndsAt || company.trialEndsAt.getTime() < Date.now()) {
+        throw paymentRequired('TRIAL_EXPIRED', 'Seu teste grátis de 4 horas acabou. Assine para continuar usando.');
+      }
+      return;
+    }
+    if (company.status !== 'active') {
+      throw paymentRequired('SUBSCRIPTION_INACTIVE', 'Assinatura suspensa ou cancelada. Atualize o pagamento para continuar.');
+    }
+  }
+
   async function issueSession(user: { id: string; tenantId: string; role: 'admin' | 'gestor' | 'operacional' }, userAgent?: string) {
     const token = signAccessToken({ sub: user.id, tenant_id: user.tenantId, role: user.role });
 
@@ -58,13 +81,14 @@ export function createAuthService(
     return { token, refreshToken };
   }
 
-  /** Núcleo compartilhado por provisionCompany() (senha em texto puro, /internal/companies) e
-   * provisionCompanyFromHash() (hash já pronto, vindo do webhook de pagamento — Fase 9.1). */
-  async function createCompanyAndAdmin(input: { name: string; slug: string; adminName: string; adminEmail: string; passwordHash: string }) {
+  /** Núcleo compartilhado por provisionCompany() (senha em texto puro, /internal/companies),
+   * provisionCompanyFromHash() (hash já pronto, vindo do webhook de pagamento — Fase 9.1) e
+   * startTrial() (status/trialEndsAt — sem isso, status sai 'active' por padrão). */
+  async function createCompanyAndAdmin(input: { name: string; slug: string; adminName: string; adminEmail: string; passwordHash: string; status?: CompanyStatus; trialEndsAt?: Date | null }) {
     const existing = await companiesRepo.findBySlug(input.slug);
     if (existing) throw conflict('SLUG_TAKEN', 'Já existe uma empresa com este slug.');
 
-    const company = await companiesRepo.create({ name: input.name, slug: input.slug });
+    const company = await companiesRepo.create({ name: input.name, slug: input.slug, status: input.status, trialEndsAt: input.trialEndsAt });
     // sem isso, company_settings.display_name nasce vazio e o admin via "Configurações da empresa"
     // sem nada — apesar de já ter digitado o nome da empresa no signup, só que noutra tabela.
     await companySettingsRepo.upsert(company.id, { displayName: input.name });
@@ -94,12 +118,10 @@ export function createAuthService(
         throw unauthorized('INVALID_CREDENTIALS', 'E-mail ou senha inválidos.');
       }
 
-      // Fase 9.1: credenciais corretas, mas a assinatura da empresa não está ativa (pagamento
-      // falhou/cancelou) — 402, não 401, pra não confundir com "senha errada" no frontend.
+      // Fase 9.1: credenciais corretas, mas a empresa não pode usar o sistema agora (suspensa,
+      // cancelada, ou trial vencido) — 402, não 401, pra não confundir com "senha errada" no frontend.
       const company = await companiesRepo.findById(user.tenantId);
-      if (!company || company.status !== 'active') {
-        throw paymentRequired('SUBSCRIPTION_INACTIVE', 'Assinatura suspensa ou cancelada. Atualize o pagamento para continuar.');
-      }
+      assertCompanyUsable(company);
 
       const session = await issueSession(user, userAgent);
       return { ...session, user: await buildUserResponse(user) };
@@ -131,9 +153,7 @@ export function createAuthService(
       }
 
       const company = await companiesRepo.findById(user.tenantId);
-      if (!company || company.status !== 'active') {
-        throw paymentRequired('SUBSCRIPTION_INACTIVE', 'Assinatura suspensa ou cancelada. Atualize o pagamento para continuar.');
-      }
+      assertCompanyUsable(company);
 
       const patch: LinkGoogleProfileInput = {};
       if (user.googleId !== profile.googleId) patch.googleId = profile.googleId;
@@ -168,9 +188,7 @@ export function createAuthService(
       }
 
       const company = await companiesRepo.findById(user.tenantId);
-      if (!company || company.status !== 'active') {
-        throw paymentRequired('SUBSCRIPTION_INACTIVE', 'Assinatura suspensa ou cancelada. Atualize o pagamento para continuar.');
-      }
+      assertCompanyUsable(company);
 
       const finalUser = await usersRepo.linkGoogleProfile(user.id, {
         googleId: profile.googleId,
@@ -195,6 +213,10 @@ export function createAuthService(
       if (!user || user.status !== 'active') {
         throw unauthorized('INVALID_REFRESH_TOKEN', 'Sessão expirada, faça login novamente.');
       }
+      // Sem isso, uma sessão aberta antes de a empresa ser suspensa (ou o trial vencer) renovaria
+      // o access token pra sempre via refresh_token (30 dias) sem nunca ser bloqueada de fato.
+      const company = await companiesRepo.findById(user.tenantId);
+      assertCompanyUsable(company);
 
       await refreshTokensRepo.revoke(tokenRow.id); // rotação: token antigo nunca reutilizável
       const session = await issueSession(user, userAgent);
@@ -224,6 +246,36 @@ export function createAuthService(
      * do /signup, antes de ir pro Checkout) porque a empresa só é criada DEPOIS do pagamento confirmar. */
     async provisionCompanyFromHash(input: { name: string; slug: string; adminName: string; adminEmail: string; passwordHash: string }) {
       return createCompanyAndAdmin(input);
+    },
+
+    /** Teste de 4h sem cartão — cria a empresa/admin imediatamente (diferente de startSignup, que
+     * só cria depois do pagamento confirmar) e já devolve sessão (login automático), já que não
+     * tem checkout nenhum pra redirecionar. Sem isso, a pessoa cadastraria e cairia numa tela de
+     * login pra digitar a senha que ela mesma escolheu há 2 segundos — fricção sem propósito. */
+    async startTrial(input: { companyName: string; adminName: string; adminEmail: string; adminPassword: string }) {
+      const existingUser = await usersRepo.findByEmail(input.adminEmail);
+      if (existingUser) throw conflict('EMAIL_TAKEN', 'Já existe uma conta com este e-mail.');
+
+      const passwordHash = await bcrypt.hash(input.adminPassword, 10);
+      const slug = await uniqueSlug(slugify(input.companyName), async (s) => !!(await companiesRepo.findBySlug(s)));
+
+      await createCompanyAndAdmin({
+        name: input.companyName,
+        slug,
+        adminName: input.adminName,
+        adminEmail: input.adminEmail,
+        passwordHash,
+        status: 'trial',
+        trialEndsAt: new Date(Date.now() + TRIAL_DURATION_MS),
+      });
+
+      // createCompanyAndAdmin devolve o admin já sanitizado (sem passwordHash) — buildUserResponse
+      // exige o row completo (sanitiza de novo por dentro), por isso busca de novo em vez de reusar.
+      const adminUser = await usersRepo.findByEmail(input.adminEmail);
+      if (!adminUser) throw conflict('EMAIL_TAKEN', 'Não foi possível concluir o cadastro — tente novamente.');
+
+      const session = await issueSession(adminUser);
+      return { ...session, user: await buildUserResponse(adminUser) };
     },
   };
 }

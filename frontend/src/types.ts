@@ -235,8 +235,9 @@ export interface Attachment {
   created_at: string;
 }
 
-/** companies.status — controlado pelo webhook do Stripe (ver billing.service.ts), nunca pelo frontend. */
-export type CompanyStatus = 'active' | 'suspended' | 'cancelled';
+/** companies.status — controlado pelo webhook do Stripe (ver billing.service.ts), nunca pelo
+ * frontend. 'trial' = teste de 4h sem cartão (ver auth.service.ts#startTrial). */
+export type CompanyStatus = 'active' | 'suspended' | 'cancelled' | 'trial';
 
 /** company_settings — 1 linha por tenant; GET liberado a qualquer autenticado, PUT só admin.
  * Dois grupos: dados da empresa (display_name/logo_url — só organizacional) e dados do app
