@@ -57,6 +57,11 @@ export function createApp(
   billingDeps?: { stripe?: Stripe | null; priceId?: string; webhookSecret?: string },
 ) {
   const app = express();
+  // Atrás de exatamente 1 proxy reverso em produção (nginx, ver DEPLOY.md) — sem isso,
+  // express-rate-limit vê o X-Forwarded-For do nginx e rejeita (ERR_ERL_UNEXPECTED_X_FORWARDED_FOR),
+  // e pior: sem isso req.ip vira sempre o IP do nginx (127.0.0.1), juntando todo mundo no mesmo
+  // balde de rate limit de login/signup. Inofensivo em dev/test (sem proxy na frente, sem header).
+  app.set('trust proxy', 1);
   app.use(requestLogger);
   app.use(cors());
 
