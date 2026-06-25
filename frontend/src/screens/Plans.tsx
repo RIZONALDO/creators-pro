@@ -4,15 +4,15 @@ import { StatusGood } from 'grommet-icons';
 import { api, type PublicPlan } from '@/api';
 
 function fmtPrice(plan: PublicPlan): { main: string; note: string } {
-  const value = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: plan.currency.toUpperCase() }).format(plan.priceCents / 100);
+  const value = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: plan.currency.toUpperCase() }).format(plan.price_cents / 100);
   const notes: Record<string, string> = { monthly: 'por mês', yearly: 'por ano', one_time: 'pagamento único', manual: '' };
-  return { main: value, note: notes[plan.billingType] ?? '' };
+  return { main: value, note: notes[plan.billing_type] ?? '' };
 }
 
 function planFeatures(plan: PublicPlan): string[] {
   const feats: string[] = [];
-  if (plan.maxGestores != null) feats.push(`Até ${plan.maxGestores} gestor${plan.maxGestores !== 1 ? 'es' : ''}`);
-  if (plan.maxCreators != null) feats.push(`Até ${plan.maxCreators} creator${plan.maxCreators !== 1 ? 's' : ''}`);
+  if (plan.max_gestores != null) feats.push(`Até ${plan.max_gestores} gestor${plan.max_gestores !== 1 ? 'es' : ''}`);
+  if (plan.max_creators != null) feats.push(`Até ${plan.max_creators} creator${plan.max_creators !== 1 ? 's' : ''}`);
   feats.push('Tarefas, escala e plantões sem planilha', 'Relatórios e indicadores de produção', 'Mensagens internas com a equipe', 'App mobile (PWA)');
   return feats;
 }
@@ -32,7 +32,7 @@ export function Plans() {
 
   // Planos sem Stripe (manual) não podem fazer signup — só podem ser atribuídos pelo superadmin
   const signupPlans = hasDynamicPlans
-    ? plans.filter((p) => p.stripePriceId || p.billingType === 'manual')
+    ? plans.filter((p) => p.stripe_price_id || p.billing_type === 'manual')
     : null;
 
   return (
@@ -74,16 +74,16 @@ export function Plans() {
             {signupPlans && signupPlans.map((plan, idx) => {
               const { main, note } = fmtPrice(plan);
               const isFirst = idx === 0;
-              const canSignup = !!plan.stripePriceId;
+              const canSignup = !!plan.stripe_price_id;
               return (
                 <PlanCard
                   key={plan.id}
                   name={plan.name}
                   price={main}
                   priceNote={note}
-                  cta={canSignup ? (plan.billingType === 'one_time' ? 'Adquirir agora' : 'Assinar agora') : 'Entre em contato'}
+                  cta={canSignup ? (plan.billing_type === 'one_time' ? 'Adquirir agora' : 'Assinar agora') : 'Entre em contato'}
                   highlighted={isFirst}
-                  footnote={plan.billingType === 'monthly' ? 'Cancele quando quiser' : undefined}
+                  footnote={plan.billing_type === 'monthly' ? 'Cancele quando quiser' : undefined}
                   features={planFeatures(plan)}
                   onSelect={() => {
                     if (canSignup) navigate(`/cadastro?plano=pro&plan_id=${plan.id}`);

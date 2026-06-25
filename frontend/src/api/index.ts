@@ -558,12 +558,12 @@ export const companyApi = {
 export interface PublicPlan {
   id: string;
   name: string;
-  billingType: 'monthly' | 'yearly' | 'one_time' | 'manual';
-  priceCents: number;
+  billing_type: 'monthly' | 'yearly' | 'one_time' | 'manual';
+  price_cents: number;
   currency: string;
-  maxGestores: number | null;
-  maxCreators: number | null;
-  stripePriceId: string | null;
+  max_gestores: number | null;
+  max_creators: number | null;
+  stripe_price_id: string | null;
 }
 
 export interface SignupInput {
