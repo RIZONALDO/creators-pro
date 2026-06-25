@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '@/api';
 import { ApiError } from '@/api/client';
 import { Spinner } from '@/components/ui';
@@ -11,9 +11,13 @@ type Busy = 'trial' | 'subscribe' | null;
 
 /** Cadastro público — dois caminhos com os mesmos dados: testar 4h sem cartão (cria a empresa
  * direto, login automático) ou assinar de cara (abre o Checkout do Stripe; a empresa só é criada
- * de fato depois do pagamento confirmar, via webhook). */
+ * de fato depois do pagamento confirmar, via webhook). `?plano=trial|pro` vem da Plans.tsx — só
+ * destaca visualmente o botão correspondente (o formulário continua o mesmo, os dois caminhos
+ * sempre disponíveis). */
 export function Signup() {
   const { startTrial } = useApp();
+  const [searchParams] = useSearchParams();
+  const proSelected = searchParams.get('plano') === 'pro';
   const [companyName, setCompanyName] = useState('');
   const [adminName, setAdminName] = useState('');
   const [email, setEmail] = useState('');
@@ -88,14 +92,29 @@ export function Signup() {
 
             {error && <div style={{ fontSize: 12, color: 'var(--red)', marginBottom: 14 }}>{error}</div>}
 
-            <button type="submit" disabled={busy !== null}
-              style={{ width: '100%', height: 46, borderRadius: 13, border: 'none', background: 'linear-gradient(135deg,var(--pri),var(--pri2))', color: '#fff', fontWeight: 700, fontSize: 14, cursor: busy ? 'default' : 'pointer', opacity: busy && busy !== 'trial' ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 8px 22px rgba(108,99,255,.4)', marginBottom: 10 }}>
-              {busy === 'trial' ? <Spinner /> : 'Testar 4h grátis, sem cartão'}
-            </button>
-            <button type="button" disabled={busy !== null} onClick={submitSubscribe}
-              style={{ width: '100%', height: 46, borderRadius: 13, border: '1px solid var(--line2)', background: 'var(--bg2)', color: 'var(--tx)', fontWeight: 700, fontSize: 14, cursor: busy ? 'default' : 'pointer', opacity: busy && busy !== 'subscribe' ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              {busy === 'subscribe' ? <Spinner /> : 'Assinar agora — R$ 199,90/mês'}
-            </button>
+            {proSelected ? (
+              <>
+                <button type="button" disabled={busy !== null} onClick={submitSubscribe}
+                  style={{ width: '100%', height: 46, borderRadius: 13, border: 'none', background: 'linear-gradient(135deg,var(--pri),var(--pri2))', color: '#fff', fontWeight: 700, fontSize: 14, cursor: busy ? 'default' : 'pointer', opacity: busy && busy !== 'subscribe' ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 8px 22px rgba(108,99,255,.4)', marginBottom: 10 }}>
+                  {busy === 'subscribe' ? <Spinner /> : 'Assinar agora — R$ 199,90/mês'}
+                </button>
+                <button type="submit" disabled={busy !== null}
+                  style={{ width: '100%', height: 46, borderRadius: 13, border: '1px solid var(--line2)', background: 'var(--bg2)', color: 'var(--tx)', fontWeight: 700, fontSize: 14, cursor: busy ? 'default' : 'pointer', opacity: busy && busy !== 'trial' ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  {busy === 'trial' ? <Spinner /> : 'Testar 4h grátis, sem cartão'}
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="submit" disabled={busy !== null}
+                  style={{ width: '100%', height: 46, borderRadius: 13, border: 'none', background: 'linear-gradient(135deg,var(--pri),var(--pri2))', color: '#fff', fontWeight: 700, fontSize: 14, cursor: busy ? 'default' : 'pointer', opacity: busy && busy !== 'trial' ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 8px 22px rgba(108,99,255,.4)', marginBottom: 10 }}>
+                  {busy === 'trial' ? <Spinner /> : 'Testar 4h grátis, sem cartão'}
+                </button>
+                <button type="button" disabled={busy !== null} onClick={submitSubscribe}
+                  style={{ width: '100%', height: 46, borderRadius: 13, border: '1px solid var(--line2)', background: 'var(--bg2)', color: 'var(--tx)', fontWeight: 700, fontSize: 14, cursor: busy ? 'default' : 'pointer', opacity: busy && busy !== 'subscribe' ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  {busy === 'subscribe' ? <Spinner /> : 'Assinar agora — R$ 199,90/mês'}
+                </button>
+              </>
+            )}
 
             <div style={{ fontSize: 11.5, color: 'var(--tx3)', textAlign: 'center', marginTop: 12, lineHeight: 1.5 }}>
               No teste, depois de 4h o acesso é bloqueado até você assinar — nenhuma cobrança é feita sem você confirmar.
@@ -105,6 +124,9 @@ export function Signup() {
 
         <div style={{ fontSize: 12.5, color: 'var(--tx3)', textAlign: 'center', marginTop: 18 }}>
           Já tem conta? <Link to="/login" style={{ color: 'var(--pri)', fontWeight: 600, textDecoration: 'none' }}>Entrar</Link>
+        </div>
+        <div style={{ fontSize: 12.5, color: 'var(--tx3)', textAlign: 'center', marginTop: 8 }}>
+          <Link to="/planos" style={{ color: 'var(--tx3)', textDecoration: 'none' }}>← Voltar pros planos</Link>
         </div>
       </div>
     </div>

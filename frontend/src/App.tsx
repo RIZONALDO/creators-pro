@@ -3,6 +3,7 @@ import { useApp } from '@/context/AppContext';
 import { AppLayout } from '@/components/AppLayout';
 import { AdminLayout } from '@/components/AdminLayout';
 import { Login } from '@/screens/Login';
+import { Plans } from '@/screens/Plans';
 import { Signup } from '@/screens/Signup';
 import { SignupSuccess } from '@/screens/SignupSuccess';
 import { ClaimInvite } from '@/screens/ClaimInvite';
@@ -28,6 +29,7 @@ export function App() {
   if (!user) {
     return (
       <Routes>
+        <Route path="/planos" element={<Plans />} />
         <Route path="/cadastro" element={<Signup />} />
         <Route path="/cadastro/sucesso" element={<SignupSuccess />} />
         <Route path="/convite/:token" element={<ClaimInvite />} />

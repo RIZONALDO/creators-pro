@@ -224,7 +224,7 @@ export function Login() {
           </div>
 
           <div className="cp-auth-desktop-only" style={{ fontSize: 12.5, color: 'var(--tx3)', textAlign: 'center', marginTop: 18 }}>
-            Ainda não tem conta? <Link to="/cadastro" style={{ color: 'var(--pri)', fontWeight: 600, textDecoration: 'none' }}>Assine o CreatorsPro</Link>
+            Ainda não tem conta? <Link to="/planos" style={{ color: 'var(--pri)', fontWeight: 600, textDecoration: 'none' }}>Assine o CreatorsPro</Link>
           </div>
         </div>
       </div>
