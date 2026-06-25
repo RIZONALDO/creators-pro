@@ -145,7 +145,7 @@ export function createBillingService(
     async getStatus(auth: AuthContext) {
       const company = await companiesRepo.findById(auth.tenantId);
       if (!company) throw badRequest('COMPANY_NOT_FOUND', 'Empresa não encontrada.');
-      return { status: company.status, has_subscription: !!company.stripeSubscriptionId };
+      return { status: company.status, has_subscription: !!company.stripeSubscriptionId, trial_ends_at: company.trialEndsAt };
     },
 
     /** Teste de 4h sem cartão — não passa pela Stripe (decisão deliberada: cobrança automática

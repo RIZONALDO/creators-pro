@@ -63,7 +63,8 @@ export function createBillingRouter(service: BillingService) {
     }
   });
 
-  router.get('/billing/status', authenticate, authorize('admin'), async (req, res, next) => {
+  // admin+gestor (não só admin) — o selo de trial no sidebar precisa disso nos dois papéis (ver Sidebar.tsx/AdminSidebar.tsx).
+  router.get('/billing/status', authenticate, authorize('admin', 'gestor'), async (req, res, next) => {
     try {
       const result = await service.getStatus(req.auth!);
       res.json({ data: result });

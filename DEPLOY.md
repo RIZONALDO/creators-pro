@@ -44,7 +44,7 @@ identifica a API por uma **lista explícita de prefixos**:
 ```
 auth billing signup internal users creators collaborators clients professions status-history
 tasks services scale-entries scale-months holidays absences shifts messages conversations
-notifications push reports attachments company
+notifications push reports attachments company account
 ```
 
 Qualquer requisição pra um desses prefixos (e `/socket.io/`) vai pro backend (`localhost:8088`);

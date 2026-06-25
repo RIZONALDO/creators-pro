@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { Dashboard, Tasks, Services, Schedule, Logout as AbsenceIcon, Shift, Chat, Analytics, Group, Sidebar as SidebarIcon } from 'grommet-icons';
 import { api } from '@/api';
+import type { BillingStatus } from '@/api';
 import { useApp } from '@/context/AppContext';
 import { useAsync } from '@/lib/useAsync';
 import { useCan } from '@/lib/permissions';
@@ -33,8 +34,10 @@ export function Sidebar({ collapsed, onToggleCollapse }: { collapsed: boolean; o
   const { user } = useApp();
   const [profile, setProfile] = useState(false);
   const company = useAsync<CompanySettings>(() => api.company.get(), []);
+  const billing = useAsync<BillingStatus>(() => api.billing.status(), []);
   const appName = company.data?.app_name;
   const appSubtitle = company.data?.app_subtitle;
+  const isTrial = billing.data?.status === 'trial';
   const canSeeCadastros = useCan('cadastros');
   const gestao = GESTAO.filter((item) => (item.to === '/cadastros' ? canSeeCadastros : true));
   const w = collapsed ? 76 : 250;
@@ -74,7 +77,10 @@ export function Sidebar({ collapsed, onToggleCollapse }: { collapsed: boolean; o
         {!collapsed && (
           <>
             <div style={{ lineHeight: 1.05, minWidth: 0, overflow: 'hidden' }}>
-              <div style={{ fontFamily: "'Plus Jakarta Sans'", fontWeight: 800, fontSize: 16, letterSpacing: '-.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{appName ?? 'CreatorsPro'}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontFamily: "'Plus Jakarta Sans'", fontWeight: 800, fontSize: 16, letterSpacing: '-.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{appName ?? 'CreatorsPro'}</span>
+                {isTrial && <span style={{ fontSize: 10, fontWeight: 700, color: '#F59E0B', background: 'rgba(245,158,11,.16)', padding: '1px 7px', borderRadius: 6, flex: 'none' }}>TRIAL</span>}
+              </div>
               <div style={{ fontSize: 10.5, color: 'var(--tx3)', fontWeight: 600, letterSpacing: '.04em' }}>{appSubtitle ?? 'OPERAÇÕES'}</div>
             </div>
             <SidebarIcon color="var(--tx3)" size="16px" style={{ marginLeft: 'auto', flex: 'none' }} />

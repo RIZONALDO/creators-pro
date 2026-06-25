@@ -132,7 +132,7 @@ describe('rotas de billing (integração)', () => {
     const login = await request(app).post('/auth/login').send({ email: 'admin@acme-status.com', password: 'senha123' });
     const res = await request(app).get('/billing/status').set('Authorization', `Bearer ${login.body.token}`);
     expect(res.status).toBe(200);
-    expect(res.body.data).toEqual({ status: 'active', has_subscription: true });
+    expect(res.body.data).toEqual({ status: 'active', has_subscription: true, trial_ends_at: null });
   });
 
   it('login é bloqueado com 402 SUBSCRIPTION_INACTIVE quando a empresa não está ativa', async () => {

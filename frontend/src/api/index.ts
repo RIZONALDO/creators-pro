@@ -543,6 +543,7 @@ export interface SignupInput {
 export interface BillingStatus {
   status: 'active' | 'suspended' | 'cancelled' | 'trial';
   has_subscription: boolean;
+  trial_ends_at: string | null;
 }
 
 export const billingApi = {
@@ -571,8 +572,18 @@ export const billingApi = {
     return http.post<{ data: { portal_url: string } }>('/billing/portal').then((r) => r.data);
   },
   status: (): Promise<BillingStatus> => {
-    if (USE_MOCK) return Promise.resolve({ status: 'active', has_subscription: false });
+    if (USE_MOCK) return Promise.resolve({ status: 'active', has_subscription: false, trial_ends_at: null });
     return http.get<{ data: BillingStatus }>('/billing/status').then((r) => r.data);
+  },
+};
+
+/* ============================ ACCOUNT (exclusão permanente, só em trial) ============================ */
+export const accountApi = {
+  /** Permanente — apaga a empresa inteira (ver backend account.service.ts). Backend recusa se a
+   * empresa não estiver em trial (ACCOUNT_DELETE_NOT_ALLOWED). */
+  delete: (): Promise<void> => {
+    if (USE_MOCK) return Promise.reject(new Error('Exclusão de conta não disponível em modo mock.'));
+    return http.del<void>('/account');
   },
 };
 
@@ -581,5 +592,5 @@ export const api = {
   collaborators: collaboratorsApi, clients: clientsApi, tasks: tasksApi, services: servicesApi,
   schedule: scheduleApi, holidays: holidaysApi, absences: absencesApi, shifts: shiftsApi,
   messages: messagesApi, notifications: notificationsApi, statusHistory: statusHistoryApi, push: pushApi,
-  reports: reportsApi, attachments: attachmentsApi, company: companyApi, billing: billingApi,
+  reports: reportsApi, attachments: attachmentsApi, company: companyApi, billing: billingApi, account: accountApi,
 };

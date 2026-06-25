@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { UserAdmin, Configure, CreditCard, Sidebar as SidebarIcon } from 'grommet-icons';
+import { UserAdmin, Configure, CreditCard, UserSettings, Sidebar as SidebarIcon } from 'grommet-icons';
 import { api } from '@/api';
+import type { BillingStatus } from '@/api';
 import { useApp } from '@/context/AppContext';
 import { useAsync } from '@/lib/useAsync';
 import { Avatar } from './ui';
@@ -17,6 +18,7 @@ const NAV: NavItem[] = [
   { to: '/admin', label: 'Usuários', icon: UserAdmin },
   { to: '/admin/cobranca', label: 'Cobrança', icon: CreditCard },
   { to: '/admin/configuracoes', label: 'Configurações', icon: Configure },
+  { to: '/admin/conta', label: 'Conta', icon: UserSettings },
 ];
 
 /** Espelha Sidebar.tsx (mesma estrutura visual: logo colapsável, itens com ícone, perfil no
@@ -25,8 +27,10 @@ export function AdminSidebar({ collapsed, onToggleCollapse }: { collapsed: boole
   const { user } = useApp();
   const [profile, setProfile] = useState(false);
   const company = useAsync<CompanySettings>(() => api.company.get(), []);
+  const billing = useAsync<BillingStatus>(() => api.billing.status(), []);
   const appName = company.data?.app_name;
   const appSubtitle = company.data?.app_subtitle;
+  const isTrial = billing.data?.status === 'trial';
   const w = collapsed ? 76 : 250;
 
   return (
@@ -44,6 +48,7 @@ export function AdminSidebar({ collapsed, onToggleCollapse }: { collapsed: boole
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ fontFamily: "'Plus Jakarta Sans'", fontWeight: 800, fontSize: 16, letterSpacing: '-.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{appName ?? 'CreatorsPro'}</span>
                 <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--pri2)', background: 'rgba(139,92,246,.16)', padding: '1px 7px', borderRadius: 6, flex: 'none' }}>ADMIN</span>
+                {isTrial && <span style={{ fontSize: 10, fontWeight: 700, color: '#F59E0B', background: 'rgba(245,158,11,.16)', padding: '1px 7px', borderRadius: 6, flex: 'none' }}>TRIAL</span>}
               </div>
               <div style={{ fontSize: 10.5, color: 'var(--tx3)', fontWeight: 600, letterSpacing: '.04em' }}>{appSubtitle ?? 'OPERAÇÕES'}</div>
             </div>
