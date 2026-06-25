@@ -4,7 +4,7 @@ import { requirePlatformSecret } from '../../middleware/requirePlatformSecret.js
 import { createRateLimiter } from '../../middleware/rateLimit.js';
 import { env } from '../../lib/env.js';
 import type { AuthService } from './auth.service.js';
-import { claimInviteSchema, googleLoginSchema, loginSchema, provisionCompanySchema, refreshSchema } from './auth.schemas.js';
+import { claimInviteSchema, forgotPasswordSchema, googleLoginSchema, loginSchema, provisionCompanySchema, refreshSchema, resetPasswordSchema } from './auth.schemas.js';
 
 export function createAuthRouter(authService: AuthService) {
   const router = Router();
@@ -42,6 +42,30 @@ export function createAuthRouter(authService: AuthService) {
     try {
       const { token, id_token } = claimInviteSchema.parse(req.body);
       const result = await authService.claimInviteWithGoogle(token, id_token, req.headers['user-agent']);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Mesmo rate limiter de /auth/login — sem isso, alguém poderia espetar o e-mail de outra
+  // pessoa repetidamente (spam de e-mail) ou tentar enumerar quais e-mails existem pelo tempo de resposta.
+  router.post('/auth/forgot-password', loginRateLimiter, async (req, res, next) => {
+    try {
+      const { email } = forgotPasswordSchema.parse(req.body);
+      await authService.requestPasswordReset(email);
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Sem authenticate — quem chega aqui ainda não tem sessão (perdeu a senha); o próprio token do
+  // e-mail é a prova de identidade. Mesmo rate limiter (tentar tokens ao acaso é a mesma superfície de abuso).
+  router.post('/auth/reset-password', loginRateLimiter, async (req, res, next) => {
+    try {
+      const { token, password } = resetPasswordSchema.parse(req.body);
+      const result = await authService.resetPassword(token, password, req.headers['user-agent']);
       res.json(result);
     } catch (err) {
       next(err);

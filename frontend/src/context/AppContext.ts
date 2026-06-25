@@ -9,6 +9,7 @@ export interface AppContextValue {
   loginWithGoogle: (idToken: string) => Promise<User>;
   claimInvite: (token: string, idToken: string) => Promise<User>;
   startTrial: (input: { company_name: string; admin_name: string; admin_email: string; admin_password: string }) => Promise<User>;
+  resetPassword: (token: string, password: string) => Promise<User>;
   logout: () => void;
   theme: Theme;
   toggleTheme: () => void;

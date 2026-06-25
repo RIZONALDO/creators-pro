@@ -70,6 +70,26 @@ export function createUsersRepository(db: typeof Db) {
       return row ?? null;
     },
 
+    /** Usado por POST /auth/reset-password — busca por hash, nunca pelo token cru. */
+    async findByPasswordResetTokenHash(hash: string) {
+      const [row] = await db.select().from(users).where(eq(users.passwordResetTokenHash, hash)).limit(1);
+      return row ?? null;
+    },
+
+    /** POST /auth/forgot-password — substitui qualquer token de reset anterior (mesmo padrão de
+     * regenerateInviteToken: pedir de novo invalida o link anterior). */
+    async setPasswordResetToken(id: string, tokenHash: string, expiresAt: Date) {
+      const rows = await db.update(users).set({ passwordResetTokenHash: tokenHash, passwordResetExpiresAt: expiresAt }).where(eq(users.id, id)).returning();
+      return firstOrThrow(rows);
+    },
+
+    /** POST /auth/reset-password — troca a senha e invalida o token (uso único) no mesmo update,
+     * pra nunca existir um instante em que um já foi feito sem o outro. */
+    async resetPassword(id: string, passwordHash: string) {
+      const rows = await db.update(users).set({ passwordHash, passwordResetTokenHash: null, passwordResetExpiresAt: null }).where(eq(users.id, id)).returning();
+      return firstOrThrow(rows);
+    },
+
     /** Usado pelos gatilhos de notificação 'alteracao_escala' — avisa todo coordenador do tenant. */
     async findIdsByRoles(tenantId: string, roles: UserRole[]) {
       const rows = await db.select({ id: users.id }).from(users).where(and(eq(users.tenantId, tenantId), inArray(users.role, roles)));

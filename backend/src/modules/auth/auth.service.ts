@@ -1,5 +1,7 @@
 import bcrypt from 'bcryptjs';
 import type { db as Db } from '../../db/client.js';
+import { emailSender as defaultEmailSender, type EmailSender } from '../../lib/email.js';
+import { env } from '../../lib/env.js';
 import { conflict, paymentRequired, unauthorized } from '../../lib/errors.js';
 import { verifyGoogleIdToken as defaultVerifyGoogleIdToken, type GoogleProfile } from '../../lib/googleAuth.js';
 import { signAccessToken } from '../../lib/jwt.js';
@@ -16,12 +18,14 @@ import { createUsersRepository, type CreateUserInput, type LinkGoogleProfileInpu
 
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
 const TRIAL_DURATION_MS = 4 * 60 * 60 * 1000; // 4 horas
+const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000; // 1 hora
 
-/** verifyGoogleIdToken é injetável (mesmo padrão de stripe em billing.service.ts) — o teste injeta
- * um fake em vez de chamar o Google de verdade. */
+/** verifyGoogleIdToken/emailSender injetáveis (mesmo padrão de stripe em billing.service.ts) — o
+ * teste injeta fakes em vez de chamar o Google/Resend de verdade. */
 export function createAuthService(
   db: typeof Db,
   verifyGoogleIdToken: (idToken: string) => Promise<GoogleProfile> = defaultVerifyGoogleIdToken,
+  emailSender: EmailSender = defaultEmailSender,
 ) {
   const usersRepo = createUsersRepository(db);
   const refreshTokensRepo = createRefreshTokensRepository(db);
@@ -276,6 +280,46 @@ export function createAuthService(
 
       const session = await issueSession(adminUser);
       return { ...session, user: await buildUserResponse(adminUser) };
+    },
+
+    /** Nunca revela se o e-mail existe (evita enumeração) — sempre retorna sem erro, mesmo quando
+     * não há nada a fazer (conta não existe, ou está 'pending': convite só com e-mail, nunca teve
+     * senha pra resetar — tem que usar o link de convite). Token de uso único, expira em 1h. */
+    async requestPasswordReset(email: string) {
+      const user = await usersRepo.findByEmail(email);
+      if (!user || user.status === 'pending') return;
+
+      const token = generateOpaqueToken();
+      const tokenHash = hashToken(token);
+      await usersRepo.setPasswordResetToken(user.id, tokenHash, new Date(Date.now() + PASSWORD_RESET_TTL_MS));
+
+      const link = `${env.appUrl}/redefinir-senha/${token}`;
+      await emailSender.send({
+        to: user.email,
+        subject: 'Redefinir sua senha — CreatorsPro',
+        html: `<p>Olá, ${user.name}.</p><p>Recebemos um pedido para redefinir sua senha. Este link é válido por 1 hora:</p><p><a href="${link}">${link}</a></p><p>Se não foi você quem pediu, ignore este e-mail — sua senha continua a mesma.</p>`,
+      });
+    },
+
+    /** Token de uso único (invalidado no mesmo update que troca a senha — ver
+     * users.repository.ts#resetPassword) — já devolve sessão (login automático), mesma lógica de
+     * startTrial: a pessoa acabou de provar identidade via e-mail, pedir login de novo é fricção
+     * sem propósito. */
+    async resetPassword(token: string, newPassword: string, userAgent?: string) {
+      const tokenHash = hashToken(token);
+      const user = await usersRepo.findByPasswordResetTokenHash(tokenHash);
+      if (!user || !user.passwordResetExpiresAt || user.passwordResetExpiresAt.getTime() < Date.now()) {
+        throw unauthorized('INVALID_RESET_TOKEN', 'Link inválido ou expirado. Solicite um novo.');
+      }
+
+      const passwordHash = await bcrypt.hash(newPassword, 10);
+      const finalUser = await usersRepo.resetPassword(user.id, passwordHash);
+
+      const company = await companiesRepo.findById(finalUser.tenantId);
+      assertCompanyUsable(company);
+
+      const session = await issueSession(finalUser, userAgent);
+      return { ...session, user: await buildUserResponse(finalUser) };
     },
   };
 }

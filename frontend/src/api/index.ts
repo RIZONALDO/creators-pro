@@ -66,6 +66,20 @@ export const auth = {
     // revoga o refresh_token no servidor — sem isso ele continuaria válido por até 30 dias.
     return http.post<void>('/auth/logout', { refresh_token: refreshToken });
   },
+  /** Sempre resolve (backend nunca revela se o e-mail existe — ver auth.service.ts#requestPasswordReset). */
+  forgotPassword(email: string): Promise<void> {
+    if (USE_MOCK) return Promise.reject(new Error('Reset de senha não disponível em modo mock.'));
+    return http.post<void>('/auth/forgot-password', { email });
+  },
+  /** Token vem do link do e-mail — já devolve sessão (login automático, ver
+   * auth.service.ts#resetPassword). */
+  async resetPassword(token: string, password: string): Promise<AuthSession> {
+    if (USE_MOCK) return Promise.reject(new Error('Reset de senha não disponível em modo mock.'));
+    const session = await http.post<AuthSession>('/auth/reset-password', { token, password });
+    setAuthToken(session.token);
+    setRefreshToken(session.refresh_token);
+    return session;
+  },
   me(): Promise<User> {
     if (USE_MOCK) return delay(80).then(() => db.users[1]);
     return http.get<{ user: User }>('/auth/me').then((r) => r.user);

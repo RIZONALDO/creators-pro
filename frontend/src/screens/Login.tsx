@@ -175,10 +175,13 @@ export function Login() {
                 />
               </label>
 
-              <label style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 20, cursor: 'pointer' }}>
-                <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} style={{ width: 15, height: 15, accentColor: 'var(--pri)' }} />
-                <span style={{ fontSize: 12.5, color: 'var(--tx2)' }}>Lembrar-me</span>
-              </label>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 20 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} style={{ width: 15, height: 15, accentColor: 'var(--pri)' }} />
+                  <span style={{ fontSize: 12.5, color: 'var(--tx2)' }}>Lembrar-me</span>
+                </label>
+                <Link to="/esqueci-senha" style={{ marginLeft: 'auto', fontSize: 12.5, color: 'var(--pri)', fontWeight: 600, textDecoration: 'none' }}>Esqueci a senha</Link>
+              </div>
 
               {error && (
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12.5, color: 'var(--red)', background: 'rgba(239,68,68,.1)', border: '1px solid rgba(239,68,68,.25)', borderRadius: 11, padding: '10px 12px', marginBottom: 16 }}>

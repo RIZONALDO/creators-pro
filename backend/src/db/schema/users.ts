@@ -27,6 +27,11 @@ export const users = pgTable(
     // bastava o e-mail bater no Google pra reivindicar uma conta que ninguém provou ser sua;
     // null de novo depois do primeiro claim (token de uso único). Ver auth.service.ts#claimInviteWithGoogle.
     inviteTokenHash: varchar('invite_token_hash', { length: 64 }).unique(),
+    // hash (sha256) do token de "esqueci a senha" — null fora de um reset em andamento. Expira
+    // (passwordResetExpiresAt) e é de uso único (limpo no reset bem-sucedido), mesmo padrão do
+    // invite_token_hash acima. Ver auth.service.ts#requestPasswordReset/resetPassword.
+    passwordResetTokenHash: varchar('password_reset_token_hash', { length: 64 }).unique(),
+    passwordResetExpiresAt: timestamp('password_reset_expires_at', { withTimezone: true }),
     // Apelido de exibição (ex.: "Coordenador", "Admin") — default vem do role, mas o admin pode
     // sobrescrever por conta (ex.: "Diretor" em vez de "Admin"). Só usado por admin/gestor: conta
     // operacional usa Creator/Colaborador, escolha estrutural (define a tabela), não texto livre.

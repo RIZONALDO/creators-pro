@@ -52,6 +52,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return session.user;
   }, []);
 
+  const resetPassword = useCallback(async (token: string, password: string) => {
+    const session = await api.auth.resetPassword(token, password);
+    setUser(session.user);
+    return session.user;
+  }, []);
+
   const logout = useCallback(() => {
     api.auth.logout(); // já limpa token + refresh_token (e revoga no servidor)
     setUser(null);
@@ -71,7 +77,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AppContext.Provider value={{ user, login, loginWithGoogle, claimInvite, startTrial, logout, theme, toggleTheme }}>
+    <AppContext.Provider value={{ user, login, loginWithGoogle, claimInvite, startTrial, resetPassword, logout, theme, toggleTheme }}>
       {children}
     </AppContext.Provider>
   );

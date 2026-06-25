@@ -35,4 +35,9 @@ export const env = {
   // Login com Google — opcional, mesmo padrão de VAPID/Stripe: sem isto, POST /auth/google recusa
   // com GOOGLE_NOT_CONFIGURED, o resto do app roda normal.
   googleClientId: process.env.GOOGLE_CLIENT_ID,
+  // E-mail transacional (reset de senha) — opcional, mesmo padrão de VAPID/Stripe: sem
+  // RESEND_API_KEY, o e-mail não sai de verdade (createNoopEmailSender), mas o fluxo de reset
+  // continua funcionando (token gerado, só não chega o e-mail) — não quebra o resto do app.
+  resendApiKey: process.env.RESEND_API_KEY,
+  emailFrom: process.env.EMAIL_FROM ?? 'CreatorsPro <naoresponda@creatorspro.app>',
 };

@@ -14,6 +14,11 @@ function fakeGoogleVerifier(profile: GoogleProfile) {
   return vi.fn().mockResolvedValue(profile);
 }
 
+/** Fake — evita chamar o Resend de verdade no teste; também serve pra inspecionar o que seria enviado. */
+function fakeEmailSender() {
+  return { send: vi.fn().mockResolvedValue(undefined) };
+}
+
 function googleProfile(overrides: Partial<GoogleProfile> = {}): GoogleProfile {
   return { email: 'fulano@acme.com', emailVerified: true, name: 'Fulano da Silva', picture: 'https://photo.example/fulano.jpg', googleId: 'google-sub-123', ...overrides };
 }
@@ -294,5 +299,73 @@ describe('authService', () => {
     await companiesRepo.setTrialEndsAt(user!.tenantId, new Date(Date.now() - 60_000));
 
     await expect(authService.refresh(refreshToken)).rejects.toMatchObject({ code: 'TRIAL_EXPIRED' });
+  });
+
+  it('requestPasswordReset manda e-mail com link quando a conta existe e está ativa', async () => {
+    await createDemoUser('senha-correta');
+    const emailSender = fakeEmailSender();
+    const service = createAuthService(testDb, undefined, emailSender);
+
+    await service.requestPasswordReset('fulano@acme.com');
+
+    expect(emailSender.send).toHaveBeenCalledTimes(1);
+    const call = emailSender.send.mock.calls[0]![0] as { to: string; subject: string; html: string };
+    expect(call.to).toBe('fulano@acme.com');
+    expect(call.html).toContain('/redefinir-senha/');
+  });
+
+  it('requestPasswordReset não manda e-mail nem dá erro pra e-mail inexistente (sem revelar que não existe)', async () => {
+    const emailSender = fakeEmailSender();
+    const service = createAuthService(testDb, undefined, emailSender);
+
+    await expect(service.requestPasswordReset('ninguem@acme.com')).resolves.toBeUndefined();
+    expect(emailSender.send).not.toHaveBeenCalled();
+  });
+
+  it('requestPasswordReset não manda e-mail pra conta pending (nunca teve senha pra resetar)', async () => {
+    const company = await companiesRepo.create({ name: 'Acme Pending', slug: 'acme-pending' });
+    await usersRepo.create({ tenantId: company.id, name: 'Pendente', email: 'pendente@acme-pending.com', passwordHash: null, role: 'operacional', status: 'pending' });
+    const emailSender = fakeEmailSender();
+    const service = createAuthService(testDb, undefined, emailSender);
+
+    await service.requestPasswordReset('pendente@acme-pending.com');
+    expect(emailSender.send).not.toHaveBeenCalled();
+  });
+
+  it('resetPassword com token válido troca a senha e já devolve sessão (login automático)', async () => {
+    await createDemoUser('senha-antiga12');
+    const emailSender = fakeEmailSender();
+    const service = createAuthService(testDb, undefined, emailSender);
+    await service.requestPasswordReset('fulano@acme.com');
+    const link = emailSender.send.mock.calls[0]![0].html as string;
+    const token = link.match(/\/redefinir-senha\/([a-f0-9]+)/)![1]!;
+
+    const result = await service.resetPassword(token, 'senha-nova123');
+    expect(result.token).toBeDefined();
+    expect(result.user.email).toBe('fulano@acme.com');
+
+    await expect(authService.login('fulano@acme.com', 'senha-antiga12')).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
+    await expect(authService.login('fulano@acme.com', 'senha-nova123')).resolves.toMatchObject({ user: { email: 'fulano@acme.com' } });
+  });
+
+  it('resetPassword com token inválido falha com INVALID_RESET_TOKEN', async () => {
+    await expect(authService.resetPassword('token-que-nao-existe', 'senha-nova123')).rejects.toMatchObject({ code: 'INVALID_RESET_TOKEN' });
+  });
+
+  it('resetPassword com token expirado falha com INVALID_RESET_TOKEN', async () => {
+    const { user } = await createDemoUser('senha-antiga12');
+    const token = generateOpaqueToken();
+    await usersRepo.setPasswordResetToken(user.id, hashToken(token), new Date(Date.now() - 60_000));
+
+    await expect(authService.resetPassword(token, 'senha-nova123')).rejects.toMatchObject({ code: 'INVALID_RESET_TOKEN' });
+  });
+
+  it('resetPassword invalida o token depois de usado (uso único)', async () => {
+    const { user } = await createDemoUser('senha-antiga12');
+    const token = generateOpaqueToken();
+    await usersRepo.setPasswordResetToken(user.id, hashToken(token), new Date(Date.now() + 60 * 60 * 1000));
+
+    await authService.resetPassword(token, 'senha-nova123');
+    await expect(authService.resetPassword(token, 'outra-senha123')).rejects.toMatchObject({ code: 'INVALID_RESET_TOKEN' });
   });
 });

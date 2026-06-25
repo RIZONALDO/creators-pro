@@ -155,6 +155,13 @@
       "when": 1782348427222,
       "tag": "0021_windy_vampiro",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1782358163759,
+      "tag": "0022_omniscient_miracleman",
+      "breakpoints": true
     }
   ]
 }

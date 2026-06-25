@@ -7,6 +7,8 @@ import { Plans } from '@/screens/Plans';
 import { Signup } from '@/screens/Signup';
 import { SignupSuccess } from '@/screens/SignupSuccess';
 import { ClaimInvite } from '@/screens/ClaimInvite';
+import { ForgotPassword } from '@/screens/ForgotPassword';
+import { ResetPassword } from '@/screens/ResetPassword';
 import { AdminUsers } from '@/screens/AdminUsers';
 import { AdminBilling } from '@/screens/AdminBilling';
 import { AdminSettings } from '@/screens/AdminSettings';
@@ -33,6 +35,8 @@ export function App() {
         <Route path="/cadastro" element={<Signup />} />
         <Route path="/cadastro/sucesso" element={<SignupSuccess />} />
         <Route path="/convite/:token" element={<ClaimInvite />} />
+        <Route path="/esqueci-senha" element={<ForgotPassword />} />
+        <Route path="/redefinir-senha/:token" element={<ResetPassword />} />
         <Route path="*" element={<Login />} />
       </Routes>
     );

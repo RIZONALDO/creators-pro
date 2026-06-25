@@ -3,6 +3,7 @@ import request from 'supertest';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../../app.js';
 import { resetDb, testDb, testPool } from '../../test/db.js';
+import { generateOpaqueToken, hashToken } from '../../lib/tokens.js';
 import { createCreatorsRepository } from '../creators/creators.repository.js';
 import { createCollaboratorsRepository } from '../collaborators/collaborators.repository.js';
 import { createCompaniesRepository } from './companies.repository.js';
@@ -181,5 +182,33 @@ describe('rotas de auth (integração)', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.company.slug).toBe('nova-empresa-3');
+  });
+
+  it('POST /auth/forgot-password sempre 204, com e-mail existindo ou não', async () => {
+    await createDemoUser();
+    const withAccount = await request(app).post('/auth/forgot-password').send({ email: 'fulano@acme.com' });
+    const withoutAccount = await request(app).post('/auth/forgot-password').send({ email: 'ninguem@acme.com' });
+
+    expect(withAccount.status).toBe(204);
+    expect(withoutAccount.status).toBe(204);
+  });
+
+  it('POST /auth/reset-password com token válido troca a senha e devolve sessão', async () => {
+    const { user } = await createDemoUser();
+    const token = generateOpaqueToken();
+    await usersRepo.setPasswordResetToken(user.id, hashToken(token), new Date(Date.now() + 60 * 60 * 1000));
+
+    const res = await request(app).post('/auth/reset-password').send({ token, password: 'senha-nova123' });
+    expect(res.status).toBe(200);
+    expect(res.body.token).toBeDefined();
+
+    const login = await request(app).post('/auth/login').send({ email: 'fulano@acme.com', password: 'senha-nova123' });
+    expect(login.status).toBe(200);
+  });
+
+  it('POST /auth/reset-password com token inválido retorna 401', async () => {
+    const res = await request(app).post('/auth/reset-password').send({ token: 'token-invalido', password: 'senha-nova123' });
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe('INVALID_RESET_TOKEN');
   });
 });
