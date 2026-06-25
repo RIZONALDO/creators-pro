@@ -148,6 +148,20 @@ export function createBillingService(
       return { status: company.status, has_subscription: !!company.stripeSubscriptionId, trial_ends_at: company.trialEndsAt };
     },
 
+    /** Data de renovação (Pro) — só usada pela tela Conta (contagem regressiva), nunca pelo
+     * sidebar (que chama getStatus() acima a cada render, sem ir até a Stripe). Consulta a Stripe
+     * de verdade aqui de propósito — período de cobrança não é salvo no nosso banco, e mudar isso
+     * só pra cachear essa data seria mais complexidade do que o uso (uma tela, pouco acessada)
+     * justifica. */
+    async getRenewalDate(auth: AuthContext) {
+      const company = await companiesRepo.findById(auth.tenantId);
+      if (!stripe || !company?.stripeSubscriptionId) return { renews_at: null };
+
+      const subscription = await stripe.subscriptions.retrieve(company.stripeSubscriptionId);
+      const periodEnd = subscription.items.data[0]?.current_period_end;
+      return { renews_at: periodEnd ? new Date(periodEnd * 1000).toISOString() : null };
+    },
+
     /** Teste de 4h sem cartão — não passa pela Stripe (decisão deliberada: cobrança automática
      * numa janela tão curta é risco de disputa/reputação numa marca nova; ver upgradeTrial pro
      * caminho de quem decide continuar). Delega pro auth.service.ts, que já sabe criar

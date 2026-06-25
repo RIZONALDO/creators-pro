@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '@/api';
 import type { BillingStatus } from '@/api';
 import { useApp } from '@/context/AppContext';
@@ -10,6 +10,23 @@ import { Button } from '@/components/ui';
 import { Field, TextInput } from '@/components/Modal';
 import type { CompanySettings } from '@/types';
 
+/** "3h 42min" / "42min" — nunca negativo (quem está vendo essa tela passou pelo login, então o
+ * trial, se for o caso, ainda não venceu — ver auth.service.ts#assertCompanyUsable). */
+function formatCountdown(targetIso: string): string {
+  const msRemaining = Math.max(0, new Date(targetIso).getTime() - Date.now());
+  const totalMinutes = Math.floor(msRemaining / 60_000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0) return `${minutes}min`;
+  return `${hours}h ${minutes}min`;
+}
+
+function formatDaysUntil(targetIso: string): string {
+  const days = Math.max(0, Math.ceil((new Date(targetIso).getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
+  if (days === 0) return 'hoje';
+  return days === 1 ? '1 dia' : `${days} dias`;
+}
+
 export function AdminAccount() {
   const { user, logout } = useApp();
   const confirm = useConfirm();
@@ -18,11 +35,25 @@ export function AdminAccount() {
   const billing = useAsync<BillingStatus>(() => api.billing.status(), []);
   const [confirmName, setConfirmName] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [, setNow] = useState(() => Date.now());
 
   const s = billing.data;
   const isTrial = s?.status === 'trial';
+  const isActivePro = s?.status === 'active' && s.has_subscription;
+  const renewal = useAsync<{ renews_at: string | null }>(
+    () => (isActivePro ? api.billing.renewal() : Promise.resolve({ renews_at: null })),
+    [isActivePro],
+  );
   const companyName = company.data?.display_name || 'sua empresa';
   const nameMatches = confirmName.trim().toLowerCase() === companyName.trim().toLowerCase();
+
+  // Recalcula a contagem do trial a cada minuto — sem isso, "3h 42min" ficaria parado até a
+  // próxima ação que re-renderize a tela (ninguém clica em nada só pra ver o relógio andar).
+  useEffect(() => {
+    if (!isTrial) return;
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, [isTrial]);
 
   async function handleDelete() {
     if (!nameMatches || deleting) return;
@@ -66,6 +97,18 @@ export function AdminAccount() {
               </span>
             ) : <div style={{ fontSize: 12.5, color: 'var(--tx3)', marginTop: 4 }}>Carregando…</div>}
           </div>
+          {isTrial && s?.trial_ends_at && (
+            <div>
+              <div style={{ fontSize: 11.5, color: 'var(--tx3)' }}>Tempo restante</div>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--red)', marginTop: 3 }}>{formatCountdown(s.trial_ends_at)}</div>
+            </div>
+          )}
+          {isActivePro && (
+            <div>
+              <div style={{ fontSize: 11.5, color: 'var(--tx3)' }}>Renova em</div>
+              <div style={{ fontSize: 13.5, fontWeight: 600, marginTop: 3 }}>{renewal.data?.renews_at ? formatDaysUntil(renewal.data.renews_at) : '—'}</div>
+            </div>
+          )}
           <div>
             <div style={{ fontSize: 11.5, color: 'var(--tx3)' }}>Seu nome</div>
             <div style={{ fontSize: 13.5, fontWeight: 600, marginTop: 3 }}>{user?.name}</div>

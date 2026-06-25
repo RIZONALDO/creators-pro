@@ -597,6 +597,12 @@ export const billingApi = {
     if (USE_MOCK) return Promise.resolve({ status: 'active', has_subscription: false, trial_ends_at: null });
     return http.get<{ data: BillingStatus }>('/billing/status').then((r) => r.data);
   },
+  /** Diferente de status() — vai até a Stripe de verdade, só usado na tela Conta (contagem
+   * regressiva de renovação), nunca no sidebar. */
+  renewal: (): Promise<{ renews_at: string | null }> => {
+    if (USE_MOCK) return Promise.resolve({ renews_at: null });
+    return http.get<{ data: { renews_at: string | null } }>('/billing/renewal').then((r) => r.data);
+  },
 };
 
 /* ============================ ACCOUNT (exclusão permanente, só em trial) ============================ */

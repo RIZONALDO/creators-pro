@@ -73,6 +73,16 @@ export function createBillingRouter(service: BillingService) {
     }
   });
 
+  // Só admin (tela Conta) — diferente de /billing/status, vai até a Stripe de verdade.
+  router.get('/billing/renewal', authenticate, authorize('admin'), async (req, res, next) => {
+    try {
+      const result = await service.getRenewalDate(req.auth!);
+      res.json({ data: result });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   return router;
 }
 

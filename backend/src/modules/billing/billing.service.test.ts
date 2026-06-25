@@ -8,21 +8,25 @@ import { createCompaniesRepository } from '../auth/companies.repository.js';
 import { createCompanyRepository } from '../company/company.repository.js';
 import { createBillingService } from './billing.service.js';
 
-/** Fake mínimo — só os 3 métodos que o service de fato chama. */
-function buildFakeStripe(overrides?: Partial<{ checkoutUrl: string; customerId: string; subscriptionId: string }>) {
+/** Fake mínimo — só os métodos que o service de fato chama. */
+function buildFakeStripe(overrides?: Partial<{ checkoutUrl: string; customerId: string; subscriptionId: string; currentPeriodEnd: number }>) {
   const checkoutCreate = vi.fn().mockResolvedValue({
     url: overrides?.checkoutUrl ?? 'https://checkout.stripe.com/fake-session',
     customer: overrides?.customerId ?? 'cus_fake',
     subscription: overrides?.subscriptionId ?? 'sub_fake',
   });
   const portalCreate = vi.fn().mockResolvedValue({ url: 'https://billing.stripe.com/fake-portal' });
+  const subscriptionsRetrieve = vi.fn().mockResolvedValue({
+    items: { data: [{ current_period_end: overrides?.currentPeriodEnd ?? Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60 }] },
+  });
 
   const stripe = {
     checkout: { sessions: { create: checkoutCreate } },
     billingPortal: { sessions: { create: portalCreate } },
+    subscriptions: { retrieve: subscriptionsRetrieve },
   } as unknown as Stripe;
 
-  return { stripe, checkoutCreate, portalCreate };
+  return { stripe, checkoutCreate, portalCreate, subscriptionsRetrieve };
 }
 
 function buildCheckoutCompletedEvent(metadata: Record<string, string>, customer = 'cus_fake', subscription: string | null = 'sub_fake'): Stripe.Event {
@@ -220,5 +224,28 @@ describe('billingService', () => {
     // mesmo admin de antes — não duplicou nem criou outro usuário/empresa.
     const adminAfter = await usersRepo.findByEmail('admin@trialwebhook.com');
     expect(adminAfter!.id).toBe(adminIdBefore);
+  });
+
+  it('getRenewalDate devolve null quando a empresa não tem assinatura Stripe', async () => {
+    const company = await companiesRepo.create({ name: 'Sem Assinatura', slug: 'sem-assinatura' });
+    const admin = await usersRepo.create({ tenantId: company.id, name: 'Admin', email: 'admin@semassinatura.com', passwordHash: 'hash', role: 'admin' });
+    const service = createBillingService(testDb, authService, buildFakeStripe().stripe, 'price_123');
+
+    const result = await service.getRenewalDate({ tenantId: company.id, userId: admin.id, role: 'admin' });
+    expect(result.renews_at).toBeNull();
+  });
+
+  it('getRenewalDate consulta a Stripe e devolve a data de renovação quando há assinatura', async () => {
+    const company = await companiesRepo.create({ name: 'Com Assinatura', slug: 'com-assinatura' });
+    await companiesRepo.setStripeIds(company.id, { stripeCustomerId: 'cus_renew', stripeSubscriptionId: 'sub_renew' });
+    const admin = await usersRepo.create({ tenantId: company.id, name: 'Admin', email: 'admin@comassinatura.com', passwordHash: 'hash', role: 'admin' });
+
+    const periodEnd = Math.floor(Date.now() / 1000) + 15 * 24 * 60 * 60;
+    const { stripe, subscriptionsRetrieve } = buildFakeStripe({ currentPeriodEnd: periodEnd });
+    const service = createBillingService(testDb, authService, stripe, 'price_123');
+
+    const result = await service.getRenewalDate({ tenantId: company.id, userId: admin.id, role: 'admin' });
+    expect(subscriptionsRetrieve).toHaveBeenCalledWith('sub_renew');
+    expect(result.renews_at).toBe(new Date(periodEnd * 1000).toISOString());
   });
 });
