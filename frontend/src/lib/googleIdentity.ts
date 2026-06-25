@@ -42,9 +42,9 @@ function loadScript(): Promise<void> {
 
 /** Carrega o script (se preciso) e desenha o botão do Google dentro de `parent`. Combinação
  * escolhida pela documentação oficial (GsiButtonConfiguration): `standard` (ícone+texto, mais
- * claro que só ícone) + `filled_black` (sem cor de marca chamativa, contraste em claro/escuro) +
- * `pill` (combina com o resto dos botões do app) + texto "Continuar com o Google". Sem `width`
- * fixo — o `parent` (sem largura forçada, ver Login.tsx) já garante o tamanho natural do botão.
+ * claro que só ícone) + `outline` (contorno discreto, sem preencher cor) + `pill` (combina com o
+ * resto dos botões do app) + texto "Continuar com o Google". Sem `width` fixo — o `parent` (sem
+ * largura forçada, ver Login.tsx) já garante o tamanho natural do botão.
  *
  * `isCancelled` evita o flicker do StrictMode (efeito roda 2x em dev: monta, desmonta, monta de
  * novo) — sem isso, o primeiro carregamento do script terminava DEPOIS do React já ter desmontado
@@ -69,6 +69,6 @@ export async function renderGoogleSignInButton(
   });
   parent.innerHTML = '';
   window.google.accounts.id.renderButton(parent, {
-    type: 'standard', theme: 'filled_black', shape: 'pill', size: 'large', text: 'continue_with', logo_alignment: 'left', locale: 'pt-BR',
+    type: 'standard', theme: 'outline', shape: 'pill', size: 'large', text: 'continue_with', logo_alignment: 'left', locale: 'pt-BR',
   });
 }
