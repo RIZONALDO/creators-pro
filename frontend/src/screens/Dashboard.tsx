@@ -14,7 +14,8 @@ import { TASK_STATUS_META, SHIFT_STATUS_META, TASK_FORMAT_COLOR, shortDate } fro
 import { currentWeekWeekdays, todayIso } from '@/lib/dates';
 import type { CreatorTask, Creator, Client, Absence, Shift, ScaleEntry, NotificationType } from '@/types';
 
-const SCALE_MONTH = '2026-06';
+const now = new Date();
+const SCALE_MONTH = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 const TASK_NOTIFICATION_TYPES: NotificationType[] = ['nova_tarefa', 'mudanca_status'];
 const SHIFT_NOTIFICATION_TYPES: NotificationType[] = ['novo_plantao'];
 
@@ -57,16 +58,29 @@ function CoordinatorDashboard() {
     approvedAbsences.some((a) => a.creator_id === creatorId && a.start_date <= date && date <= a.end_date);
 
   const cnt = (s: string) => t.filter((x) => x.status === s).length;
-  const ativas = t.filter((x) => ['na_fila', 'em_edicao', 'no_servidor', 'em_aprovacao', 'em_alteracao', 'falta_captacao'].includes(x.status)).length;
+  const today = todayIso();
+  const thisMonth = today.slice(0, 7);
+  const activeStatuses = ['na_fila', 'em_edicao', 'no_servidor', 'em_aprovacao', 'em_alteracao', 'falta_captacao'];
+  const ativas = t.filter((x) => activeStatuses.includes(x.status)).length;
   const pend = abs.filter((a) => a.status === 'pending');
 
+  // Tarefas com data vencida e ainda não concluídas/canceladas
+  const overdue = t.filter((x) => !!x.task_date && x.task_date < today && activeStatuses.includes(x.status)).length;
+  // Aprovadas no mês corrente
+  const approvedThisMonth = t.filter((x) => x.status === 'aprovado' && x.task_date?.startsWith(thisMonth)).length;
+  // Creators com pelo menos 1 tarefa ativa
+  const creatorsInProduction = new Set(t.filter((x) => activeStatuses.includes(x.status) && x.creator_id).map((x) => x.creator_id)).size;
+  // Próximos plantões (futuro, não cancelados)
+  const futureShifts = (shifts.data ?? []).filter((s) => s.shift_date >= today && s.status !== 'cancelled');
+  const nextWeekend = futureShifts.find((s) => [0, 6].includes(new Date(`${s.shift_date}T00:00:00`).getDay()));
+
   const kpis = [
-    kpiCard('Tarefas em andamento', String(ativas), '#6C63FF', '▲ 12% vs. semana', '#22C55E'),
-    kpiCard('Tarefas atrasadas', String(cnt('em_alteracao') + cnt('falta_captacao')), '#EF4444', '▲ 2 hoje', '#EF4444'),
-    kpiCard('Tarefas aprovadas', String(cnt('aprovado')), '#22C55E', '▲ 8% no mês', '#22C55E'),
-    kpiCard('Creators ativos', String(cre.length), '#06B6D4', '2 em produção', '#9A9AB2'),
-    kpiCard('Ausências pendentes', String(pend.length), '#F59E0B', 'Aguardando você', '#F59E0B'),
-    kpiCard('Plantões futuros', '5', '#8B5CF6', 'Próximo fim de semana', '#9A9AB2'),
+    kpiCard('Tarefas em andamento', String(ativas), '#6C63FF', `${t.filter((x) => x.task_date === today && activeStatuses.includes(x.status)).length} vencem hoje`, '#9A9AB2'),
+    kpiCard('Tarefas atrasadas', String(cnt('em_alteracao') + cnt('falta_captacao')), '#EF4444', `${overdue} com prazo vencido`, overdue > 0 ? '#EF4444' : '#9A9AB2'),
+    kpiCard('Tarefas aprovadas', String(cnt('aprovado')), '#22C55E', `${approvedThisMonth} aprovadas este mês`, '#22C55E'),
+    kpiCard('Creators ativos', String(cre.length), '#06B6D4', `${creatorsInProduction} com tarefa ativa`, '#9A9AB2'),
+    kpiCard('Ausências pendentes', String(pend.length), '#F59E0B', 'Aguardando aprovação', '#F59E0B'),
+    kpiCard('Plantões futuros', String(futureShifts.length), '#8B5CF6', nextWeekend ? `Próx. fim de semana: ${shortDate(nextWeekend.shift_date)}` : 'Nenhum no fim de semana', '#9A9AB2'),
   ];
 
   // distribuição p/ donut
@@ -81,6 +95,16 @@ function CoordinatorDashboard() {
   const stops = seg.map((s) => { const from = (acc / total) * 360; acc += s.value; return `${s.color} ${from}deg ${(acc / total) * 360}deg`; });
 
   const upcoming = t.filter((x) => ['na_fila', 'em_edicao', 'no_servidor', 'em_aprovacao'].includes(x.status)).slice(0, 4);
+
+  // Últimos 7 meses (inclusive o atual) para o gráfico de entregas
+  const deliveryMonths = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (6 - i), 1);
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const label = d.toLocaleString('pt-BR', { month: 'short' }).replace('.', '');
+    const count = t.filter((x) => x.status === 'aprovado' && (x.task_date ?? '').startsWith(iso)).length;
+    return { iso, label: label.charAt(0).toUpperCase() + label.slice(1), count };
+  });
+  const maxDelivery = Math.max(...deliveryMonths.map((m) => m.count), 1);
 
   const weekDays = currentWeekWeekdays();
   // Mais de 1 creator por dia é permitido na escala (Schedule.tsx) — um Map de 1 entrada por data
@@ -101,11 +125,11 @@ function CoordinatorDashboard() {
         <Card pad={20}>
           <div style={{ fontWeight: 700, fontSize: 15, fontFamily: "'Plus Jakarta Sans'", marginBottom: 16 }}>Entregas mensais</div>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, height: 172 }}>
-            {[{ l: 'Jan', v: 42 }, { l: 'Fev', v: 38 }, { l: 'Mar', v: 55 }, { l: 'Abr', v: 61 }, { l: 'Mai', v: 73 }, { l: 'Jun', v: 48 }, { l: 'Jul', v: 30 }].map((b) => (
-              <div key={b.l} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, height: '100%', justifyContent: 'flex-end' }}>
-                <div style={{ fontSize: 10.5, color: 'var(--tx2)', fontWeight: 600 }}>{b.v}</div>
-                <div style={{ width: '100%', borderRadius: '8px 8px 4px 4px', height: `${(b.v / 73) * 100}%`, background: b.l === 'Jun' ? 'linear-gradient(180deg,#8B5CF6,#6C63FF)' : 'linear-gradient(180deg,rgba(139,92,246,.55),rgba(108,99,255,.35))' }} />
-                <div style={{ fontSize: 10.5, color: 'var(--tx3)' }}>{b.l}</div>
+            {deliveryMonths.map((m) => (
+              <div key={m.iso} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, height: '100%', justifyContent: 'flex-end' }}>
+                <div style={{ fontSize: 10.5, color: 'var(--tx2)', fontWeight: 600 }}>{m.count}</div>
+                <div style={{ width: '100%', borderRadius: '8px 8px 4px 4px', height: `${(m.count / maxDelivery) * 100}%`, minHeight: m.count > 0 ? 6 : 0, background: m.iso === thisMonth ? 'linear-gradient(180deg,#8B5CF6,#6C63FF)' : 'linear-gradient(180deg,rgba(139,92,246,.55),rgba(108,99,255,.35))' }} />
+                <div style={{ fontSize: 10.5, color: 'var(--tx3)' }}>{m.label}</div>
               </div>
             ))}
           </div>
