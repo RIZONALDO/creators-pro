@@ -5,6 +5,7 @@ import { useConfirm } from '@/context/ConfirmContext';
 import { useToast } from '@/context/ToastContext';
 import { Avatar, Button, StatusPill } from '@/components/ui';
 import { Modal, Field, TextInput, Select } from '@/components/Modal';
+import { OnboardingChecklist } from '@/components/OnboardingChecklist';
 import { ROLE_META, USER_STATUS_META } from '@/lib/display';
 import type { User, NewUser, UserStatus } from '@/types';
 
@@ -35,6 +36,7 @@ export function AdminUsers() {
 
   return (
     <div className="cp-fade">
+      <OnboardingChecklist />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 14, marginBottom: 22 }}>
         <Stat label="Gestores" value={stats.gestores} color="var(--pri)" />
         <Stat label="Total de usuários" value={stats.total} color="var(--tx)" />
