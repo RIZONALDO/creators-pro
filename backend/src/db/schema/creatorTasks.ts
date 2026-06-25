@@ -45,7 +45,7 @@ export const creatorTasks = pgTable(
     clientId: uuid('client_id').references(() => clients.id, { onDelete: 'restrict' }),
     status: taskStatusEnum('status').notNull().default('na_fila'),
     description: text('description'),
-    createdBy: uuid('created_by').notNull().references(() => users.id, { onDelete: 'restrict' }),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

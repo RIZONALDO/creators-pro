@@ -111,7 +111,7 @@ export function createAttachmentsService(
       // creator registrou uma foto — sem isso, só veria abrindo a tarefa de novo manualmente.
       if (input.entityType === 'task') {
         const task = await tasksRepo.findById(auth.tenantId, input.entityId);
-        if (task && task.createdBy !== auth.userId) {
+        if (task && task.createdBy && task.createdBy !== auth.userId) {
           await notificationsService.notify(auth.tenantId, task.createdBy, 'registro_tarefa', 'Novo registro de tarefa', `${task.title} — ${input.fileName}`);
         }
       }

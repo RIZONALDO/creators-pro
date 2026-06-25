@@ -19,7 +19,7 @@ export const shifts = pgTable(
     creatorId: uuid('creator_id').references(() => creators.id, { onDelete: 'restrict' }),
     notes: text('notes'),
     status: shiftStatusEnum('status').notNull().default('scheduled'),
-    createdBy: uuid('created_by').notNull().references(() => users.id, { onDelete: 'restrict' }),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({

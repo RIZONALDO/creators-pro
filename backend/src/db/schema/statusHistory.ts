@@ -15,7 +15,7 @@ export const statusHistory = pgTable(
     entityId: uuid('entity_id').notNull(),
     oldStatus: varchar('old_status', { length: 50 }),
     newStatus: varchar('new_status', { length: 50 }).notNull(),
-    changedBy: uuid('changed_by').notNull().references(() => users.id, { onDelete: 'restrict' }),
+    changedBy: uuid('changed_by').references(() => users.id, { onDelete: 'set null' }),
     changedAt: timestamp('changed_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({

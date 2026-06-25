@@ -9,7 +9,7 @@ export const scaleMonths = pgTable(
     tenantId: uuid('tenant_id').notNull().references(() => companies.id, { onDelete: 'restrict' }),
     month: integer('month').notNull(),
     year: integer('year').notNull(),
-    createdBy: uuid('created_by').notNull().references(() => users.id, { onDelete: 'restrict' }),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({

@@ -20,7 +20,7 @@ export const collaboratorServices = pgTable(
     clientId: uuid('client_id').references(() => clients.id, { onDelete: 'restrict' }),
     status: serviceStatusEnum('status').notNull().default('agendado'),
     notes: text('notes'),
-    createdBy: uuid('created_by').notNull().references(() => users.id, { onDelete: 'restrict' }),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({

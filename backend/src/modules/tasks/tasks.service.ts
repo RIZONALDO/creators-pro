@@ -146,7 +146,7 @@ export function createTasksService(
 
       // creator responsável + quem criou a tarefa (specs/06) — fora da transação: gatilho de
       // notificação não pode reverter a mudança de status se falhar por algum motivo.
-      const recipientUserIds = new Set<string>([updated.createdBy]);
+      const recipientUserIds = new Set<string>(updated.createdBy ? [updated.createdBy] : []);
       if (updated.creatorId) {
         const creator = await creatorsRepo.findRowById(tenantId, updated.creatorId);
         if (creator) recipientUserIds.add(creator.userId);

@@ -20,7 +20,7 @@ export const attachments = pgTable(
     sizeBytes: bigint('size_bytes', { mode: 'number' }),
     entityType: attachmentEntityEnum('entity_type').notNull(),
     entityId: uuid('entity_id').notNull(),
-    uploadedBy: uuid('uploaded_by').notNull().references(() => users.id, { onDelete: 'restrict' }),
+    uploadedBy: uuid('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
