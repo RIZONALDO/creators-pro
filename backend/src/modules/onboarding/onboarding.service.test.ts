@@ -38,7 +38,7 @@ describe('onboardingService', () => {
     const { auth } = await setupTenant();
     // creators.user_id é NOT NULL — cria um usuário operacional antes de criar o creator
     const operUser = await usersRepo.create({ tenantId: auth.tenantId, name: 'Creator', email: 'creator@onboarding.com', passwordHash: 'x', role: 'operacional' });
-    await testDb.insert(creators).values({ tenantId: auth.tenantId, userId: operUser.id, name: 'Creator Teste', active: true, scaleOrder: 0 });
+    await testDb.insert(creators).values({ tenantId: auth.tenantId, userId: operUser.id, active: true, scaleOrder: 0 });
     const status = await onboarding.getStatus(auth);
     expect(status.has_creator).toBe(true);
   });
