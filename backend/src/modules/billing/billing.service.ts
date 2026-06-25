@@ -162,6 +162,27 @@ export function createBillingService(
       return { renews_at: periodEnd ? new Date(periodEnd * 1000).toISOString() : null };
     },
 
+    /** Histórico de faturas (seção Cobrança) — mesmo padrão de getRenewalDate: vai até a Stripe de
+     * verdade, só usado nessa tela específica (pouco acessada), nunca no /billing/status do sidebar. */
+    async listInvoices(auth: AuthContext) {
+      const company = await companiesRepo.findById(auth.tenantId);
+      if (!stripe || !company?.stripeCustomerId) return { invoices: [] };
+
+      const result = await stripe.invoices.list({ customer: company.stripeCustomerId, limit: 24 });
+      return {
+        invoices: result.data.map((inv) => ({
+          id: inv.id,
+          number: inv.number,
+          status: inv.status,
+          amount_paid: inv.amount_paid,
+          currency: inv.currency,
+          created_at: new Date(inv.created * 1000).toISOString(),
+          hosted_invoice_url: inv.hosted_invoice_url,
+          invoice_pdf: inv.invoice_pdf,
+        })),
+      };
+    },
+
     /** Teste de 4h sem cartão — não passa pela Stripe (decisão deliberada: cobrança automática
      * numa janela tão curta é risco de disputa/reputação numa marca nova; ver upgradeTrial pro
      * caminho de quem decide continuar). Delega pro auth.service.ts, que já sabe criar

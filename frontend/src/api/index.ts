@@ -603,7 +603,22 @@ export const billingApi = {
     if (USE_MOCK) return Promise.resolve({ renews_at: null });
     return http.get<{ data: { renews_at: string | null } }>('/billing/renewal').then((r) => r.data);
   },
+  invoices: (): Promise<{ invoices: Invoice[] }> => {
+    if (USE_MOCK) return Promise.resolve({ invoices: [] });
+    return http.get<{ data: { invoices: Invoice[] } }>('/billing/invoices').then((r) => r.data);
+  },
 };
+
+export interface Invoice {
+  id: string;
+  number: string | null;
+  status: 'draft' | 'open' | 'paid' | 'uncollectible' | 'void' | null;
+  amount_paid: number;
+  currency: string;
+  created_at: string;
+  hosted_invoice_url: string | null;
+  invoice_pdf: string | null;
+}
 
 /* ============================ ACCOUNT (exclusão permanente, só em trial) ============================ */
 export const accountApi = {

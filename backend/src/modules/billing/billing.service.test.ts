@@ -9,7 +9,7 @@ import { createCompanyRepository } from '../company/company.repository.js';
 import { createBillingService } from './billing.service.js';
 
 /** Fake mínimo — só os métodos que o service de fato chama. */
-function buildFakeStripe(overrides?: Partial<{ checkoutUrl: string; customerId: string; subscriptionId: string; currentPeriodEnd: number }>) {
+function buildFakeStripe(overrides?: Partial<{ checkoutUrl: string; customerId: string; subscriptionId: string; currentPeriodEnd: number; invoices: Record<string, unknown>[] }>) {
   const checkoutCreate = vi.fn().mockResolvedValue({
     url: overrides?.checkoutUrl ?? 'https://checkout.stripe.com/fake-session',
     customer: overrides?.customerId ?? 'cus_fake',
@@ -19,14 +19,16 @@ function buildFakeStripe(overrides?: Partial<{ checkoutUrl: string; customerId: 
   const subscriptionsRetrieve = vi.fn().mockResolvedValue({
     items: { data: [{ current_period_end: overrides?.currentPeriodEnd ?? Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60 }] },
   });
+  const invoicesList = vi.fn().mockResolvedValue({ data: overrides?.invoices ?? [] });
 
   const stripe = {
     checkout: { sessions: { create: checkoutCreate } },
     billingPortal: { sessions: { create: portalCreate } },
     subscriptions: { retrieve: subscriptionsRetrieve },
+    invoices: { list: invoicesList },
   } as unknown as Stripe;
 
-  return { stripe, checkoutCreate, portalCreate, subscriptionsRetrieve };
+  return { stripe, checkoutCreate, portalCreate, subscriptionsRetrieve, invoicesList };
 }
 
 function buildCheckoutCompletedEvent(metadata: Record<string, string>, customer = 'cus_fake', subscription: string | null = 'sub_fake'): Stripe.Event {
@@ -263,5 +265,37 @@ describe('billingService', () => {
     const result = await service.getRenewalDate({ tenantId: company.id, userId: admin.id, role: 'admin' });
     expect(subscriptionsRetrieve).toHaveBeenCalledWith('sub_renew');
     expect(result.renews_at).toBe(new Date(periodEnd * 1000).toISOString());
+  });
+
+  it('listInvoices devolve lista vazia quando a empresa não tem conta de cobrança', async () => {
+    const company = await companiesRepo.create({ name: 'Sem Fatura', slug: 'sem-fatura' });
+    const admin = await usersRepo.create({ tenantId: company.id, name: 'Admin', email: 'admin@semfatura.com', passwordHash: 'hash', role: 'admin' });
+    const service = createBillingService(testDb, authService, buildFakeStripe().stripe, 'price_123');
+
+    const result = await service.listInvoices({ tenantId: company.id, userId: admin.id, role: 'admin' });
+    expect(result.invoices).toEqual([]);
+  });
+
+  it('listInvoices consulta a Stripe e devolve o histórico formatado', async () => {
+    const company = await companiesRepo.create({ name: 'Com Fatura', slug: 'com-fatura' });
+    await companiesRepo.setStripeIds(company.id, { stripeCustomerId: 'cus_inv', stripeSubscriptionId: 'sub_inv' });
+    const admin = await usersRepo.create({ tenantId: company.id, name: 'Admin', email: 'admin@comfatura.com', passwordHash: 'hash', role: 'admin' });
+
+    const createdAt = Math.floor(Date.now() / 1000) - 86400;
+    const { stripe, invoicesList } = buildFakeStripe({
+      invoices: [{
+        id: 'in_123', number: 'INV-0001', status: 'paid', amount_paid: 19990, currency: 'brl',
+        created: createdAt, hosted_invoice_url: 'https://invoice.stripe.com/i/in_123', invoice_pdf: 'https://invoice.stripe.com/i/in_123.pdf',
+      }],
+    });
+    const service = createBillingService(testDb, authService, stripe, 'price_123');
+
+    const result = await service.listInvoices({ tenantId: company.id, userId: admin.id, role: 'admin' });
+    expect(invoicesList).toHaveBeenCalledWith({ customer: 'cus_inv', limit: 24 });
+    expect(result.invoices).toEqual([{
+      id: 'in_123', number: 'INV-0001', status: 'paid', amount_paid: 19990, currency: 'brl',
+      created_at: new Date(createdAt * 1000).toISOString(),
+      hosted_invoice_url: 'https://invoice.stripe.com/i/in_123', invoice_pdf: 'https://invoice.stripe.com/i/in_123.pdf',
+    }]);
   });
 });

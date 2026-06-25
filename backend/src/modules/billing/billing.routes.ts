@@ -83,6 +83,16 @@ export function createBillingRouter(service: BillingService) {
     }
   });
 
+  // Só admin (seção Cobrança) — histórico de faturas, direto da Stripe.
+  router.get('/billing/invoices', authenticate, authorize('admin'), async (req, res, next) => {
+    try {
+      const result = await service.listInvoices(req.auth!);
+      res.json({ data: result });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   return router;
 }
 

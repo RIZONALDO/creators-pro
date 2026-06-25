@@ -6,6 +6,7 @@ import type {
   TaskFormat, TaskStatus, ServiceStatus,
   AbsenceStatus, ShiftStatus, StatusMeta, UserRole, UserStatus, CompanyStatus, User,
 } from '@/types';
+import type { Invoice } from '@/api';
 
 export const TASK_STATUS_META: Record<TaskStatus, StatusMeta> = {
   na_fila:        { label: 'Na fila',        color: '#9A9AB2', bg: 'rgba(154,154,178,.14)' },
@@ -93,6 +94,15 @@ export const COMPANY_STATUS_META: Record<CompanyStatus, StatusMeta> = {
   suspended: { label: 'Suspensa',  color: '#F59E0B', bg: 'rgba(245,158,11,.16)' },
   cancelled: { label: 'Cancelada', color: '#EF4444', bg: 'rgba(239,68,68,.16)' },
   trial:     { label: 'Teste',     color: '#6C63FF', bg: 'rgba(108,99,255,.16)' },
+};
+
+/** Status de fatura da Stripe (AdminBilling.tsx) — vem direto da Stripe, nunca inventado por nós. */
+export const INVOICE_STATUS_META: Record<NonNullable<Invoice['status']>, StatusMeta> = {
+  paid:          { label: 'Paga',         color: '#22C55E', bg: 'rgba(34,197,94,.16)' },
+  open:          { label: 'Em aberto',    color: '#F59E0B', bg: 'rgba(245,158,11,.16)' },
+  uncollectible: { label: 'Não cobrada',  color: '#EF4444', bg: 'rgba(239,68,68,.16)' },
+  void:          { label: 'Anulada',      color: '#65657C', bg: 'rgba(101,101,124,.14)' },
+  draft:         { label: 'Rascunho',     color: '#65657C', bg: 'rgba(101,101,124,.14)' },
 };
 
 /** Paleta determinística para avatares, derivada do id/nome. */
