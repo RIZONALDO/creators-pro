@@ -630,10 +630,23 @@ export const accountApi = {
   },
 };
 
+export interface OnboardingStatus {
+  has_gestor: boolean;
+  has_creator: boolean;
+  has_task: boolean;
+  has_scale_entry: boolean;
+}
+
+const onboardingApi = {
+  status: (): Promise<OnboardingStatus> =>
+    http.get<{ data: OnboardingStatus }>('/onboarding/status').then((r) => r.data),
+};
+
 export const api = {
   auth, users: usersApi, professions: professionsApi, creators: creatorsApi,
   collaborators: collaboratorsApi, clients: clientsApi, tasks: tasksApi, services: servicesApi,
   schedule: scheduleApi, holidays: holidaysApi, absences: absencesApi, shifts: shiftsApi,
   messages: messagesApi, notifications: notificationsApi, statusHistory: statusHistoryApi, push: pushApi,
-  reports: reportsApi, attachments: attachmentsApi, company: companyApi, billing: billingApi, account: accountApi,
+  reports: reportsApi, attachments: attachmentsApi, company: companyApi, billing: billingApi,
+  account: accountApi, onboarding: onboardingApi,
 };

@@ -8,6 +8,7 @@ import { Card, Avatar, Tag, StatusPill } from '@/components/ui';
 import { TaskDetailScreen } from '@/components/TaskDetailScreen';
 import { MobileScreen } from '@/components/MobileScreen';
 import { NotificationsList } from '@/components/NotificationsList';
+import { OnboardingChecklist } from '@/components/OnboardingChecklist';
 import { PushPrompt } from '@/components/PushPrompt';
 import { TASK_STATUS_META, SHIFT_STATUS_META, TASK_FORMAT_COLOR, shortDate } from '@/lib/display';
 import { currentWeekWeekdays, todayIso } from '@/lib/dates';
@@ -93,6 +94,7 @@ function CoordinatorDashboard() {
 
   return (
     <div className="cp-fade" style={{ maxWidth: 1240, margin: '0 auto' }}>
+      <OnboardingChecklist />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 14, marginBottom: 18 }}>{kpis}</div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 16, marginBottom: 16 }}>

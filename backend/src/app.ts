@@ -47,6 +47,8 @@ import { createBillingService } from './modules/billing/billing.service.js';
 import { createBillingRouter, createBillingWebhookHandler } from './modules/billing/billing.routes.js';
 import { createAccountService } from './modules/account/account.service.js';
 import { createAccountRouter } from './modules/account/account.routes.js';
+import { createOnboardingService } from './modules/onboarding/onboarding.service.js';
+import { createOnboardingRouter } from './modules/onboarding/onboarding.routes.js';
 import { env } from './lib/env.js';
 
 export function createApp(
@@ -99,6 +101,7 @@ export function createApp(
   app.use(createAttachmentsRouter(createAttachmentsService(db, emitter, pushSender)));
   app.use(createCompanyRouter(createCompanyService(db)));
   app.use(createAccountRouter(createAccountService(db)));
+  app.use(createOnboardingRouter(createOnboardingService(db)));
 
   app.use(errorHandler);
   return app;
