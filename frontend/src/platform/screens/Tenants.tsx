@@ -11,9 +11,10 @@ const STATUS_LABEL: Record<string, { label: string; color: string; bg: string }>
 
 interface Props {
   onSelect: (id: string) => void;
+  onDeleted?: () => void;
 }
 
-export function Tenants({ onSelect }: Props) {
+export function Tenants({ onSelect, onDeleted }: Props) {
   const [tenants, setTenants] = useState<TenantSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -39,6 +40,18 @@ export function Tenants({ onSelect }: Props) {
       setTenants((prev) => prev.map((t) => (t.id === id ? { ...t, status: updated.status } : t)));
     } catch (err) {
       alert(err instanceof ApiError ? err.message : 'Erro ao atualizar status.');
+    }
+  }
+
+  async function handleDelete(t: TenantSummary, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!confirm(`Excluir "${t.name}" e TODOS os seus dados permanentemente? Esta ação não pode ser desfeita.`)) return;
+    try {
+      await platformApi.tenants.delete(t.id);
+      setTenants((prev) => prev.filter((x) => x.id !== t.id));
+      onDeleted?.();
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : 'Erro ao excluir tenant.');
     }
   }
 
@@ -70,7 +83,7 @@ export function Tenants({ onSelect }: Props) {
             const meta = STATUS_LABEL[t.status] ?? STATUS_LABEL.cancelled!;
             const created = new Date(t.created_at).toLocaleDateString('pt-BR');
             return (
-              <div key={t.id} onClick={() => onSelect(t.id)} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 120px', gap: 14, padding: '14px 20px', borderBottom: '1px solid var(--line)', alignItems: 'center', fontSize: 13, cursor: 'pointer' }}>
+              <div key={t.id} onClick={() => onSelect(t.id)} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 180px', gap: 14, padding: '14px 20px', borderBottom: '1px solid var(--line)', alignItems: 'center', fontSize: 13, cursor: 'pointer' }}>
                 <div>
                   <div style={{ fontWeight: 600, color: 'var(--tx)' }}>{t.name}</div>
                   <div style={{ fontSize: 11, color: 'var(--tx3)', marginTop: 2 }}>/{t.slug}</div>
@@ -78,13 +91,14 @@ export function Tenants({ onSelect }: Props) {
                 <span style={{ fontSize: 11, fontWeight: 700, color: meta.color, background: meta.bg, padding: '3px 10px', borderRadius: 7, display: 'inline-block' }}>{meta.label}</span>
                 <span style={{ color: 'var(--tx2)' }}>{t.user_count}</span>
                 <span style={{ color: 'var(--tx2)' }}>{created}</span>
-                <div style={{ display: 'flex', gap: 6 }}>
+                <div style={{ display: 'flex', gap: 6 }} onClick={(e) => e.stopPropagation()}>
                   {t.status !== 'active' && (
                     <button onClick={(e) => handleStatus(t.id, 'active', e)} title="Reativar" style={{ background: 'rgba(34,197,94,.1)', color: '#22c55e', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Reativar</button>
                   )}
                   {t.status === 'active' && (
                     <button onClick={(e) => handleStatus(t.id, 'suspended', e)} title="Suspender" style={{ background: 'rgba(239,68,68,.08)', color: 'var(--red)', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Suspender</button>
                   )}
+                  <button onClick={(e) => handleDelete(t, e)} title="Excluir permanentemente" style={{ background: 'none', color: 'var(--red)', border: '1px solid rgba(239,68,68,.25)', borderRadius: 7, padding: '5px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Excluir</button>
                 </div>
               </div>
             );

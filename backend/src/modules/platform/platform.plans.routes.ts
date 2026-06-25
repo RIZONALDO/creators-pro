@@ -59,7 +59,7 @@ export function createPlatformPlansRouter(service: PlatformPlansService) {
 
   router.delete('/platform/plans/:id', authenticatePlatform, async (req, res, next) => {
     try {
-      res.json(await service.deactivate(req.params.id!));
+      res.json(await service.deletePlan(req.params.id!));
     } catch (err) {
       next(err);
     }

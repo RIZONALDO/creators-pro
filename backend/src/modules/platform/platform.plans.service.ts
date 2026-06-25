@@ -121,10 +121,10 @@ export function createPlatformPlansService(db: NodePgDatabase<typeof schema>, st
     return updated!;
   }
 
-  async function deactivate(id: string) {
-    const [updated] = await db.update(plans).set({ active: false }).where(eq(plans.id, id)).returning();
-    if (!updated) throw notFound('PLAN_NOT_FOUND', 'Plano não encontrado.');
-    return updated;
+  async function deletePlan(id: string) {
+    const [deleted] = await db.delete(plans).where(eq(plans.id, id)).returning();
+    if (!deleted) throw notFound('PLAN_NOT_FOUND', 'Plano não encontrado.');
+    return { ok: true };
   }
 
   async function syncStripeById(id: string) {
@@ -140,7 +140,7 @@ export function createPlatformPlansService(db: NodePgDatabase<typeof schema>, st
     return { plan, stripe: { product, price } };
   }
 
-  return { list, getById, create, update, deactivate, syncStripeById };
+  return { list, getById, create, update, deletePlan, syncStripeById };
 }
 
 export type PlatformPlansService = ReturnType<typeof createPlatformPlansService>;

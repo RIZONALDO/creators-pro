@@ -12,9 +12,10 @@ const STATUS_LABEL: Record<string, { label: string; color: string; bg: string }>
 interface Props {
   id: string;
   onBack: () => void;
+  onDeleted?: () => void;
 }
 
-export function TenantDetail({ id, onBack }: Props) {
+export function TenantDetail({ id, onBack, onDeleted }: Props) {
   const [tenant, setTenant] = useState<TenantDetailType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -37,6 +38,19 @@ export function TenantDetail({ id, onBack }: Props) {
     } catch (e) {
       alert(e instanceof ApiError ? e.message : 'Erro ao atualizar status.');
     } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!tenant) return;
+    if (!confirm(`Excluir "${tenant.name}" e TODOS os seus dados permanentemente?\n\nUsuários, creators, tarefas, escalas — tudo será apagado. Não tem como desfazer.`)) return;
+    setActionBusy(true);
+    try {
+      await platformApi.tenants.delete(id);
+      onDeleted ? onDeleted() : onBack();
+    } catch (e) {
+      alert(e instanceof ApiError ? e.message : 'Erro ao excluir tenant.');
       setActionBusy(false);
     }
   }
@@ -82,6 +96,14 @@ export function TenantDetail({ id, onBack }: Props) {
             <ActionBtn onClick={() => handleStatus('cancelled')} busy={actionBusy} color="var(--tx2)" bg="var(--bg3)">Cancelar</ActionBtn>
           )}
         </div>
+      </div>
+
+      <div style={{ background: 'var(--bg1)', border: '1px solid rgba(239,68,68,.3)', borderRadius: 16, padding: 20 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--red)', letterSpacing: '.05em', marginBottom: 10 }}>ZONA DE PERIGO</div>
+        <div style={{ fontSize: 13, color: 'var(--tx2)', marginBottom: 14 }}>
+          Exclui a empresa e todos os dados permanentemente: usuários, creators, tarefas, escalas e mensagens. Irreversível.
+        </div>
+        <ActionBtn onClick={handleDelete} busy={actionBusy} color="var(--red)" bg="rgba(239,68,68,.08)">Excluir tenant permanentemente</ActionBtn>
       </div>
 
       {(tenant.stripe_customer_id || tenant.stripe_subscription_id) && (

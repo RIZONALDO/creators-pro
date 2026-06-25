@@ -12,13 +12,10 @@ function fmtCents(cents: number, currency: string) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: currency.toUpperCase() }).format(cents / 100);
 }
 
-function PlanRow({ plan, onEdit, onDeactivate }: { plan: Plan; onEdit: (p: Plan) => void; onDeactivate: (id: string) => void }) {
+function PlanRow({ plan, onEdit, onDelete }: { plan: Plan; onEdit: (p: Plan) => void; onDelete: (id: string) => void }) {
   return (
     <tr style={{ borderBottom: '1px solid var(--line)' }}>
-      <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--tx)', fontSize: 14 }}>
-        {plan.name}
-        {!plan.active && <span style={{ marginLeft: 8, fontSize: 11, background: 'var(--bg3)', color: 'var(--tx3)', borderRadius: 6, padding: '2px 6px' }}>Inativo</span>}
-      </td>
+      <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--tx)', fontSize: 14 }}>{plan.name}</td>
       <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--tx2)' }}>{BILLING_LABELS[plan.billing_type] ?? plan.billing_type}</td>
       <td style={{ padding: '12px 16px', fontSize: 14, fontWeight: 600, color: 'var(--tx)' }}>{fmtCents(plan.price_cents, plan.currency)}</td>
       <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--tx2)' }}>
@@ -32,12 +29,8 @@ function PlanRow({ plan, onEdit, onDeactivate }: { plan: Plan; onEdit: (p: Plan)
       </td>
       <td style={{ padding: '12px 16px' }}>
         <div style={{ display: 'flex', gap: 8 }}>
-          {plan.active && (
-            <button onClick={() => onEdit(plan)} style={{ fontSize: 12, padding: '5px 11px', borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--line)', color: 'var(--tx)', cursor: 'pointer' }}>Editar</button>
-          )}
-          {plan.active && (
-            <button onClick={() => onDeactivate(plan.id)} style={{ fontSize: 12, padding: '5px 11px', borderRadius: 8, background: 'none', border: '1px solid var(--line)', color: 'var(--red)', cursor: 'pointer' }}>Desativar</button>
-          )}
+          <button onClick={() => onEdit(plan)} style={{ fontSize: 12, padding: '5px 11px', borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--line)', color: 'var(--tx)', cursor: 'pointer' }}>Editar</button>
+          <button onClick={() => onDelete(plan.id)} style={{ fontSize: 12, padding: '5px 11px', borderRadius: 8, background: 'none', border: '1px solid var(--line)', color: 'var(--red)', cursor: 'pointer' }}>Excluir</button>
         </div>
       </td>
     </tr>
@@ -170,13 +163,14 @@ export function Plans() {
     setModal(null);
   }
 
-  async function deactivate(id: string) {
-    if (!confirm('Desativar este plano?')) return;
+  async function deletePlan(id: string) {
+    const plan = plans.find((p) => p.id === id);
+    if (!confirm(`Excluir o plano "${plan?.name ?? id}"? Esta ação não pode ser desfeita.`)) return;
     try {
-      const updated = await platformApi.plans.deactivate(id);
-      setPlans((prev) => prev.map((p) => p.id === id ? updated : p));
+      await platformApi.plans.delete(id);
+      setPlans((prev) => prev.filter((p) => p.id !== id));
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Erro ao desativar.');
+      alert(err instanceof Error ? err.message : 'Erro ao excluir.');
     }
   }
 
@@ -209,7 +203,7 @@ export function Plans() {
             {plans.length === 0 ? (
               <tr><td colSpan={6} style={{ padding: 32, textAlign: 'center', color: 'var(--tx3)', fontSize: 14 }}>Nenhum plano cadastrado ainda.</td></tr>
             ) : (
-              plans.map((p) => <PlanRow key={p.id} plan={p} onEdit={(pl) => setModal({ type: 'edit', plan: pl })} onDeactivate={deactivate} />)
+              plans.map((p) => <PlanRow key={p.id} plan={p} onEdit={(pl) => setModal({ type: 'edit', plan: pl })} onDelete={deletePlan} />)
             )}
           </tbody>
         </table>

@@ -68,5 +68,13 @@ export function createPlatformTenantsRouter(service: PlatformTenantsService) {
     }
   });
 
+  router.delete('/platform/tenants/:id', authenticatePlatform, async (req, res, next) => {
+    try {
+      res.json(await service.deleteTenant(req.params.id!));
+    } catch (err) {
+      next(err);
+    }
+  });
+
   return router;
 }

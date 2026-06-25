@@ -1,6 +1,11 @@
 import { count, eq, sql } from 'drizzle-orm';
 import type { db as Db } from '../../db/client.js';
-import { companies, creators, creatorTasks, plans, users, type CompanyStatus } from '../../db/schema/index.js';
+import {
+  absences, attachments, clients, collaborators, collaboratorServices,
+  companies, creators, creatorTasks, messages, notifications, plans,
+  pushSubscriptions, scaleEntries, scaleMonths, shifts, shiftStandbys,
+  statusHistory, users, type CompanyStatus,
+} from '../../db/schema/index.js';
 import { badRequest, conflict, notFound } from '../../lib/errors.js';
 import { slugify, uniqueSlug } from '../../lib/slug.js';
 import bcrypt from 'bcryptjs';
@@ -73,6 +78,34 @@ export function createPlatformTenantsService(db: typeof Db) {
         .returning();
 
       return updated!;
+    },
+
+    async deleteTenant(id: string) {
+      const [existing] = await db.select({ id: companies.id }).from(companies).where(eq(companies.id, id)).limit(1);
+      if (!existing) throw notFound('TENANT_NOT_FOUND', 'Tenant não encontrado.');
+
+      await db.transaction(async (tx) => {
+        // Ordem: filhos de filhos primeiro, depois filhos da empresa, depois empresa
+        await tx.delete(pushSubscriptions).where(eq(pushSubscriptions.tenantId, id));
+        await tx.delete(notifications).where(eq(notifications.tenantId, id));
+        await tx.delete(messages).where(eq(messages.tenantId, id));
+        await tx.delete(attachments).where(eq(attachments.tenantId, id));
+        await tx.delete(shiftStandbys).where(eq(shiftStandbys.tenantId, id));
+        await tx.delete(scaleEntries).where(eq(scaleEntries.tenantId, id));
+        await tx.delete(absences).where(eq(absences.tenantId, id));
+        await tx.delete(shifts).where(eq(shifts.tenantId, id));
+        await tx.delete(statusHistory).where(eq(statusHistory.tenantId, id));
+        await tx.delete(creatorTasks).where(eq(creatorTasks.tenantId, id));
+        await tx.delete(collaboratorServices).where(eq(collaboratorServices.tenantId, id));
+        await tx.delete(scaleMonths).where(eq(scaleMonths.tenantId, id));
+        await tx.delete(creators).where(eq(creators.tenantId, id));
+        await tx.delete(collaborators).where(eq(collaborators.tenantId, id));
+        await tx.delete(clients).where(eq(clients.tenantId, id));
+        await tx.delete(users).where(eq(users.tenantId, id));
+        await tx.delete(companies).where(eq(companies.id, id));
+      });
+
+      return { ok: true };
     },
 
     async create(input: { name: string; adminName: string; adminEmail: string; adminPassword: string }) {

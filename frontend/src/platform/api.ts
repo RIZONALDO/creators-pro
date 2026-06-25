@@ -104,6 +104,8 @@ export const platformApi = {
       platformRequest<TenantSummary>('POST', '/platform/tenants', input),
     updateStatus: (id: string, status: string) =>
       platformRequest<TenantDetail>('PATCH', `/platform/tenants/${id}/status`, { status }),
+    delete: (id: string) =>
+      platformRequest<{ ok: boolean }>('DELETE', `/platform/tenants/${id}`),
     updatePlan: (id: string, input: { planId: string | null; lifetime?: boolean; planOverride?: Record<string, unknown> | null }) =>
       platformRequest<TenantDetail>('PATCH', `/platform/tenants/${id}/plan`, input),
   },
@@ -123,8 +125,8 @@ export const platformApi = {
     }) => platformRequest<Plan>('POST', '/platform/plans', input),
     update: (id: string, input: { name?: string; priceCents?: number; maxGestores?: number | null; maxCreators?: number | null }) =>
       platformRequest<Plan>('PUT', `/platform/plans/${id}`, input),
-    deactivate: (id: string) =>
-      platformRequest<Plan>('DELETE', `/platform/plans/${id}`),
+    delete: (id: string) =>
+      platformRequest<{ ok: boolean }>('DELETE', `/platform/plans/${id}`),
     syncStripe: (id: string) =>
       platformRequest<{ plan: Plan; stripe: { product: unknown; price: unknown } }>('POST', `/platform/plans/${id}/sync-stripe`),
   },
