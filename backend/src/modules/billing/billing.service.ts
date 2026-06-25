@@ -129,7 +129,8 @@ export function createBillingService(
         const obj = event.data.object as { customer: string | Stripe.Customer | Stripe.DeletedCustomer };
         const customerId = typeof obj.customer === 'string' ? obj.customer : obj.customer.id;
         const company = await companiesRepo.findByStripeCustomerId(customerId);
-        if (company) await companiesRepo.updateStatus(company.id, 'suspended');
+        // Planos vitalícios nunca suspensos por billing mesmo sem assinatura ativa
+        if (company && !company.lifetime) await companiesRepo.updateStatus(company.id, 'suspended');
         return;
       }
 

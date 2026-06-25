@@ -15,6 +15,12 @@ const updateStatusSchema = z.object({
   status: z.enum(['active', 'suspended', 'cancelled', 'trial']),
 });
 
+const updatePlanSchema = z.object({
+  planId: z.string().uuid().nullable(),
+  planOverride: z.record(z.unknown()).nullable().optional(),
+  lifetime: z.boolean().optional(),
+});
+
 export function createPlatformTenantsRouter(service: PlatformTenantsService) {
   const router = Router();
 
@@ -48,6 +54,15 @@ export function createPlatformTenantsRouter(service: PlatformTenantsService) {
     try {
       const { status } = updateStatusSchema.parse(req.body);
       res.json(await service.updateStatus(req.params.id!, status as CompanyStatus));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.patch('/platform/tenants/:id/plan', authenticatePlatform, async (req, res, next) => {
+    try {
+      const input = updatePlanSchema.parse(req.body);
+      res.json(await service.updatePlan(req.params.id!, input));
     } catch (err) {
       next(err);
     }

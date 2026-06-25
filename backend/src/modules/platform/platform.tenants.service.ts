@@ -1,6 +1,6 @@
 import { count, eq, sql } from 'drizzle-orm';
 import type { db as Db } from '../../db/client.js';
-import { companies, creators, creatorTasks, users, type CompanyStatus } from '../../db/schema/index.js';
+import { companies, creators, creatorTasks, plans, users, type CompanyStatus } from '../../db/schema/index.js';
 import { badRequest, conflict, notFound } from '../../lib/errors.js';
 import { slugify, uniqueSlug } from '../../lib/slug.js';
 import bcrypt from 'bcryptjs';
@@ -49,6 +49,29 @@ export function createPlatformTenantsService(db: typeof Db) {
       if (!existing) throw notFound('TENANT_NOT_FOUND', 'Tenant não encontrado.');
 
       const [updated] = await db.update(companies).set({ status, updatedAt: new Date() }).where(eq(companies.id, id)).returning();
+      return updated!;
+    },
+
+    async updatePlan(id: string, input: { planId: string | null; planOverride?: Record<string, unknown> | null; lifetime?: boolean }) {
+      const [existing] = await db.select({ id: companies.id }).from(companies).where(eq(companies.id, id)).limit(1);
+      if (!existing) throw notFound('TENANT_NOT_FOUND', 'Tenant não encontrado.');
+
+      if (input.planId) {
+        const [plan] = await db.select({ id: plans.id }).from(plans).where(eq(plans.id, input.planId)).limit(1);
+        if (!plan) throw badRequest('PLAN_NOT_FOUND', 'Plano não encontrado.');
+      }
+
+      const [updated] = await db
+        .update(companies)
+        .set({
+          planId: input.planId,
+          planOverride: input.planOverride ?? null,
+          lifetime: input.lifetime ?? false,
+          updatedAt: new Date(),
+        })
+        .where(eq(companies.id, id))
+        .returning();
+
       return updated!;
     },
 

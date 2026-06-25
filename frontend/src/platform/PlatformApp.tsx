@@ -3,8 +3,14 @@ import { PlatformProvider, usePlatform } from './context/PlatformContext';
 import { PlatformLogin } from './PlatformLogin';
 import { Tenants } from './screens/Tenants';
 import { TenantDetail } from './screens/TenantDetail';
+import { Plans } from './screens/Plans';
+import { Settings } from './screens/Settings';
 
-type Screen = { name: 'tenants' } | { name: 'tenant'; id: string };
+type Screen =
+  | { name: 'tenants' }
+  | { name: 'tenant'; id: string }
+  | { name: 'plans' }
+  | { name: 'settings' };
 
 function PlatformShell() {
   const { admin, loading, logout } = usePlatform();
@@ -30,9 +36,23 @@ function PlatformShell() {
         </div>
 
         <nav style={{ flex: 1, padding: '0 10px' }}>
-          <NavItem active={screen.name === 'tenants'} onClick={() => setScreen({ name: 'tenants' })} icon={
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /></svg>
-          }>Tenants</NavItem>
+          <NavItem
+            active={screen.name === 'tenants' || screen.name === 'tenant'}
+            onClick={() => setScreen({ name: 'tenants' })}
+            icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /></svg>}
+          >Tenants</NavItem>
+
+          <NavItem
+            active={screen.name === 'plans'}
+            onClick={() => setScreen({ name: 'plans' })}
+            icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>}
+          >Planos</NavItem>
+
+          <NavItem
+            active={screen.name === 'settings'}
+            onClick={() => setScreen({ name: 'settings' })}
+            icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>}
+          >Configurações</NavItem>
         </nav>
 
         <div style={{ padding: '16px 10px 0', borderTop: '1px solid var(--line)' }}>
@@ -49,12 +69,14 @@ function PlatformShell() {
 
       {/* Main */}
       <div style={{ flex: 1, padding: 32, overflowY: 'auto' }}>
-        {screen.name === 'tenants' && (
+        {(screen.name === 'tenants') && (
           <Tenants onSelect={(id) => setScreen({ name: 'tenant', id })} />
         )}
         {screen.name === 'tenant' && (
           <TenantDetail id={screen.id} onBack={() => setScreen({ name: 'tenants' })} />
         )}
+        {screen.name === 'plans' && <Plans />}
+        {screen.name === 'settings' && <Settings />}
       </div>
     </div>
   );

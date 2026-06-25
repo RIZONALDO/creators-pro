@@ -53,6 +53,8 @@ import { createPlatformAuthService } from './modules/platform/platform.auth.serv
 import { createPlatformAuthRouter } from './modules/platform/platform.auth.routes.js';
 import { createPlatformTenantsService } from './modules/platform/platform.tenants.service.js';
 import { createPlatformTenantsRouter } from './modules/platform/platform.tenants.routes.js';
+import { createPlatformPlansService } from './modules/platform/platform.plans.service.js';
+import { createPlatformPlansRouter } from './modules/platform/platform.plans.routes.js';
 import { env } from './lib/env.js';
 
 export function createApp(
@@ -88,6 +90,7 @@ export function createApp(
   app.use(createAuthRouter(authService));
   app.use(createPlatformAuthRouter(createPlatformAuthService(db)));
   app.use(createPlatformTenantsRouter(createPlatformTenantsService(db)));
+  app.use(createPlatformPlansRouter(createPlatformPlansService(db)));
   app.use(createBillingRouter(billingService));
   app.use(createCreatorsRouter(createCreatorsService(db)));
   app.use(createCollaboratorsRouter(createCollaboratorsService(db)));

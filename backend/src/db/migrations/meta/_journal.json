@@ -169,6 +169,13 @@
       "when": 1782424448998,
       "tag": "0023_outgoing_professor_monster",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1782428737896,
+      "tag": "0024_lucky_yellow_claw",
+      "breakpoints": true
     }
   ]
 }

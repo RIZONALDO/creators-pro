@@ -1,4 +1,4 @@
-import { pgEnum, pgTable, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
+import { boolean, jsonb, pgEnum, pgTable, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
 
 // 'trial': self-service sem cartão (4h grátis, ver auth.service.ts#startTrial) — login só funciona
 // enquanto trial_ends_at não passou; depois disso é bloqueado igual 'suspended', mas com um motivo
@@ -18,6 +18,12 @@ export const companies = pgTable('companies', {
   stripeSubscriptionId: varchar('stripe_subscription_id', { length: 255 }),
   // Só preenchido quando status = 'trial' — momento em que o login passa a ser bloqueado.
   trialEndsAt: timestamp('trial_ends_at', { withTimezone: true }),
+  // Fase 11b: plano e flags de billing da plataforma
+  planId: uuid('plan_id'),
+  // Sobrescreve limites do plano pra este tenant sem criar plano novo (ex.: cliente VIP).
+  planOverride: jsonb('plan_override').$type<{ maxGestores?: number; maxCreators?: number; reason?: string }>(),
+  // Tenant vitalício: nunca suspenso por billing mesmo sem assinatura ativa.
+  lifetime: boolean('lifetime').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

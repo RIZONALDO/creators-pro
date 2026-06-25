@@ -5,6 +5,8 @@ export const superadmins = pgTable('superadmins', {
   name: varchar('name', { length: 255 }).notNull(),
   email: varchar('email', { length: 255 }).notNull().unique(),
   passwordHash: text('password_hash').notNull(),
+  // 2FA TOTP — null = não configurado ainda; obrigatório após setup inicial (Fase 11b)
+  totpSecret: text('totp_secret'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
