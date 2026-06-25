@@ -1,13 +1,21 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { api } from '@/api';
 import { useApp } from '@/context/AppContext';
 import { ApiError } from '@/api/client';
 import { Spinner } from '@/components/ui';
 
 const inputStyle = { width: '100%', background: 'var(--bg2)', border: '1px solid var(--line)', borderRadius: 12, padding: '12px 14px', fontSize: 14, color: 'var(--tx)', outline: 'none' };
 
+interface BlockedInfo { code: string; email: string; message: string }
+
 /** Pública — token vem do link do e-mail (ver auth.service.ts#requestPasswordReset). Sucesso já
- * loga automaticamente (resetPassword no AppContext seta o user — App.tsx redireciona sozinho). */
+ * loga automaticamente (resetPassword no AppContext seta o user — App.tsx redireciona sozinho).
+ *
+ * TRIAL_EXPIRED/SUBSCRIPTION_INACTIVE são um caso especial: a senha JÁ foi trocada de verdade no
+ * backend antes desse erro (ver auth.service.ts#resetPassword) — bloqueado é a sessão, não a
+ * redefinição. Por isso não reaproveita a mensagem genérica de erro: mostra que funcionou e guia
+ * pro próximo passo (mesma mecânica de Login.tsx#upgrade pro caso de trial vencido). */
 export function ResetPassword() {
   const { token } = useParams<{ token: string }>();
   const { resetPassword } = useApp();
@@ -15,6 +23,8 @@ export function ResetPassword() {
   const [password2, setPassword2] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [blocked, setBlocked] = useState<BlockedInfo | null>(null);
+  const [upgradeBusy, setUpgradeBusy] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,9 +34,26 @@ export function ResetPassword() {
     try {
       await resetPassword(token!, password);
     } catch (err) {
-      if (err instanceof ApiError && err.code === 'INVALID_RESET_TOKEN') setError('Esse link expirou ou já foi usado. Solicite um novo.');
-      else setError('Não foi possível redefinir a senha. Tente novamente.');
+      if (err instanceof ApiError && err.code === 'INVALID_RESET_TOKEN') {
+        setError('Esse link expirou ou já foi usado. Solicite um novo.');
+      } else if (err instanceof ApiError && err.details?.password_changed && typeof err.details.email === 'string') {
+        setBlocked({ code: err.code ?? '', email: err.details.email, message: err.message });
+      } else {
+        setError('Não foi possível redefinir a senha. Tente novamente.');
+      }
       setBusy(false);
+    }
+  }
+
+  async function upgrade() {
+    if (!blocked) return;
+    setUpgradeBusy(true);
+    try {
+      const { checkout_url } = await api.billing.upgradeTrial(blocked.email, password);
+      window.location.href = checkout_url;
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Não foi possível iniciar a assinatura. Tente novamente.');
+      setUpgradeBusy(false);
     }
   }
 
@@ -41,31 +68,55 @@ export function ResetPassword() {
         </div>
 
         <div style={{ background: 'var(--bg1)', border: '1px solid var(--line)', borderRadius: 22, padding: 30 }}>
-          <div style={{ fontSize: 19, fontWeight: 700, fontFamily: "'Plus Jakarta Sans'" }}>Nova senha</div>
-          <div style={{ fontSize: 13, color: 'var(--tx3)', marginTop: 4, marginBottom: 22 }}>Escolha uma senha nova pra sua conta</div>
-
-          <form onSubmit={submit}>
-            <label style={{ display: 'block', marginBottom: 14 }}>
-              <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--tx2)', marginBottom: 6 }}>Nova senha</span>
-              <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="Mínimo 8 caracteres" autoComplete="new-password" autoFocus style={inputStyle} />
-            </label>
-            <label style={{ display: 'block', marginBottom: 14 }}>
-              <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--tx2)', marginBottom: 6 }}>Confirmar nova senha</span>
-              <input value={password2} onChange={(e) => setPassword2(e.target.value)} type="password" placeholder="Repita a senha" autoComplete="new-password" style={inputStyle} />
-            </label>
-
-            {error && (
-              <div style={{ fontSize: 12.5, color: 'var(--red)', marginBottom: 14 }}>
-                {error}
-                {error.includes('expirou') && <> <Link to="/esqueci-senha" style={{ color: 'var(--pri)', fontWeight: 600, textDecoration: 'none' }}>Solicitar novo link</Link></>}
+          {blocked ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 19, fontWeight: 700, fontFamily: "'Plus Jakarta Sans'", color: 'var(--green)', marginBottom: 8 }}>
+                Senha redefinida ✓
               </div>
-            )}
+              <div style={{ fontSize: 13.5, color: 'var(--tx2)', lineHeight: 1.5, marginBottom: 20 }}>
+                {blocked.message}
+              </div>
 
-            <button type="submit" disabled={busy}
-              style={{ width: '100%', height: 46, borderRadius: 13, border: 'none', background: 'linear-gradient(135deg,var(--pri),var(--pri2))', color: '#fff', fontWeight: 700, fontSize: 14, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 8px 22px rgba(108,99,255,.4)' }}>
-              {busy ? <Spinner /> : 'Redefinir senha'}
-            </button>
-          </form>
+              {blocked.code === 'TRIAL_EXPIRED' ? (
+                <button onClick={upgrade} disabled={upgradeBusy}
+                  style={{ width: '100%', height: 46, borderRadius: 13, border: 'none', background: 'linear-gradient(135deg,var(--pri),var(--pri2))', color: '#fff', fontWeight: 700, fontSize: 14, cursor: upgradeBusy ? 'default' : 'pointer', opacity: upgradeBusy ? 0.75 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 8px 22px rgba(108,99,255,.4)' }}>
+                  {upgradeBusy ? <Spinner /> : 'Assinar agora — R$ 199,90/mês'}
+                </button>
+              ) : (
+                <div style={{ fontSize: 12.5, color: 'var(--tx3)' }}>
+                  Use sua senha nova quando a assinatura voltar a ficar ativa.
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 19, fontWeight: 700, fontFamily: "'Plus Jakarta Sans'" }}>Nova senha</div>
+              <div style={{ fontSize: 13, color: 'var(--tx3)', marginTop: 4, marginBottom: 22 }}>Escolha uma senha nova pra sua conta</div>
+
+              <form onSubmit={submit}>
+                <label style={{ display: 'block', marginBottom: 14 }}>
+                  <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--tx2)', marginBottom: 6 }}>Nova senha</span>
+                  <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="Mínimo 8 caracteres" autoComplete="new-password" autoFocus style={inputStyle} />
+                </label>
+                <label style={{ display: 'block', marginBottom: 14 }}>
+                  <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--tx2)', marginBottom: 6 }}>Confirmar nova senha</span>
+                  <input value={password2} onChange={(e) => setPassword2(e.target.value)} type="password" placeholder="Repita a senha" autoComplete="new-password" style={inputStyle} />
+                </label>
+
+                {error && (
+                  <div style={{ fontSize: 12.5, color: 'var(--red)', marginBottom: 14 }}>
+                    {error}
+                    {error.includes('expirou') && <> <Link to="/esqueci-senha" style={{ color: 'var(--pri)', fontWeight: 600, textDecoration: 'none' }}>Solicitar novo link</Link></>}
+                  </div>
+                )}
+
+                <button type="submit" disabled={busy}
+                  style={{ width: '100%', height: 46, borderRadius: 13, border: 'none', background: 'linear-gradient(135deg,var(--pri),var(--pri2))', color: '#fff', fontWeight: 700, fontSize: 14, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 8px 22px rgba(108,99,255,.4)' }}>
+                  {busy ? <Spinner /> : 'Redefinir senha'}
+                </button>
+              </form>
+            </>
+          )}
         </div>
 
         <div style={{ fontSize: 12.5, color: 'var(--tx3)', textAlign: 'center', marginTop: 18 }}>

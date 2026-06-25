@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import type { db as Db } from '../../db/client.js';
 import { emailSender as defaultEmailSender, type EmailSender } from '../../lib/email.js';
 import { env } from '../../lib/env.js';
-import { conflict, paymentRequired, unauthorized } from '../../lib/errors.js';
+import { ApiError, conflict, paymentRequired, unauthorized } from '../../lib/errors.js';
 import { verifyGoogleIdToken as defaultVerifyGoogleIdToken, type GoogleProfile } from '../../lib/googleAuth.js';
 import { signAccessToken } from '../../lib/jwt.js';
 import { sanitizeUser } from '../../lib/sanitizeUser.js';
@@ -315,8 +315,18 @@ export function createAuthService(
       const passwordHash = await bcrypt.hash(newPassword, 10);
       const finalUser = await usersRepo.resetPassword(user.id, passwordHash);
 
+      // A senha já foi trocada de verdade no passo acima — um bloqueio daqui pra frente (trial
+      // vencido, assinatura suspensa) não é "a redefinição falhou", é "a senha mudou, mas a
+      // empresa não pode ser usada agora". Por isso o erro carrega o e-mail: quem cai aqui (ex.:
+      // trial vencido) consegue ir direto pro fluxo de assinar (mesma mecânica de
+      // Login.tsx#upgrade) sem ter que digitar o próprio e-mail de novo — ver ResetPassword.tsx.
       const company = await companiesRepo.findById(finalUser.tenantId);
-      assertCompanyUsable(company);
+      try {
+        assertCompanyUsable(company);
+      } catch (err) {
+        if (err instanceof ApiError) throw new ApiError(err.status, err.code, err.message, { email: finalUser.email, password_changed: true });
+        throw err;
+      }
 
       const session = await issueSession(finalUser, userAgent);
       return { ...session, user: await buildUserResponse(finalUser) };

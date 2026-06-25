@@ -3,6 +3,10 @@ export class ApiError extends Error {
     public readonly status: number,
     public readonly code: string,
     message: string,
+    // Opcional — usado quando o front precisa de mais que code/message pra guiar a pessoa (ex.:
+    // auth.service.ts#resetPassword, onde a ação por trás do erro já teve efeito parcial e o
+    // front precisa do e-mail pra continuar o fluxo sem perguntar de novo).
+    public readonly details?: Record<string, unknown>,
   ) {
     super(message);
   }

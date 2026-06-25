@@ -368,4 +368,34 @@ describe('authService', () => {
     await authService.resetPassword(token, 'senha-nova123');
     await expect(authService.resetPassword(token, 'outra-senha123')).rejects.toMatchObject({ code: 'INVALID_RESET_TOKEN' });
   });
+
+  it('resetPassword com trial vencido: troca a senha de verdade mesmo bloqueando a sessão, e o erro carrega o e-mail', async () => {
+    const { user } = await authService.startTrial({ companyName: 'Trial Reset', adminName: 'Admin', adminEmail: 'trialreset@trial.com', adminPassword: 'senha-antiga12' });
+    await companiesRepo.setTrialEndsAt(user.tenantId, new Date(Date.now() - 60_000));
+
+    const token = generateOpaqueToken();
+    await usersRepo.setPasswordResetToken(user.id, hashToken(token), new Date(Date.now() + 60 * 60 * 1000));
+
+    await expect(authService.resetPassword(token, 'senha-nova123')).rejects.toMatchObject({
+      code: 'TRIAL_EXPIRED',
+      details: { email: 'trialreset@trial.com', password_changed: true },
+    });
+
+    // a senha foi trocada de verdade, mesmo com a sessão bloqueada — não é "a redefinição falhou".
+    const reloaded = await usersRepo.findById(user.id);
+    const passwordOk = await bcrypt.compare('senha-nova123', reloaded!.passwordHash!);
+    expect(passwordOk).toBe(true);
+  });
+
+  it('resetPassword com empresa suspensa: mesma lógica (senha troca, erro carrega o e-mail)', async () => {
+    const { company, user } = await createDemoUser('senha-antiga12');
+    await companiesRepo.updateStatus(company.id, 'suspended');
+    const token = generateOpaqueToken();
+    await usersRepo.setPasswordResetToken(user.id, hashToken(token), new Date(Date.now() + 60 * 60 * 1000));
+
+    await expect(authService.resetPassword(token, 'senha-nova123')).rejects.toMatchObject({
+      code: 'SUBSCRIPTION_INACTIVE',
+      details: { email: 'fulano@acme.com', password_changed: true },
+    });
+  });
 });
