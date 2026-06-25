@@ -152,9 +152,10 @@ export function createUsersRepository(db: typeof Db) {
       return firstOrThrow(rows);
     },
 
-    /** Tenant-scoped — usado pelo módulo admin de /users (gerenciar coordenadores/operacionais diretamente). */
-    async listByTenant(tenantId: string, pagination: Pagination) {
-      const where = eq(users.tenantId, tenantId);
+    /** Tenant-scoped — usado pelo módulo admin de /users (gerenciar admin/gestor diretamente;
+     * operacional nunca aparece aqui, é gerenciado em Cadastros pelo próprio gestor). */
+    async listByTenant(tenantId: string, pagination: Pagination, roles: UserRole[]) {
+      const where = and(eq(users.tenantId, tenantId), inArray(users.role, roles));
 
       const [rows, countRows] = await Promise.all([
         db.select().from(users).where(where).limit(pagination.limit).offset(pagination.offset),

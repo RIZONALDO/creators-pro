@@ -71,14 +71,7 @@ export function createCollaboratorsRepository(db: typeof Db) {
     return row ?? null;
   }
 
-  /** Mapeamento leve (sem JOIN/paginação) — usado por GET /users (admin) pra saber quem é Colaborador
-   * e qual a profissão real cadastrada (texto mostrado na tela, não um rótulo genérico — specs/06). */
-  async function listIdsByTenant(tenantId: string) {
-    return db.select({ id: collaborators.id, userId: collaborators.userId, profession: collaborators.profession }).from(collaborators).where(eq(collaborators.tenantId, tenantId));
-  }
-
   return {
-    listIdsByTenant,
     findRowById,
     findRowByUserId,
 

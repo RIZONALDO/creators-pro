@@ -4,40 +4,37 @@ import { conflict, notFound } from '../../lib/errors.js';
 import type { Pagination } from '../../lib/pagination.js';
 import { sanitizeUser } from '../../lib/sanitizeUser.js';
 import { createUsersRepository } from '../auth/users.repository.js';
-import { createCreatorsRepository } from '../creators/creators.repository.js';
-import { createCollaboratorsRepository } from '../collaborators/collaborators.repository.js';
 import type { newUserSchema, updateUserSchema } from './users.schemas.js';
 import type { z } from 'zod';
 
+/** Único papel editável/excluível por aqui — admin nunca aparece como alvo de PUT/DELETE (só de
+ * leitura na listagem), e operacional nem aparece (gerenciado em Cadastros pelo gestor). */
+async function requireGestor(usersRepo: ReturnType<typeof createUsersRepository>, tenantId: string, id: string) {
+  const user = await usersRepo.findByIdInTenant(tenantId, id);
+  if (!user) throw notFound('USER_NOT_FOUND', 'Usuário não encontrado.');
+  if (user.role !== 'gestor') {
+    throw conflict('CANNOT_MODIFY_ADMIN', 'Essa conta não pode ser editada ou excluída por aqui.');
+  }
+  return user;
+}
+
 export function createUsersAdminService(db: typeof Db) {
   const usersRepo = createUsersRepository(db);
-  const creatorsRepo = createCreatorsRepository(db);
-  const collaboratorsRepo = createCollaboratorsRepository(db);
 
   return {
-    /** role='operacional' sozinho não diz se é Creator ou Colaborador (apelidos distintos no
-     * produto) — junta com os dois mapeamentos leves pra a tela de admin saber qual editar. */
+    /** admin (leitura) + gestor — nunca operacional (Creator/Colaborador são gerenciados em
+     * Cadastros, pelo próprio gestor, não aqui). creator_id/collaborator_id/profession sempre null
+     * aqui (mantidos só pra bater a mesma forma de User usada em outros endpoints). */
     async list(tenantId: string, pagination: Pagination) {
-      const [{ rows, total }, creatorRows, collaboratorRows] = await Promise.all([
-        usersRepo.listByTenant(tenantId, pagination),
-        creatorsRepo.listIdsByTenant(tenantId),
-        collaboratorsRepo.listIdsByTenant(tenantId),
-      ]);
-      const creatorIdByUserId = new Map(creatorRows.map((r) => [r.userId, r.id]));
-      const collaboratorIdByUserId = new Map(collaboratorRows.map((r) => [r.userId, r.id]));
-      const professionByUserId = new Map(collaboratorRows.map((r) => [r.userId, r.profession]));
-
+      const { rows, total } = await usersRepo.listByTenant(tenantId, pagination, ['admin', 'gestor']);
       return {
-        rows: rows.map((u) => ({
-          ...sanitizeUser(u),
-          creatorId: creatorIdByUserId.get(u.id) ?? null,
-          collaboratorId: collaboratorIdByUserId.get(u.id) ?? null,
-          profession: professionByUserId.get(u.id) ?? null,
-        })),
+        rows: rows.map((u) => ({ ...sanitizeUser(u), creatorId: null, collaboratorId: null, profession: null })),
         total,
       };
     },
 
+    /** Sempre role='gestor' — admin só nasce via signup/trial/provisionamento interno (ver
+     * users.schemas.ts), nunca por aqui. */
     async create(tenantId: string, input: z.infer<typeof newUserSchema>) {
       const existing = await usersRepo.findByEmail(input.email);
       if (existing) throw conflict('EMAIL_TAKEN', 'Já existe um usuário com este e-mail.');
@@ -49,7 +46,7 @@ export function createUsersAdminService(db: typeof Db) {
         email: input.email,
         phone: input.phone ?? null,
         passwordHash,
-        role: input.role,
+        role: 'gestor',
         status: input.status,
         alias: input.alias,
       });
@@ -58,14 +55,26 @@ export function createUsersAdminService(db: typeof Db) {
     },
 
     async update(tenantId: string, id: string, input: z.infer<typeof updateUserSchema>) {
+      await requireGestor(usersRepo, tenantId, id);
+
       if (input.email !== undefined) {
         const existing = await usersRepo.findByEmail(input.email);
         if (existing && existing.id !== id) throw conflict('EMAIL_TAKEN', 'Já existe um usuário com este e-mail.');
       }
 
+      if (input.password !== undefined) {
+        const passwordHash = await bcrypt.hash(input.password, 10);
+        await usersRepo.updatePassword(id, passwordHash);
+      }
+
       const updated = await usersRepo.updateAdmin(tenantId, id, input);
       if (!updated) throw notFound('USER_NOT_FOUND', 'Usuário não encontrado.');
       return sanitizeUser(updated);
+    },
+
+    async delete(tenantId: string, id: string) {
+      await requireGestor(usersRepo, tenantId, id);
+      await usersRepo.deleteById(tenantId, id);
     },
   };
 }

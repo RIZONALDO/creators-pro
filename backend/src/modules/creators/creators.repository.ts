@@ -68,13 +68,7 @@ export function createCreatorsRepository(db: typeof Db) {
     return row ?? null;
   }
 
-  /** Mapeamento leve (sem JOIN/paginação) — usado por GET /users (admin) pra saber quem é Creator. */
-  async function listIdsByTenant(tenantId: string) {
-    return db.select({ id: creators.id, userId: creators.userId }).from(creators).where(eq(creators.tenantId, tenantId));
-  }
-
   return {
-    listIdsByTenant,
     findRowById,
     findRowByUserId,
 

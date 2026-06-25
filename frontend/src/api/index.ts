@@ -83,13 +83,21 @@ export const usersApi = {
     }
     return http.post('/users', data);
   },
-  update: (id: string, data: Partial<User>): Promise<User> => {
+  update: (id: string, data: Partial<User> & { password?: string }): Promise<User> => {
     if (USE_MOCK) {
       const u = db.users.find((x) => x.id === id)!;
       Object.assign(u, data, { updated_at: stamp() });
       return delay().then(() => u);
     }
     return http.put(`/users/${id}`, data);
+  },
+  delete: (id: string): Promise<void> => {
+    if (USE_MOCK) {
+      const idx = db.users.findIndex((x) => x.id === id);
+      if (idx >= 0) db.users.splice(idx, 1);
+      return delay().then(() => undefined);
+    }
+    return http.del(`/users/${id}`);
   },
 };
 

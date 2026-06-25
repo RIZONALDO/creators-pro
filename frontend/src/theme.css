@@ -131,3 +131,9 @@ input, textarea, select { font-family: inherit; }
 /* 16px evita o zoom automático do Safari/Chrome no iOS ao focar um <input> com fonte menor que
  * isso — bug clássico de PWA testado num celular de verdade, não só estética. */
 .cp-auth-input { font-size: 16px; padding: 15px 16px; border-radius: 14px; }
+
+/* Rodapé do sidebar (Sidebar.tsx/AdminSidebar.tsx) — sem fundo/borda por padrão (só no hover),
+ * pra não parecer um item de menu "selecionado" o tempo todo. Ícone de sair fica neutro até o
+ * hover, onde vira vermelho — não precisa gritar cor o tempo todo pra comunicar a ação. */
+.cp-sidebar-profile-btn:hover { background: var(--bg2); }
+.cp-sidebar-exit-btn:hover { background: rgba(239, 68, 68, 0.1); color: var(--red); }

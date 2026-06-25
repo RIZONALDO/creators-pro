@@ -29,7 +29,7 @@ export function AdminSidebar({ collapsed, onToggleCollapse }: { collapsed: boole
   const appName = company.data?.app_name;
   const appSubtitle = company.data?.app_subtitle;
   const isTrial = billing.data?.status === 'trial';
-  const w = collapsed ? 76 : 250;
+  const w = collapsed ? 76 : 276;
 
   return (
     <aside style={{ width: w, flex: 'none', display: 'flex', flexDirection: 'column', background: 'var(--bg1)', borderRight: '1px solid var(--line)', padding: '18px 14px', gap: 4, transition: 'width .25s cubic-bezier(.4,0,.2,1)' }}>
@@ -80,12 +80,12 @@ export function AdminSidebar({ collapsed, onToggleCollapse }: { collapsed: boole
         );
       })}
 
-      <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ marginTop: 'auto', paddingTop: 12, borderTop: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 4 }}>
         {user && (
           <>
-            <button onClick={() => navigate('/admin/perfil')} title="Editar perfil" style={{
-              display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, padding: '9px 10px', borderRadius: 13,
-              background: 'var(--bg2)', border: '1px solid var(--line)', justifyContent: collapsed ? 'center' : 'flex-start', cursor: 'pointer',
+            <button onClick={() => navigate('/admin/perfil')} title="Editar perfil" className="cp-sidebar-profile-btn" style={{
+              display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, padding: '7px 8px', borderRadius: 12,
+              background: 'transparent', border: 'none', justifyContent: collapsed ? 'center' : 'flex-start', cursor: 'pointer', transition: 'background .15s',
             }}>
               <Avatar name={user.name} size={32} imageUrl={user.avatar_url} />
               {!collapsed && (
@@ -96,9 +96,9 @@ export function AdminSidebar({ collapsed, onToggleCollapse }: { collapsed: boole
               )}
             </button>
             {!collapsed && (
-              <button onClick={logout} title="Sair" style={{
-                width: 38, height: 38, flex: 'none', borderRadius: 13, background: 'var(--bg2)', border: '1px solid var(--line)',
-                color: 'var(--red)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              <button onClick={logout} title="Sair" className="cp-sidebar-exit-btn" style={{
+                width: 34, height: 34, flex: 'none', borderRadius: 11, background: 'transparent', border: 'none',
+                color: 'var(--tx3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background .15s, color .15s',
               }}>
                 <ExitIcon color="currentColor" size={ICON_SIZE} />
               </button>

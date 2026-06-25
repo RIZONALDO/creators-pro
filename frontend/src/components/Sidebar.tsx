@@ -38,7 +38,7 @@ export function Sidebar({ collapsed, onToggleCollapse }: { collapsed: boolean; o
   const isTrial = billing.data?.status === 'trial';
   const canSeeCadastros = useCan('cadastros');
   const gestao = GESTAO.filter((item) => (item.to === '/cadastros' ? canSeeCadastros : true));
-  const w = collapsed ? 76 : 250;
+  const w = collapsed ? 76 : 276;
 
   const renderItem = (item: NavItem) => {
     const Icon = item.icon;
@@ -92,12 +92,12 @@ export function Sidebar({ collapsed, onToggleCollapse }: { collapsed: boolean; o
       {!collapsed && <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.08em', color: 'var(--tx3)', padding: '14px 10px 4px' }}>GESTÃO</div>}
       {gestao.map(renderItem)}
 
-      <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ marginTop: 'auto', paddingTop: 12, borderTop: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 4 }}>
         {user && (
           <>
-            <button onClick={() => navigate('/perfil')} title="Editar perfil" style={{
-              display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, padding: '9px 10px', borderRadius: 13,
-              background: 'var(--bg2)', border: '1px solid var(--line)', justifyContent: collapsed ? 'center' : 'flex-start', cursor: 'pointer',
+            <button onClick={() => navigate('/perfil')} title="Editar perfil" className="cp-sidebar-profile-btn" style={{
+              display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, padding: '7px 8px', borderRadius: 12,
+              background: 'transparent', border: 'none', justifyContent: collapsed ? 'center' : 'flex-start', cursor: 'pointer', transition: 'background .15s',
             }}>
               <Avatar name={user.name} size={32} imageUrl={user.avatar_url} />
               {!collapsed && (
@@ -108,9 +108,9 @@ export function Sidebar({ collapsed, onToggleCollapse }: { collapsed: boolean; o
               )}
             </button>
             {!collapsed && (
-              <button onClick={logout} title="Sair" style={{
-                width: 38, height: 38, flex: 'none', borderRadius: 13, background: 'var(--bg2)', border: '1px solid var(--line)',
-                color: 'var(--red)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              <button onClick={logout} title="Sair" className="cp-sidebar-exit-btn" style={{
+                width: 34, height: 34, flex: 'none', borderRadius: 11, background: 'transparent', border: 'none',
+                color: 'var(--tx3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background .15s, color .15s',
               }}>
                 <ExitIcon color="currentColor" size={ICON_SIZE} />
               </button>

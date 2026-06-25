@@ -40,5 +40,14 @@ export function createUsersRouter(service: UsersAdminService) {
     }
   });
 
+  router.delete('/users/:id', async (req, res, next) => {
+    try {
+      await service.delete(req.auth!.tenantId, req.params.id!);
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  });
+
   return router;
 }

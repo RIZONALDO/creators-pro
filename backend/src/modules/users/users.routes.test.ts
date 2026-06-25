@@ -22,12 +22,12 @@ describe('rotas de users (integração)', () => {
   async function loginAsAdmin() {
     const company = await companiesRepo.create({ name: 'Acme', slug: 'acme' });
     const passwordHash = await bcrypt.hash('senha123', 4);
-    await usersRepo.create({ tenantId: company.id, name: 'Admin', email: 'admin@acme.com', passwordHash, role: 'admin' });
+    const admin = await usersRepo.create({ tenantId: company.id, name: 'Admin', email: 'admin@acme.com', passwordHash, role: 'admin' });
     const login = await request(app).post('/auth/login').send({ email: 'admin@acme.com', password: 'senha123' });
-    return { company, token: login.body.token as string };
+    return { company, admin, token: login.body.token as string };
   }
 
-  it('POST /users cria um coordenador sem expor passwordHash', async () => {
+  it('POST /users cria um gestor sem expor passwordHash', async () => {
     const { token } = await loginAsAdmin();
 
     const res = await request(app)
@@ -51,7 +51,18 @@ describe('rotas de users (integração)', () => {
     expect(res.status).toBe(400);
   });
 
-  it('GET /users lista paginado', async () => {
+  it('POST /users com role admin retorna 400 — admin só nasce via signup/trial/provisionamento interno', async () => {
+    const { token } = await loginAsAdmin();
+
+    const res = await request(app)
+      .post('/users')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: 'Outro Admin', email: 'outroadmin@acme.com', role: 'admin', password: 'senha12345' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('GET /users lista admin + gestor, paginado', async () => {
     const { token } = await loginAsAdmin();
     await request(app).post('/users').set('Authorization', `Bearer ${token}`).send({ name: 'A', email: 'a@acme.com', role: 'gestor', password: 'senha12345' });
 
@@ -62,7 +73,23 @@ describe('rotas de users (integração)', () => {
     expect(res.body.meta.total).toBeGreaterThanOrEqual(2);
   });
 
-  it('PUT /users/:id muda role/status', async () => {
+  it('GET /users nunca lista operacional (Creator/Colaborador são gerenciados em Cadastros, pelo gestor)', async () => {
+    const { token } = await loginAsAdmin();
+    await request(app).post('/creators').set('Authorization', `Bearer ${token}`)
+      .send({ name: 'Creator A', email: 'creatora@acme.com', employment_type: 'fixed', password: 'senha12345' });
+    await request(app).post('/collaborators').set('Authorization', `Bearer ${token}`)
+      .send({ name: 'Colab A', email: 'colaba@acme.com', profession: 'Editor', employment_type: 'freelancer', password: 'senha12345' });
+
+    const res = await request(app).get('/users').set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+
+    const emails = res.body.data.map((u: { email: string }) => u.email);
+    expect(emails).not.toContain('creatora@acme.com');
+    expect(emails).not.toContain('colaba@acme.com');
+    expect(res.body.data.every((u: { role: string }) => u.role !== 'operacional')).toBe(true);
+  });
+
+  it('PUT /users/:id muda status/alias de um gestor', async () => {
     const { token } = await loginAsAdmin();
     const created = await request(app)
       .post('/users')
@@ -75,12 +102,29 @@ describe('rotas de users (integração)', () => {
     expect(res.body.status).toBe('inactive');
   });
 
+  it('PUT /users/:id com password troca a senha — login com a senha nova funciona', async () => {
+    const { token } = await loginAsAdmin();
+    const created = await request(app)
+      .post('/users')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: 'Gestor Senha', email: 'gestorsenha@acme.com', role: 'gestor', password: 'senha-antiga1' });
+
+    const res = await request(app).put(`/users/${created.body.id}`).set('Authorization', `Bearer ${token}`).send({ password: 'senha-nova123' });
+    expect(res.status).toBe(200);
+
+    const oldLogin = await request(app).post('/auth/login').send({ email: 'gestorsenha@acme.com', password: 'senha-antiga1' });
+    expect(oldLogin.status).toBe(401);
+
+    const newLogin = await request(app).post('/auth/login').send({ email: 'gestorsenha@acme.com', password: 'senha-nova123' });
+    expect(newLogin.status).toBe(200);
+  });
+
   it('POST /users aceita alias customizado e PUT /users/:id atualiza esse alias', async () => {
     const { token } = await loginAsAdmin();
     const created = await request(app)
       .post('/users')
       .set('Authorization', `Bearer ${token}`)
-      .send({ name: 'Diretora', email: 'diretora@acme.com', role: 'admin', password: 'senha12345', alias: 'Diretora Geral' });
+      .send({ name: 'Diretora', email: 'diretora@acme.com', role: 'gestor', password: 'senha12345', alias: 'Diretora Geral' });
 
     expect(created.status).toBe(201);
     expect(created.body.alias).toBe('Diretora Geral');
@@ -90,20 +134,32 @@ describe('rotas de users (integração)', () => {
     expect(updated.body.alias).toBe('CEO');
   });
 
-  it('GET /users distingue Creator de Colaborador dentro do role operacional (creator_id/collaborator_id)', async () => {
+  it('PUT /users/:id num admin retorna 409 — admin não é editável por essa rota', async () => {
+    const { token, admin } = await loginAsAdmin();
+    const res = await request(app).put(`/users/${admin.id}`).set('Authorization', `Bearer ${token}`).send({ name: 'Outro nome' });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('CANNOT_MODIFY_ADMIN');
+  });
+
+  it('DELETE /users/:id apaga um gestor', async () => {
     const { token } = await loginAsAdmin();
-    await request(app).post('/creators').set('Authorization', `Bearer ${token}`)
-      .send({ name: 'Creator A', email: 'creatora@acme.com', employment_type: 'fixed', password: 'senha12345' });
-    await request(app).post('/collaborators').set('Authorization', `Bearer ${token}`)
-      .send({ name: 'Colab A', email: 'colaba@acme.com', profession: 'Editor', employment_type: 'freelancer', password: 'senha12345' });
+    const created = await request(app)
+      .post('/users')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: 'Gestor Apagar', email: 'gestorapagar@acme.com', role: 'gestor', password: 'senha12345' });
 
-    const res = await request(app).get('/users').set('Authorization', `Bearer ${token}`);
-    expect(res.status).toBe(200);
+    const res = await request(app).delete(`/users/${created.body.id}`).set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(204);
 
-    const creatorUser = res.body.data.find((u: { email: string }) => u.email === 'creatora@acme.com');
-    const colabUser = res.body.data.find((u: { email: string }) => u.email === 'colaba@acme.com');
-    expect(creatorUser).toMatchObject({ role: 'operacional', creator_id: expect.any(String), collaborator_id: null, profession: null });
-    expect(colabUser).toMatchObject({ role: 'operacional', creator_id: null, collaborator_id: expect.any(String), profession: 'Editor' });
+    const list = await request(app).get('/users').set('Authorization', `Bearer ${token}`);
+    expect(list.body.data.find((u: { id: string }) => u.id === created.body.id)).toBeUndefined();
+  });
+
+  it('DELETE /users/:id num admin retorna 409 — admin não é excluível por essa rota', async () => {
+    const { token, admin } = await loginAsAdmin();
+    const res = await request(app).delete(`/users/${admin.id}`).set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('CANNOT_MODIFY_ADMIN');
   });
 
   it('gestor recebe 403 em /users (admin only)', async () => {
