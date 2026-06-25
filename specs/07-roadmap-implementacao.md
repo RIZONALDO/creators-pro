@@ -141,6 +141,34 @@ Como o isolamento entre tenants já vem sendo testado desde a Fase 1 (e estendid
 - Estratégia de migrations em produção (rodar `drizzle-kit migrate` antes do deploy da nova versão da API, nunca depois).
 - Ambientes: `staging` (1 tenant de teste) e `production`.
 
+## Fase 11 — Super Admin da Plataforma
+**Depende de: Fase 9.1 (Stripe) — Complexidade: média/grande — Spec completa: [10-superadmin-plataforma.md](./10-superadmin-plataforma.md)**
+
+Painel de gestão da **plataforma em si** (não de um tenant específico). Separado do produto por design: tabela `superadmins` própria, middleware `authenticatePlatform`, rotas `/platform/*`, frontend em `frontend/src/platform/` com árvore React independente do produto.
+
+### Fase 11a — Fundação: auth + gestão de tenants
+- Tabela `superadmins` (seed direto em migration, nunca via UI).
+- Middleware `authenticatePlatform` (verifica `scope: 'platform'` no JWT — incompatível por design com tokens de tenant).
+- Rotas `/platform/auth/*` + `/platform/tenants` (listar, suspender, reativar, criar, métricas de uso por tenant).
+- Frontend: `/platform/login` + lista de tenants + detalhe básico.
+- **Critério de saída**: superadmin loga, vê todos os tenants, consegue suspender e reativar um.
+
+### Fase 11b — Planos & Stripe
+- Tabela `plans` (global) + colunas `plan_id`/`lifetime`/`plan_override` em `companies`.
+- Rotas `/platform/plans` (CRUD + sincronia Stripe usando a chave já em env — chave nunca vai para o banco).
+- Plano vitalício via `checkout.session.completed` com `mode = 'payment'`: seta `companies.lifetime = true`, nunca suspenso por billing.
+- Edição de preço cria novo Stripe price e arquiva o antigo — assinantes existentes continuam no price antigo até renovação.
+- 2FA TOTP obrigatório para superadmin.
+- Frontend: tela de planos (criar/editar/sincronizar com Stripe).
+- **Critério de saída**: criar plano via UI cria produto+preço no Stripe; checkout usa o novo price_id.
+
+### Fase 11c — Backup por tenant
+- Tabela `platform_backups` + job assíncrono (export JSON por tabela + binários do storage em `.zip`).
+- Rotas `/platform/tenants/:id/backup`, `/platform/backups` (listar/baixar/deletar).
+- Script CLI `scripts/restore-tenant.js` — restore via UI fica para iteração futura (ver spec para justificativa).
+- Frontend: tela de backups (disparar + baixar).
+- **Critério de saída**: backup de um tenant real baixado + restore executado em staging sem erros.
+
 ---
 
 ## Em paralelo: ajustes no frontend

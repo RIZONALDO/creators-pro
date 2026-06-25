@@ -137,11 +137,13 @@ server {
     proxy_set_header Connection "upgrade"; # sem isso, o WebSocket do Socket.IO não conecta
   }
 
-  location ~ ^/(auth|tasks|services|schedule|absences|shifts|messages|conversations|notifications|push|creators|collaborators|clients|users|status-history|holidays|scale-months|scale-entries|professions) {
+  location ~ ^/(auth|tasks|services|schedule|absences|shifts|messages|conversations|notifications|push|creators|collaborators|clients|users|status-history|holidays|scale-months|scale-entries|professions|reports|attachments|account|company|billing|onboarding|internal|platform/auth|platform/tenants) {
     proxy_pass http://127.0.0.1:3001;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
   }
+  # /platform (sem sub-path) serve o SPA — o React detecta o prefix e monta o PlatformApp.
+  # As chamadas de API do painel (/platform/auth/*, /platform/tenants) estão no bloco acima.
 }
 
 server {

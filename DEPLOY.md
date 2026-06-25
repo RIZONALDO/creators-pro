@@ -44,8 +44,13 @@ identifica a API por uma **lista explícita de prefixos**:
 ```
 auth billing signup internal users creators collaborators clients professions status-history
 tasks services scale-entries scale-months holidays absences shifts messages conversations
-notifications push reports attachments company account
+notifications push reports attachments company account onboarding
+platform/auth platform/tenants
 ```
+
+> **`platform/auth` e `platform/tenants`** são as rotas de API do painel de superadmin (Fase 11).
+> O SPA detecta `/platform` e monta o `PlatformApp` — só as sub-rotas de API precisam ser proxiadas.
+> O path `/platform` em si (sem sub-rota) deve cair no `try_files` para servir o `index.html`.
 
 Qualquer requisição pra um desses prefixos (e `/socket.io/`) vai pro backend (`localhost:8088`);
 tudo o mais cai no `try_files ... /index.html` (SPA do React) servido estaticamente de

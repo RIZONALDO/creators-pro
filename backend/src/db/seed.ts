@@ -1,6 +1,8 @@
 import 'dotenv/config';
 import bcrypt from 'bcryptjs';
+import { eq } from 'drizzle-orm';
 import { db, pool } from './client.js';
+import { superadmins } from './schema/index.js';
 import { createCompaniesRepository } from '../modules/auth/companies.repository.js';
 import { createUsersRepository } from '../modules/auth/users.repository.js';
 import { createHolidaysRepository } from '../modules/schedule/holidays.repository.js';
@@ -56,6 +58,18 @@ async function main() {
     await holidaysRepo.createGlobal(holiday.date, holiday.description);
   }
   console.log(`Feriados nacionais (2026, data fixa): ${NATIONAL_HOLIDAYS_2026.length} seedados/confirmados.`);
+
+  // Superadmin da plataforma — criado só se não existir ainda. Senha via env ou fallback de dev.
+  const SUPERADMIN_EMAIL = process.env.SUPERADMIN_EMAIL ?? 'superadmin@creatorspro.app';
+  const SUPERADMIN_PASSWORD = process.env.SUPERADMIN_PASSWORD ?? 'SuperAdmin@2026!';
+  const [existingSuperadmin] = await db.select().from(superadmins).where(eq(superadmins.email, SUPERADMIN_EMAIL)).limit(1);
+  if (!existingSuperadmin) {
+    const hash = await bcrypt.hash(SUPERADMIN_PASSWORD, 12);
+    await db.insert(superadmins).values({ name: 'Super Admin', email: SUPERADMIN_EMAIL, passwordHash: hash });
+    console.log(`Superadmin criado: ${SUPERADMIN_EMAIL} — senha: ${SUPERADMIN_PASSWORD}`);
+  } else {
+    console.log(`Superadmin já existia: ${SUPERADMIN_EMAIL}`);
+  }
 
   await pool.end();
 }

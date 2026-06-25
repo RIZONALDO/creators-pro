@@ -49,6 +49,10 @@ import { createAccountService } from './modules/account/account.service.js';
 import { createAccountRouter } from './modules/account/account.routes.js';
 import { createOnboardingService } from './modules/onboarding/onboarding.service.js';
 import { createOnboardingRouter } from './modules/onboarding/onboarding.routes.js';
+import { createPlatformAuthService } from './modules/platform/platform.auth.service.js';
+import { createPlatformAuthRouter } from './modules/platform/platform.auth.routes.js';
+import { createPlatformTenantsService } from './modules/platform/platform.tenants.service.js';
+import { createPlatformTenantsRouter } from './modules/platform/platform.tenants.routes.js';
 import { env } from './lib/env.js';
 
 export function createApp(
@@ -102,6 +106,8 @@ export function createApp(
   app.use(createCompanyRouter(createCompanyService(db)));
   app.use(createAccountRouter(createAccountService(db)));
   app.use(createOnboardingRouter(createOnboardingService(db)));
+  app.use(createPlatformAuthRouter(createPlatformAuthService(db)));
+  app.use(createPlatformTenantsRouter(createPlatformTenantsService(db)));
 
   app.use(errorHandler);
   return app;

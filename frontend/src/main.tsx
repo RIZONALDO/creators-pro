@@ -6,20 +6,28 @@ import { ToastProvider } from './context/ToastContext';
 import { ConfirmProvider } from './context/ConfirmContext';
 import { NotificationsProvider } from './context/NotificationsContext';
 import { App } from './App';
+import { PlatformApp } from './platform/PlatformApp';
 import './theme.css';
+
+// Árvore React completamente separada — sem AppContext, sem autenticação de tenant.
+const isPlatform = window.location.pathname.startsWith('/platform');
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
-      <ToastProvider>
-        <ConfirmProvider>
-          <AppProvider>
-            <NotificationsProvider>
-              <App />
-            </NotificationsProvider>
-          </AppProvider>
-        </ConfirmProvider>
-      </ToastProvider>
-    </BrowserRouter>
+    {isPlatform ? (
+      <PlatformApp />
+    ) : (
+      <BrowserRouter>
+        <ToastProvider>
+          <ConfirmProvider>
+            <AppProvider>
+              <NotificationsProvider>
+                <App />
+              </NotificationsProvider>
+            </AppProvider>
+          </ConfirmProvider>
+        </ToastProvider>
+      </BrowserRouter>
+    )}
   </StrictMode>,
 );

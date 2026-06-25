@@ -19,3 +19,4 @@ export * from './messages.js';
 export * from './pushSubscriptions.js';
 export * from './attachments.js';
 export * from './companySettings.js';
+export * from './superadmins.js';

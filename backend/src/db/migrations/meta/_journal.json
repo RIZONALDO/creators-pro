@@ -162,6 +162,13 @@
       "when": 1782358163759,
       "tag": "0022_omniscient_miracleman",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1782424448998,
+      "tag": "0023_outgoing_professor_monster",
+      "breakpoints": true
     }
   ]
 }
