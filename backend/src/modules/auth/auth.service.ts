@@ -8,6 +8,7 @@ import { signAccessToken } from '../../lib/jwt.js';
 import { sanitizeUser } from '../../lib/sanitizeUser.js';
 import { slugify, uniqueSlug } from '../../lib/slug.js';
 import { generateOpaqueToken, hashToken } from '../../lib/tokens.js';
+import { logger } from '../../lib/logger.js';
 import type { CompanyStatus } from '../../db/schema/index.js';
 import { createCreatorsRepository } from '../creators/creators.repository.js';
 import { createCollaboratorsRepository } from '../collaborators/collaborators.repository.js';
@@ -277,6 +278,22 @@ export function createAuthService(
       // exige o row completo (sanitiza de novo por dentro), por isso busca de novo em vez de reusar.
       const adminUser = await usersRepo.findByEmail(input.adminEmail);
       if (!adminUser) throw conflict('EMAIL_TAKEN', 'Não foi possível concluir o cadastro — tente novamente.');
+
+      // Só loga se falhar — diferente de requestPasswordReset (onde o e-mail é o próprio
+      // propósito do endpoint), aqui é um extra: ninguém deveria perder a conta recém-criada por
+      // causa de uma falha pontual do Resend.
+      try {
+        await emailSender.send({
+          to: adminUser.email,
+          subject: 'Seu teste do CreatorsPro começou — 4 horas pra explorar',
+          html: `<p>Olá, ${adminUser.name}.</p>` +
+            `<p>Obrigado por testar o CreatorsPro! Você tem <strong>4 horas</strong> de acesso completo — sem cartão, sem compromisso.</p>` +
+            `<p>Aproveite pra cadastrar seus creators, montar a escala da semana e ver os relatórios de produção.</p>` +
+            `<p>Gostou? Assine o plano Pro (R$ 199,90/mês) e continue de onde parou, sem perder nada do que já configurou: <a href="${env.appUrl}/login">${env.appUrl}/login</a></p>`,
+        });
+      } catch (err) {
+        logger.error('trial_welcome_email_failed', { error: err instanceof Error ? err.message : String(err) });
+      }
 
       const session = await issueSession(adminUser);
       return { ...session, user: await buildUserResponse(adminUser) };

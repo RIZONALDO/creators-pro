@@ -270,6 +270,28 @@ describe('authService', () => {
     expect(hoursAhead).toBeLessThan(4.1);
   });
 
+  it('startTrial manda e-mail de boas-vindas incentivando assinar', async () => {
+    const emailSender = fakeEmailSender();
+    const service = createAuthService(testDb, undefined, emailSender);
+
+    await service.startTrial({ companyName: 'Empresa Boas Vindas', adminName: 'Admin BV', adminEmail: 'admin@boasvindas.com', adminPassword: 'senha12345' });
+
+    expect(emailSender.send).toHaveBeenCalledTimes(1);
+    expect(emailSender.send).toHaveBeenCalledWith(expect.objectContaining({
+      to: 'admin@boasvindas.com',
+      subject: expect.stringContaining('teste do CreatorsPro'),
+      html: expect.stringContaining('Assine o plano Pro'),
+    }));
+  });
+
+  it('startTrial não falha mesmo se o envio do e-mail der erro (conta já foi criada, não é motivo pra perder)', async () => {
+    const emailSender = { send: vi.fn().mockRejectedValue(new Error('Resend fora do ar')) };
+    const service = createAuthService(testDb, undefined, emailSender);
+
+    const result = await service.startTrial({ companyName: 'Empresa Email Falha', adminName: 'Admin', adminEmail: 'admin@emailfalha.com', adminPassword: 'senha12345' });
+    expect(result.user.email).toBe('admin@emailfalha.com');
+  });
+
   it('startTrial recusa e-mail já em uso', async () => {
     await createDemoUser('senha-correta');
     await expect(
