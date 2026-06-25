@@ -176,11 +176,14 @@ export function createBillingService(
     },
 
     /**
-     * Quem decide assinar (trial ainda válido ou já vencido) confirma a própria senha de novo —
-     * não tem sessão pra reaproveitar aqui de propósito: se o trial já venceu, o login está
-     * bloqueado (ver auth.service.ts#login), então pedir e-mail+senha de novo é o único jeito de
-     * provar identidade sem precisar reativar o acesso primeiro. Mantém a MESMA empresa (e os
-     * dados que já tinha) — nunca cria uma nova.
+     * Quem decide assinar (trial vencido OU assinatura suspensa/cancelada) confirma a própria
+     * senha de novo — não tem sessão pra reaproveitar aqui de propósito: nos dois casos o login
+     * normal está bloqueado (ver auth.service.ts#assertCompanyUsable), então pedir e-mail+senha de
+     * novo é o único jeito de provar identidade sem precisar reativar o acesso primeiro. Mantém a
+     * MESMA empresa (e os dados que já tinha) — nunca cria uma nova; o webhook
+     * (checkout.session.completed, ver handleWebhookEvent) só ativa de novo e atualiza os ids da
+     * Stripe, sem se importar qual era o status anterior. Único status que recusa é 'active' — quem
+     * já paga não tem nada pra "reativar" aqui (usa o portal em Cobrança).
      */
     async upgradeTrial(input: UpgradeTrialInput) {
       const { stripe, priceId } = requireStripe();
@@ -193,8 +196,8 @@ export function createBillingService(
       if (!passwordOk) throw unauthorized('INVALID_CREDENTIALS', 'E-mail ou senha inválidos.');
 
       const company = await companiesRepo.findById(user.tenantId);
-      if (!company || company.status !== 'trial') {
-        throw badRequest('NOT_A_TRIAL', 'Esta conta não está em período de teste.');
+      if (!company || company.status === 'active') {
+        throw badRequest('NOTHING_TO_REACTIVATE', 'Esta conta já está ativa.');
       }
 
       const session = await stripe.checkout.sessions.create({

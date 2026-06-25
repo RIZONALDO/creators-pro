@@ -189,13 +189,29 @@ describe('billingService', () => {
     await expect(service.upgradeTrial({ email: 'senha@trial.com', password: 'senha-errada' })).rejects.toMatchObject({ status: 401, code: 'INVALID_CREDENTIALS' });
   });
 
-  it('upgradeTrial recusa empresa que não está em trial (já ativa)', async () => {
+  it('upgradeTrial recusa empresa que já está ativa (nada pra reativar)', async () => {
     const company = await companiesRepo.create({ name: 'Já Ativa', slug: 'ja-ativa' });
     const passwordHash = await bcrypt.hash('senha12345', 4);
     await usersRepo.create({ tenantId: company.id, name: 'Admin', email: 'admin@ja-ativa.com', passwordHash, role: 'admin' });
 
     const service = createBillingService(testDb, authService, buildFakeStripe().stripe, 'price_123');
-    await expect(service.upgradeTrial({ email: 'admin@ja-ativa.com', password: 'senha12345' })).rejects.toMatchObject({ status: 400, code: 'NOT_A_TRIAL' });
+    await expect(service.upgradeTrial({ email: 'admin@ja-ativa.com', password: 'senha12345' })).rejects.toMatchObject({ status: 400, code: 'NOTHING_TO_REACTIVATE' });
+  });
+
+  it('upgradeTrial também funciona pra reativar empresa suspensa/cancelada (não só trial)', async () => {
+    const passwordHash = await bcrypt.hash('senha12345', 4);
+    for (const status of ['suspended', 'cancelled'] as const) {
+      const company = await companiesRepo.create({ name: `Empresa ${status}`, slug: `empresa-${status}` });
+      await companiesRepo.updateStatus(company.id, status);
+      await usersRepo.create({ tenantId: company.id, name: 'Admin', email: `admin@${status}.com`, passwordHash, role: 'admin' });
+
+      const { stripe, checkoutCreate } = buildFakeStripe({ checkoutUrl: `https://checkout.stripe.com/${status}` });
+      const service = createBillingService(testDb, authService, stripe, 'price_123');
+
+      const result = await service.upgradeTrial({ email: `admin@${status}.com`, password: 'senha12345' });
+      expect(result.checkout_url).toBe(`https://checkout.stripe.com/${status}`);
+      expect(checkoutCreate).toHaveBeenCalledWith(expect.objectContaining({ metadata: { upgrade_company_id: company.id } }));
+    }
   });
 
   it('upgradeTrial abre checkout com metadata upgrade_company_id (não cria empresa nova)', async () => {

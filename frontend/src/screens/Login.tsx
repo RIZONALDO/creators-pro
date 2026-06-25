@@ -29,10 +29,12 @@ export function Login() {
   const [remember, setRemember] = useState(() => localStorage.getItem(REMEMBER_KEY) !== null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  // Trial vencido tem um caminho de recuperação próprio (assinar com as mesmas credenciais já
-  // digitadas) — diferente de SUBSCRIPTION_INACTIVE (também 402), que não tem ação possível aqui
-  // dentro (ver auth.service.ts#assertCompanyUsable pro porquê dos dois serem distintos).
-  const [trialExpired, setTrialExpired] = useState(false);
+  // Trial vencido OU assinatura suspensa/cancelada (os dois 402) têm o mesmo caminho de
+  // recuperação: assinar de novo com as mesmas credenciais já digitadas (ver
+  // billing.service.ts#upgradeTrial — mesmo endpoint reativa os dois casos, mantendo a empresa e
+  // os dados que já existiam). Sem isso, quem cancelava ficava sem nenhuma indicação ou caminho de
+  // volta — só uma mensagem de bloqueio sem ação possível.
+  const [canReactivate, setCanReactivate] = useState(false);
   const [upgradeBusy, setUpgradeBusy] = useState(false);
   const googleButtonRef = useRef<HTMLDivElement>(null);
 
@@ -46,7 +48,7 @@ export function Login() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!email || !password) { setError('Informe e-mail e senha.'); return; }
-    setError(''); setTrialExpired(false); setBusy(true);
+    setError(''); setCanReactivate(false); setBusy(true);
     try {
       await login(email, password);
       if (remember) localStorage.setItem(REMEMBER_KEY, email);
@@ -60,7 +62,7 @@ export function Login() {
       if (err instanceof ApiError && err.status !== 402) setError('Não foi possível entrar. Verifique as credenciais.');
       else {
         setError(describeAuthError(err));
-        if (err instanceof ApiError && err.code === 'TRIAL_EXPIRED') setTrialExpired(true);
+        if (err instanceof ApiError && (err.code === 'TRIAL_EXPIRED' || err.code === 'SUBSCRIPTION_INACTIVE')) setCanReactivate(true);
       }
     }
     finally { setBusy(false); }
@@ -190,7 +192,7 @@ export function Login() {
                 </div>
               )}
 
-              {trialExpired ? (
+              {canReactivate ? (
                 <button type="button" disabled={upgradeBusy} onClick={upgrade}
                   style={{ width: '100%', height: 46, borderRadius: 13, border: 'none', background: 'linear-gradient(135deg,var(--pri),var(--pri2))', color: '#fff', fontWeight: 700, fontSize: 14, cursor: upgradeBusy ? 'default' : 'pointer', opacity: upgradeBusy ? 0.75 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 8px 22px rgba(108,99,255,.4)' }}>
                   {upgradeBusy ? <Spinner /> : 'Assinar agora — R$ 199,90/mês'}
