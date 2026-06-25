@@ -8,8 +8,11 @@ export interface AppContextValue {
   login: (email: string, password: string) => Promise<User>;
   loginWithGoogle: (idToken: string) => Promise<User>;
   claimInvite: (token: string, idToken: string) => Promise<User>;
-  startTrial: (input: { company_name: string; admin_name: string; admin_email: string; admin_password: string }) => Promise<User>;
   resetPassword: (token: string, password: string) => Promise<User>;
+  /** Sessão já existe (token persistido), só falta "comitar" pro app — usado pela tela de
+   * confirmação do trial (Signup.tsx -> TrialReady.tsx), que decide o momento exato de entrar,
+   * em vez de redirecionar sozinho assim que a conta é criada. */
+  enterApp: (user: User) => void;
   logout: () => void;
   theme: Theme;
   toggleTheme: () => void;

@@ -1,21 +1,21 @@
 import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '@/api';
 import { ApiError } from '@/api/client';
 import { Spinner } from '@/components/ui';
-import { useApp } from '@/context/AppContext';
 
 const inputStyle = { width: '100%', background: 'var(--bg2)', border: '1px solid var(--line)', borderRadius: 12, padding: '12px 14px', fontSize: 14, color: 'var(--tx)', outline: 'none' };
 
 type Busy = 'trial' | 'subscribe' | null;
 
 /** Cadastro público — dois caminhos com os mesmos dados: testar 4h sem cartão (cria a empresa
- * direto, login automático) ou assinar de cara (abre o Checkout do Stripe; a empresa só é criada
- * de fato depois do pagamento confirmar, via webhook). `?plano=trial|pro` vem da Plans.tsx — só
- * destaca visualmente o botão correspondente (o formulário continua o mesmo, os dois caminhos
- * sempre disponíveis). */
+ * direto, sessão já criada, mas só entra de fato depois de passar por TrialReady.tsx) ou assinar
+ * de cara (abre o Checkout do Stripe; a empresa só é criada de fato depois do pagamento confirmar,
+ * via webhook, e cai em SignupSuccess.tsx). `?plano=trial|pro` vem da Plans.tsx — só destaca
+ * visualmente o botão correspondente (o formulário continua o mesmo, os dois caminhos sempre
+ * disponíveis). */
 export function Signup() {
-  const { startTrial } = useApp();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const proSelected = searchParams.get('plano') === 'pro';
   const [companyName, setCompanyName] = useState('');
@@ -36,7 +36,10 @@ export function Signup() {
     if (!validate()) return;
     setError(''); setBusy('trial');
     try {
-      await startTrial({ company_name: companyName, admin_name: adminName, admin_email: email, admin_password: password });
+      // Sessão já fica persistida aqui (api.billing.startTrial cuida disso) — só não entra no
+      // app ainda: TrialReady.tsx mostra o que esperar das 4h antes de "comitar" (useApp().enterApp).
+      const session = await api.billing.startTrial({ company_name: companyName, admin_name: adminName, admin_email: email, admin_password: password });
+      navigate('/cadastro/trial', { state: { user: session.user } });
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) setError(err.message);
       else setError('Não foi possível iniciar o teste. Tente novamente.');

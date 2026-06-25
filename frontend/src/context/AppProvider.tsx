@@ -46,10 +46,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return session.user;
   }, []);
 
-  const startTrial = useCallback(async (input: { company_name: string; admin_name: string; admin_email: string; admin_password: string }) => {
-    const session = await api.billing.startTrial(input);
-    setUser(session.user);
-    return session.user;
+  // O token já foi persistido por api.billing.startTrial (Signup.tsx chama direto, não por aqui)
+  // — isso só decide o MOMENTO de entrar de fato no app, depois que a pessoa vê a tela de
+  // confirmação do trial (TrialReady.tsx) e clica pra continuar.
+  const enterApp = useCallback((newUser: User) => {
+    setUser(newUser);
   }, []);
 
   const resetPassword = useCallback(async (token: string, password: string) => {
@@ -77,7 +78,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AppContext.Provider value={{ user, login, loginWithGoogle, claimInvite, startTrial, resetPassword, logout, theme, toggleTheme }}>
+    <AppContext.Provider value={{ user, login, loginWithGoogle, claimInvite, resetPassword, enterApp, logout, theme, toggleTheme }}>
       {children}
     </AppContext.Provider>
   );

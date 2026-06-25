@@ -6,6 +6,7 @@ import { Login } from '@/screens/Login';
 import { Plans } from '@/screens/Plans';
 import { Signup } from '@/screens/Signup';
 import { SignupSuccess } from '@/screens/SignupSuccess';
+import { TrialReady } from '@/screens/TrialReady';
 import { ClaimInvite } from '@/screens/ClaimInvite';
 import { ForgotPassword } from '@/screens/ForgotPassword';
 import { ResetPassword } from '@/screens/ResetPassword';
@@ -34,6 +35,7 @@ export function App() {
         <Route path="/planos" element={<Plans />} />
         <Route path="/cadastro" element={<Signup />} />
         <Route path="/cadastro/sucesso" element={<SignupSuccess />} />
+        <Route path="/cadastro/trial" element={<TrialReady />} />
         <Route path="/convite/:token" element={<ClaimInvite />} />
         <Route path="/esqueci-senha" element={<ForgotPassword />} />
         <Route path="/redefinir-senha/:token" element={<ResetPassword />} />
