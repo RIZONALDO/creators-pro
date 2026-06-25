@@ -18,9 +18,7 @@ const updateStatusSchema = z.object({
 export function createPlatformTenantsRouter(service: PlatformTenantsService) {
   const router = Router();
 
-  router.use(authenticatePlatform);
-
-  router.get('/platform/tenants', async (_req, res, next) => {
+  router.get('/platform/tenants', authenticatePlatform, async (_req, res, next) => {
     try {
       res.json(await service.list());
     } catch (err) {
@@ -28,7 +26,7 @@ export function createPlatformTenantsRouter(service: PlatformTenantsService) {
     }
   });
 
-  router.post('/platform/tenants', async (req, res, next) => {
+  router.post('/platform/tenants', authenticatePlatform, async (req, res, next) => {
     try {
       const input = createTenantSchema.parse(req.body);
       const company = await service.create(input);
@@ -38,18 +36,18 @@ export function createPlatformTenantsRouter(service: PlatformTenantsService) {
     }
   });
 
-  router.get('/platform/tenants/:id', async (req, res, next) => {
+  router.get('/platform/tenants/:id', authenticatePlatform, async (req, res, next) => {
     try {
-      res.json(await service.getWithMetrics(req.params.id));
+      res.json(await service.getWithMetrics(req.params.id!));
     } catch (err) {
       next(err);
     }
   });
 
-  router.patch('/platform/tenants/:id/status', async (req, res, next) => {
+  router.patch('/platform/tenants/:id/status', authenticatePlatform, async (req, res, next) => {
     try {
       const { status } = updateStatusSchema.parse(req.body);
-      res.json(await service.updateStatus(req.params.id, status as CompanyStatus));
+      res.json(await service.updateStatus(req.params.id!, status as CompanyStatus));
     } catch (err) {
       next(err);
     }
