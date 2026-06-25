@@ -10,6 +10,7 @@ import { AdminUsers } from '@/screens/AdminUsers';
 import { AdminBilling } from '@/screens/AdminBilling';
 import { AdminSettings } from '@/screens/AdminSettings';
 import { AdminAccount } from '@/screens/AdminAccount';
+import { EditProfile } from '@/screens/EditProfile';
 import { Dashboard } from '@/screens/Dashboard';
 import { Tasks } from '@/screens/Tasks';
 import { Services } from '@/screens/Services';
@@ -44,6 +45,7 @@ export function App() {
           <Route path="/admin/cobranca" element={<AdminBilling />} />
           <Route path="/admin/configuracoes" element={<AdminSettings />} />
           <Route path="/admin/conta" element={<AdminAccount />} />
+          <Route path="/admin/perfil" element={<EditProfile />} />
         </Route>
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>
@@ -63,7 +65,7 @@ export function App() {
         <Route path="/mensagens" element={<Messages />} />
         <Route path="/relatorios" element={<Reports />} />
         <Route path="/cadastros" element={user.role === 'operacional' ? <Navigate to="/dashboard" replace /> : <Cadastros />} />
-        <Route path="/perfil" element={<Profile />} />
+        <Route path="/perfil" element={user.role === 'operacional' ? <Profile /> : <EditProfile />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

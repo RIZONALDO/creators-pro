@@ -21,6 +21,7 @@ const META: Record<string, { title: string; subtitle: string }> = {
   '/mensagens': { title: 'Mensagens', subtitle: 'Central de comunicação interna' },
   '/relatorios': { title: 'Relatórios', subtitle: 'Indicadores e exportações' },
   '/cadastros': { title: 'Cadastros', subtitle: 'Creators, colaboradores e clientes' },
+  '/perfil': { title: 'Editar perfil', subtitle: 'Seus dados de acesso' },
 };
 
 // Cópia própria do app mobile — mesmas rotas, texto fiel ao HTML de referência (seção MOBILE), que

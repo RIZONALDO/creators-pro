@@ -1,6 +1,5 @@
-import { useState } from 'react';
-import { NavLink } from 'react-router-dom';
-import { Dashboard, Tasks, Services, Schedule, Logout as AbsenceIcon, Shift, Chat, Analytics, Group, Sidebar as SidebarIcon } from 'grommet-icons';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { Dashboard, Tasks, Services, Schedule, Logout as AbsenceIcon, Logout as ExitIcon, Shift, Chat, Analytics, Group, Sidebar as SidebarIcon } from 'grommet-icons';
 import { api } from '@/api';
 import type { BillingStatus } from '@/api';
 import { useApp } from '@/context/AppContext';
@@ -8,7 +7,6 @@ import { useAsync } from '@/lib/useAsync';
 import { useCan } from '@/lib/permissions';
 import { roleLabel } from '@/lib/display';
 import { Avatar } from './ui';
-import { ProfileModal } from './ProfileModal';
 import type { CompanySettings } from '@/types';
 
 interface NavItem { to: string; label: string; icon: typeof Dashboard; }
@@ -31,8 +29,8 @@ const GESTAO: NavItem[] = [
 ];
 
 export function Sidebar({ collapsed, onToggleCollapse }: { collapsed: boolean; onToggleCollapse: () => void }) {
-  const { user } = useApp();
-  const [profile, setProfile] = useState(false);
+  const { user, logout } = useApp();
+  const navigate = useNavigate();
   const company = useAsync<CompanySettings>(() => api.company.get(), []);
   const billing = useAsync<BillingStatus>(() => api.billing.status(), []);
   const appName = company.data?.app_name;
@@ -94,24 +92,32 @@ export function Sidebar({ collapsed, onToggleCollapse }: { collapsed: boolean; o
       {!collapsed && <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.08em', color: 'var(--tx3)', padding: '14px 10px 4px' }}>GESTÃO</div>}
       {gestao.map(renderItem)}
 
-      <div style={{ marginTop: 'auto' }}>
+      <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
         {user && (
-          <button onClick={() => setProfile(true)} title="Perfil e sair" style={{
-            display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 10px', borderRadius: 13,
-            background: 'var(--bg2)', border: '1px solid var(--line)', justifyContent: collapsed ? 'center' : 'flex-start', cursor: 'pointer',
-          }}>
-            <Avatar name={user.name} size={32} imageUrl={user.avatar_url} />
+          <>
+            <button onClick={() => navigate('/perfil')} title="Editar perfil" style={{
+              display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, padding: '9px 10px', borderRadius: 13,
+              background: 'var(--bg2)', border: '1px solid var(--line)', justifyContent: collapsed ? 'center' : 'flex-start', cursor: 'pointer',
+            }}>
+              <Avatar name={user.name} size={32} imageUrl={user.avatar_url} />
+              {!collapsed && (
+                <div style={{ lineHeight: 1.2, minWidth: 0, flex: 1, textAlign: 'left' }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.name}</div>
+                  <div style={{ fontSize: 10.5, color: 'var(--tx3)' }}>{roleLabel(user)}</div>
+                </div>
+              )}
+            </button>
             {!collapsed && (
-              <div style={{ lineHeight: 1.2, minWidth: 0, flex: 1, textAlign: 'left' }}>
-                <div style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.name}</div>
-                <div style={{ fontSize: 10.5, color: 'var(--tx3)' }}>{roleLabel(user)}</div>
-              </div>
+              <button onClick={logout} title="Sair" style={{
+                width: 38, height: 38, flex: 'none', borderRadius: 13, background: 'var(--bg2)', border: '1px solid var(--line)',
+                color: 'var(--red)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <ExitIcon color="currentColor" size={ICON_SIZE} />
+              </button>
             )}
-          </button>
+          </>
         )}
       </div>
-
-      <ProfileModal open={profile} onClose={() => setProfile(false)} name={user?.name ?? ''} email={user?.email ?? ''} phone={user?.phone ?? ''} />
     </aside>
   );
 }

@@ -8,6 +8,7 @@ const META: Record<string, { title: string; subtitle: string }> = {
   '/admin/cobranca': { title: 'Cobrança', subtitle: 'Assinatura, status do pagamento e portal da Stripe' },
   '/admin/configuracoes': { title: 'Configurações', subtitle: 'Dados da empresa e do app' },
   '/admin/conta': { title: 'Conta', subtitle: 'Informações da conta e exclusão permanente' },
+  '/admin/perfil': { title: 'Editar perfil', subtitle: 'Seus dados de acesso' },
 };
 
 /** Espelha AppLayout.tsx (Sidebar + topo fino com tema) — admin deixa de ser um header solto
