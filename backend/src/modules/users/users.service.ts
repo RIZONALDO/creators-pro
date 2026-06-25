@@ -4,6 +4,7 @@ import { conflict, notFound } from '../../lib/errors.js';
 import type { Pagination } from '../../lib/pagination.js';
 import { sanitizeUser } from '../../lib/sanitizeUser.js';
 import { createUsersRepository } from '../auth/users.repository.js';
+import { checkGestorLimit } from '../platform/plan.limits.js';
 import type { newUserSchema, updateUserSchema } from './users.schemas.js';
 import type { z } from 'zod';
 
@@ -36,6 +37,8 @@ export function createUsersAdminService(db: typeof Db) {
     /** Sempre role='gestor' — admin só nasce via signup/trial/provisionamento interno (ver
      * users.schemas.ts), nunca por aqui. */
     async create(tenantId: string, input: z.infer<typeof newUserSchema>) {
+      await checkGestorLimit(db, tenantId);
+
       const existing = await usersRepo.findByEmail(input.email);
       if (existing) throw conflict('EMAIL_TAKEN', 'Já existe um usuário com este e-mail.');
 

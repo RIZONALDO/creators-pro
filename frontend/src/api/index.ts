@@ -555,11 +555,23 @@ export const companyApi = {
 };
 
 /* ============================ BILLING (Fase 9.1 — self-service signup + Stripe) ============================ */
+export interface PublicPlan {
+  id: string;
+  name: string;
+  billingType: 'monthly' | 'yearly' | 'one_time' | 'manual';
+  priceCents: number;
+  currency: string;
+  maxGestores: number | null;
+  maxCreators: number | null;
+  stripePriceId: string | null;
+}
+
 export interface SignupInput {
   company_name: string;
   admin_name: string;
   admin_email: string;
   admin_password: string;
+  plan_id?: string;
 }
 
 export interface BillingStatus {
@@ -569,6 +581,9 @@ export interface BillingStatus {
 }
 
 export const billingApi = {
+  publicPlans: (): Promise<PublicPlan[]> => {
+    return http.get<{ data: PublicPlan[] }>('/plans/public').then((r) => r.data);
+  },
   signup: (input: SignupInput): Promise<{ checkout_url: string }> => {
     if (USE_MOCK) return Promise.reject(new Error('Cadastro não disponível em modo mock.'));
     return http.post<{ data: { checkout_url: string } }>('/signup', input).then((r) => r.data);

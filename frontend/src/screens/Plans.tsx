@@ -1,19 +1,39 @@
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { StatusGood, Trophy } from 'grommet-icons';
+import { StatusGood } from 'grommet-icons';
+import { api, type PublicPlan } from '@/api';
 
-const FEATURES = [
-  'Até 3 gestores',
-  'Até 8 creators e colaboradores',
-  'Tarefas, escala e plantões sem planilha',
-  'Relatórios e indicadores de produção',
-  'Mensagens internas com a equipe',
-  'App mobile (PWA) pra creators e colaboradores',
-];
+function fmtPrice(plan: PublicPlan): { main: string; note: string } {
+  const value = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: plan.currency.toUpperCase() }).format(plan.priceCents / 100);
+  const notes: Record<string, string> = { monthly: 'por mês', yearly: 'por ano', one_time: 'pagamento único', manual: '' };
+  return { main: value, note: notes[plan.billingType] ?? '' };
+}
 
-/** Landing de planos — passo novo entre Login e Signup.tsx. Único lugar do app com licença pra
- * "vender" (o resto do produto evita apelo visual de propósito) — aqui ele cabe: é propaganda. */
+function planFeatures(plan: PublicPlan): string[] {
+  const feats: string[] = [];
+  if (plan.maxGestores != null) feats.push(`Até ${plan.maxGestores} gestor${plan.maxGestores !== 1 ? 'es' : ''}`);
+  if (plan.maxCreators != null) feats.push(`Até ${plan.maxCreators} creator${plan.maxCreators !== 1 ? 's' : ''}`);
+  feats.push('Tarefas, escala e plantões sem planilha', 'Relatórios e indicadores de produção', 'Mensagens internas com a equipe', 'App mobile (PWA)');
+  return feats;
+}
+
+/** Landing de planos — busca os planos ativos do banco via /plans/public.
+ * Único lugar do app com licença pra "vender" — aqui cabe, é propaganda. */
 export function Plans() {
   const navigate = useNavigate();
+  const [plans, setPlans] = useState<PublicPlan[] | null>(null);
+
+  useEffect(() => {
+    api.billing.publicPlans().then(setPlans).catch(() => setPlans([]));
+  }, []);
+
+  // Enquanto carrega ou se não há planos no banco, usa o layout estático de fallback
+  const hasDynamicPlans = plans !== null && plans.length > 0;
+
+  // Planos sem Stripe (manual) não podem fazer signup — só podem ser atribuídos pelo superadmin
+  const signupPlans = hasDynamicPlans
+    ? plans.filter((p) => p.stripePriceId || p.billingType === 'manual')
+    : null;
 
   return (
     <div style={{ minHeight: '100dvh', background: 'radial-gradient(1100px 650px at 50% -10%, rgba(108,99,255,.22), transparent 60%), var(--bg0)', padding: '48px 24px 64px' }}>
@@ -34,24 +54,60 @@ export function Plans() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 22, maxWidth: 720, margin: '0 auto' }}>
-          <PlanCard
-            name="Teste grátis"
-            price="Grátis"
-            priceNote="por 4 horas, sem cartão"
-            cta="Testar agora"
-            onSelect={() => navigate('/cadastro?plano=trial')}
-          />
-          <PlanCard
-            name="Pro"
-            price="R$ 199,90"
-            priceNote="por mês"
-            cta="Assinar agora"
-            highlighted
-            footnote="Cancele quando quiser"
-            onSelect={() => navigate('/cadastro?plano=pro')}
-          />
-        </div>
+        {plans === null && (
+          <div style={{ textAlign: 'center', color: 'var(--tx3)', fontSize: 14 }}>Carregando planos…</div>
+        )}
+
+        {plans !== null && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 22, maxWidth: signupPlans && signupPlans.length > 0 ? Math.min(signupPlans.length * 340, 980) : 720, margin: '0 auto' }}>
+            {/* Botão de trial sempre aparece primeiro */}
+            <PlanCard
+              name="Teste grátis"
+              price="Grátis"
+              priceNote="por 4 horas, sem cartão"
+              cta="Testar agora"
+              features={['Tarefas, escala e plantões', 'Relatórios e indicadores', 'App mobile (PWA)', 'Sem precisar de cartão']}
+              onSelect={() => navigate('/cadastro?plano=trial')}
+            />
+
+            {/* Planos dinâmicos do banco */}
+            {signupPlans && signupPlans.map((plan, idx) => {
+              const { main, note } = fmtPrice(plan);
+              const isFirst = idx === 0;
+              const canSignup = !!plan.stripePriceId;
+              return (
+                <PlanCard
+                  key={plan.id}
+                  name={plan.name}
+                  price={main}
+                  priceNote={note}
+                  cta={canSignup ? (plan.billingType === 'one_time' ? 'Adquirir agora' : 'Assinar agora') : 'Entre em contato'}
+                  highlighted={isFirst}
+                  footnote={plan.billingType === 'monthly' ? 'Cancele quando quiser' : undefined}
+                  features={planFeatures(plan)}
+                  onSelect={() => {
+                    if (canSignup) navigate(`/cadastro?plano=pro&plan_id=${plan.id}`);
+                    else navigate('/cadastro?plano=trial');
+                  }}
+                />
+              );
+            })}
+
+            {/* Fallback: se não há planos com Stripe cadastrados, mostra o cartão Pro estático */}
+            {(!signupPlans || signupPlans.length === 0) && (
+              <PlanCard
+                name="Pro"
+                price="R$ 199,90"
+                priceNote="por mês"
+                cta="Assinar agora"
+                highlighted
+                footnote="Cancele quando quiser"
+                features={['Até 3 gestores', 'Até 8 creators e colaboradores', 'Tarefas, escala e plantões', 'Relatórios e indicadores', 'App mobile (PWA)']}
+                onSelect={() => navigate('/cadastro?plano=pro')}
+              />
+            )}
+          </div>
+        )}
 
         <div style={{ fontSize: 12.5, color: 'var(--tx3)', textAlign: 'center', marginTop: 36 }}>
           Já tem conta? <Link to="/login" style={{ color: 'var(--pri)', fontWeight: 600, textDecoration: 'none' }}>Entrar</Link>
@@ -61,8 +117,9 @@ export function Plans() {
   );
 }
 
-function PlanCard({ name, price, priceNote, cta, onSelect, highlighted, footnote }: {
-  name: string; price: string; priceNote: string; cta: string; onSelect: () => void; highlighted?: boolean; footnote?: string;
+function PlanCard({ name, price, priceNote, cta, onSelect, highlighted, footnote, features }: {
+  name: string; price: string; priceNote: string; cta: string; onSelect: () => void;
+  highlighted?: boolean; footnote?: string; features: string[];
 }) {
   return (
     <div style={{
@@ -79,7 +136,7 @@ function PlanCard({ name, price, priceNote, cta, onSelect, highlighted, footnote
           background: 'linear-gradient(135deg,var(--pri),var(--pri2))', padding: '5px 14px', borderRadius: 20,
           boxShadow: '0 6px 16px rgba(108,99,255,.45)', whiteSpace: 'nowrap',
         }}>
-          <Trophy color="#fff" size="13px" /> Mais escolhido
+          ★ Mais escolhido
         </div>
       )}
 
@@ -90,7 +147,7 @@ function PlanCard({ name, price, priceNote, cta, onSelect, highlighted, footnote
       <div style={{ fontSize: 12.5, color: 'var(--tx3)', marginBottom: 22 }}>{priceNote}</div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 11, marginBottom: 26, flex: 1 }}>
-        {FEATURES.map((f) => (
+        {features.map((f) => (
           <div key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 9, fontSize: 13, color: 'var(--tx2)' }}>
             <StatusGood color="var(--pri)" size="16px" style={{ flex: 'none', marginTop: 1 }} />
             <span>{f}</span>

@@ -18,6 +18,7 @@ export function Signup() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const proSelected = searchParams.get('plano') === 'pro';
+  const planId = searchParams.get('plan_id') ?? undefined;
   const [companyName, setCompanyName] = useState('');
   const [adminName, setAdminName] = useState('');
   const [email, setEmail] = useState('');
@@ -51,7 +52,7 @@ export function Signup() {
     if (!validate()) return;
     setError(''); setBusy('subscribe');
     try {
-      const { checkout_url } = await api.billing.signup({ company_name: companyName, admin_name: adminName, admin_email: email, admin_password: password });
+      const { checkout_url } = await api.billing.signup({ company_name: companyName, admin_name: adminName, admin_email: email, admin_password: password, plan_id: planId });
       window.location.href = checkout_url;
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) setError(err.message);

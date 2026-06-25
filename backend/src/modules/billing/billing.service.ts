@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import type Stripe from 'stripe';
+import { eq } from 'drizzle-orm';
 import type { db as Db } from '../../db/client.js';
 import type { AuthContext } from '../../middleware/authenticate.js';
 import { badRequest, conflict, unauthorized } from '../../lib/errors.js';
@@ -9,6 +10,7 @@ import { env } from '../../lib/env.js';
 import { slugify, uniqueSlug } from '../../lib/slug.js';
 import { createCompaniesRepository } from '../auth/companies.repository.js';
 import { createUsersRepository } from '../auth/users.repository.js';
+import { companies, plans } from '../../db/schema/index.js';
 import type { AuthService } from '../auth/auth.service.js';
 import type { signupSchema, upgradeTrialSchema } from './billing.schemas.js';
 import type { z } from 'zod';
@@ -59,16 +61,32 @@ export function createBillingService(
      * (handleWebhookEvent), pra nunca sobrar tenant "fantasma" de quem começou e não pagou.
      */
     async startSignup(input: SignupInput) {
-      const { stripe, priceId } = requireStripe();
+      const { stripe } = requireStripe();
 
       const existingUser = await usersRepo.findByEmail(input.admin_email);
       if (existingUser) throw conflict('EMAIL_TAKEN', 'Já existe uma conta com este e-mail.');
 
+      // Resolve o price do Stripe: plano escolhido tem prioridade; cai no env var como fallback.
+      let resolvedPriceId = priceId;
+      let resolvedPlanId: string | null = null;
+      let resolvedMode: 'subscription' | 'payment' = 'subscription';
+
+      if (input.plan_id) {
+        const [plan] = await db.select().from(plans).where(eq(plans.id, input.plan_id)).limit(1);
+        if (!plan || !plan.active) throw badRequest('PLAN_NOT_FOUND', 'Plano não encontrado ou inativo.');
+        if (!plan.stripePriceId) throw badRequest('PLAN_NO_STRIPE', 'Este plano não tem integração com Stripe. Entre em contato com o suporte.');
+        resolvedPriceId = plan.stripePriceId;
+        resolvedPlanId = plan.id;
+        resolvedMode = plan.billingType === 'one_time' ? 'payment' : 'subscription';
+      }
+
+      if (!resolvedPriceId) throw badRequest('BILLING_NOT_CONFIGURED', 'Cobrança ainda não configurada neste ambiente.');
+
       const passwordHash = await bcrypt.hash(input.admin_password, 10);
 
       const session = await stripe.checkout.sessions.create({
-        mode: 'subscription',
-        line_items: [{ price: priceId, quantity: 1 }],
+        mode: resolvedMode,
+        line_items: [{ price: resolvedPriceId, quantity: 1 }],
         customer_email: input.admin_email,
         success_url: `${env.appUrl}/cadastro/sucesso`,
         cancel_url: `${env.appUrl}/cadastro`,
@@ -77,6 +95,7 @@ export function createBillingService(
           admin_name: input.admin_name,
           admin_email: input.admin_email,
           admin_password_hash: passwordHash,
+          ...(resolvedPlanId ? { plan_id: resolvedPlanId } : {}),
         },
       });
 
@@ -121,6 +140,17 @@ export function createBillingService(
           stripeCustomerId: String(session.customer),
           stripeSubscriptionId: session.subscription ? String(session.subscription) : null,
         });
+
+        // Se a sessão veio de um plano específico, associa o plano à empresa.
+        // mode='payment' (one_time) → marca como lifetime (nunca suspenso por billing).
+        if (meta.plan_id) {
+          const isLifetime = session.mode === 'payment';
+          await db.update(companies).set({
+            planId: meta.plan_id,
+            lifetime: isLifetime,
+          }).where(eq(companies.id, company.id));
+        }
+
         await sendSubscriptionConfirmedEmail(meta.admin_email, meta.admin_name);
         return;
       }

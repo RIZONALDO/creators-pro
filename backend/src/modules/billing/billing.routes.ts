@@ -1,4 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
+import { eq } from 'drizzle-orm';
 import type Stripe from 'stripe';
 import { authenticate } from '../../middleware/authenticate.js';
 import { authorize } from '../../middleware/authorize.js';
@@ -8,9 +9,31 @@ import { env } from '../../lib/env.js';
 import { badRequest } from '../../lib/errors.js';
 import { signupSchema, trialSignupSchema, upgradeTrialSchema } from './billing.schemas.js';
 import type { BillingService } from './billing.service.js';
+import type { db as Db } from '../../db/client.js';
+import { plans } from '../../db/schema/index.js';
 
-export function createBillingRouter(service: BillingService) {
+export function createBillingRouter(service: BillingService, db?: typeof Db) {
   const router = Router();
+
+  // Endpoint público (sem auth) — a landing /planos do frontend busca os planos ativos aqui.
+  router.get('/plans/public', async (_req, res, next) => {
+    try {
+      if (!db) { res.json({ data: [] }); return; }
+      const rows = await db.select({
+        id: plans.id,
+        name: plans.name,
+        billingType: plans.billingType,
+        priceCents: plans.priceCents,
+        currency: plans.currency,
+        maxGestores: plans.maxGestores,
+        maxCreators: plans.maxCreators,
+        stripePriceId: plans.stripePriceId,
+      }).from(plans).where(eq(plans.active, true));
+      res.json({ data: rows });
+    } catch (err) {
+      next(err);
+    }
+  });
 
   // Spam de Checkout Session é diferente de brute-force de senha, mas o mecanismo é o mesmo (Fase 9).
   const signupRateLimiter = createRateLimiter({

@@ -91,7 +91,7 @@ export function createApp(
   app.use(createPlatformAuthRouter(createPlatformAuthService(db)));
   app.use(createPlatformTenantsRouter(createPlatformTenantsService(db)));
   app.use(createPlatformPlansRouter(createPlatformPlansService(db)));
-  app.use(createBillingRouter(billingService));
+  app.use(createBillingRouter(billingService, db));
   app.use(createCreatorsRouter(createCreatorsService(db)));
   app.use(createCollaboratorsRouter(createCollaboratorsService(db)));
   app.use(createClientsRouter(createClientsRepository(db)));

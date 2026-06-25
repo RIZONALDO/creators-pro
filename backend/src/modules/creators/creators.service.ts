@@ -5,6 +5,7 @@ import type { Pagination } from '../../lib/pagination.js';
 import { generateOpaqueToken, hashToken } from '../../lib/tokens.js';
 import { createUsersRepository } from '../auth/users.repository.js';
 import { createCreatorsRepository, type CreatorView } from './creators.repository.js';
+import { checkCreatorLimit } from '../platform/plan.limits.js';
 import type { newCreatorSchema, updateCreatorSchema } from './creators.schemas.js';
 import type { z } from 'zod';
 
@@ -18,6 +19,8 @@ export function createCreatorsService(db: typeof Db) {
     },
 
     async create(tenantId: string, input: z.infer<typeof newCreatorSchema>): Promise<CreatorView & { inviteToken?: string }> {
+      await checkCreatorLimit(db, tenantId);
+
       const existingUser = await usersRepo.findByEmail(input.email);
       if (existingUser) throw conflict('EMAIL_TAKEN', 'Já existe um usuário com este e-mail.');
 

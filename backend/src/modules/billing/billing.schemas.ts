@@ -5,6 +5,8 @@ export const signupSchema = z.object({
   admin_name: z.string().trim().min(2, 'Nome precisa ter pelo menos 2 caracteres.').max(255),
   admin_email: z.string().trim().toLowerCase().email('E-mail inválido.'),
   admin_password: z.string().min(8, 'Senha precisa ter pelo menos 8 caracteres.'),
+  // Plano escolhido na landing — se fornecido, usa o stripe_price_id do plano em vez do env var.
+  plan_id: z.string().uuid().optional(),
 });
 
 /** Mesmo formato de signupSchema — usado pra criar a empresa/admin direto, sem Stripe (trial de 4h). */
