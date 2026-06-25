@@ -38,6 +38,11 @@ function buildCheckoutCompletedEvent(metadata: Record<string, string>, customer 
   } as unknown as Stripe.Event;
 }
 
+/** Fake — evita chamar o Resend de verdade no teste (mesmo padrão de auth.service.test.ts). */
+function fakeEmailSender() {
+  return { send: vi.fn().mockResolvedValue(undefined) };
+}
+
 describe('billingService', () => {
   const companiesRepo = createCompaniesRepository(testDb);
   const usersRepo = createUsersRepository(testDb);
@@ -104,6 +109,18 @@ describe('billingService', () => {
     // mesmo nome digitado no signup já cai em company_settings.display_name — admin não chega numa tela vazia.
     const settings = await companySettingsRepo.findByTenant(company!.id);
     expect(settings?.displayName).toBe('Nova Empresa');
+  });
+
+  it('webhook checkout.session.completed (signup novo) manda e-mail de assinatura confirmada', async () => {
+    const emailSender = fakeEmailSender();
+    const service = createBillingService(testDb, authService, buildFakeStripe().stripe, 'price_123', emailSender);
+
+    await service.handleWebhookEvent(buildCheckoutCompletedEvent({
+      company_name: 'Empresa Com Email', admin_name: 'Fulano Email', admin_email: 'fulano@comemail.com', admin_password_hash: 'hash',
+    }));
+
+    expect(emailSender.send).toHaveBeenCalledTimes(1);
+    expect(emailSender.send).toHaveBeenCalledWith(expect.objectContaining({ to: 'fulano@comemail.com', subject: expect.stringContaining('Assinatura confirmada') }));
   });
 
   it('webhook ignora checkout.session.completed sem metadata nossa (sessão de outro fluxo)', async () => {
@@ -242,6 +259,17 @@ describe('billingService', () => {
     // mesmo admin de antes — não duplicou nem criou outro usuário/empresa.
     const adminAfter = await usersRepo.findByEmail('admin@trialwebhook.com');
     expect(adminAfter!.id).toBe(adminIdBefore);
+  });
+
+  it('webhook checkout.session.completed com upgrade_company_id também manda e-mail de confirmação', async () => {
+    const { user } = await authService.startTrial({ companyName: 'Trial Webhook Email', adminName: 'Admin Email', adminEmail: 'admin@trialwebhookemail.com', adminPassword: 'senha12345' });
+    const emailSender = fakeEmailSender();
+    const service = createBillingService(testDb, authService, buildFakeStripe().stripe, 'price_123', emailSender);
+
+    await service.handleWebhookEvent(buildCheckoutCompletedEvent({ upgrade_company_id: user.tenantId }));
+
+    expect(emailSender.send).toHaveBeenCalledTimes(1);
+    expect(emailSender.send).toHaveBeenCalledWith(expect.objectContaining({ to: 'admin@trialwebhookemail.com', subject: expect.stringContaining('Assinatura confirmada') }));
   });
 
   it('getRenewalDate devolve null quando a empresa não tem assinatura Stripe', async () => {

@@ -4,6 +4,7 @@ import type { db as Db } from '../../db/client.js';
 import type { AuthContext } from '../../middleware/authenticate.js';
 import { badRequest, conflict, unauthorized } from '../../lib/errors.js';
 import { stripeClient } from '../../lib/stripe.js';
+import { emailSender as defaultEmailSender, type EmailSender } from '../../lib/email.js';
 import { env } from '../../lib/env.js';
 import { slugify, uniqueSlug } from '../../lib/slug.js';
 import { createCompaniesRepository } from '../auth/companies.repository.js';
@@ -16,14 +17,15 @@ type SignupInput = z.infer<typeof signupSchema>;
 type UpgradeTrialInput = z.infer<typeof upgradeTrialSchema>;
 
 /**
- * `stripe`/`priceId` são injetáveis (mesmo padrão de emitter/pushSender) — o teste constrói o
- * service com um cliente Stripe falso (vi.fn()), sem depender de chave real configurada no .env.test.
+ * `stripe`/`priceId`/`emailSender` são injetáveis (mesmo padrão de emitter/pushSender) — o teste
+ * constrói o service com fakes, sem depender de chave/configuração real.
  */
 export function createBillingService(
   db: typeof Db,
   authService: AuthService,
   stripe: Stripe | null = stripeClient,
   priceId: string | undefined = env.stripePriceId,
+  emailSender: EmailSender = defaultEmailSender,
 ) {
   const companiesRepo = createCompaniesRepository(db);
   const usersRepo = createUsersRepository(db);
@@ -37,6 +39,17 @@ export function createBillingService(
 
   async function uniqueCompanySlug(base: string): Promise<string> {
     return uniqueSlug(base, async (slug) => !!(await companiesRepo.findBySlug(slug)));
+  }
+
+  /** Mandado pelos dois caminhos que ativam uma empresa (signup novo e upgrade de
+   * trial/reativação) — pessoa que acabou de pagar precisa saber que deu certo e o que fazer
+   * agora, sem depender só da tela de redirect (que ela pode ter fechado a aba antes de ver). */
+  async function sendSubscriptionConfirmedEmail(to: string, name: string) {
+    await emailSender.send({
+      to,
+      subject: 'Assinatura confirmada — CreatorsPro',
+      html: `<p>Olá, ${name}.</p><p>Sua assinatura do CreatorsPro foi confirmada — já pode entrar com o e-mail e a senha que você cadastrou.</p><p><a href="${env.appUrl}/login">${env.appUrl}/login</a></p>`,
+    });
   }
 
   return {
@@ -87,6 +100,8 @@ export function createBillingService(
             stripeCustomerId: String(session.customer),
             stripeSubscriptionId: session.subscription ? String(session.subscription) : null,
           });
+          const [admin] = await usersRepo.findByRoles(meta.upgrade_company_id, ['admin']);
+          if (admin) await sendSubscriptionConfirmedEmail(admin.email, admin.name);
           return;
         }
 
@@ -106,6 +121,7 @@ export function createBillingService(
           stripeCustomerId: String(session.customer),
           stripeSubscriptionId: session.subscription ? String(session.subscription) : null,
         });
+        await sendSubscriptionConfirmedEmail(meta.admin_email, meta.admin_name);
         return;
       }
 
@@ -225,7 +241,7 @@ export function createBillingService(
         mode: 'subscription',
         line_items: [{ price: priceId, quantity: 1 }],
         customer_email: user.email,
-        success_url: `${env.appUrl}/login`,
+        success_url: `${env.appUrl}/cadastro/sucesso`,
         cancel_url: `${env.appUrl}/login`,
         metadata: { upgrade_company_id: company.id },
       });

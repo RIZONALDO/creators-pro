@@ -98,7 +98,7 @@ export function createUsersRepository(db: typeof Db) {
 
     /** Usado por GET /messages/contacts — quem o operacional pode contatar (a coordenação). */
     async findByRoles(tenantId: string, roles: UserRole[]) {
-      return db.select({ id: users.id, name: users.name }).from(users).where(and(eq(users.tenantId, tenantId), inArray(users.role, roles)));
+      return db.select({ id: users.id, name: users.name, email: users.email }).from(users).where(and(eq(users.tenantId, tenantId), inArray(users.role, roles)));
     },
 
     async create(input: CreateUserInput) {
