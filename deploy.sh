@@ -8,7 +8,7 @@ NGINX_CONF="/etc/nginx/sites-available/creatorspro"
 # Lista completa de prefixos de API que o nginx deve proxiar pro backend.
 # MANTER SINCRONIZADO com backend/src/app.ts — qualquer rota nova precisa entrar aqui.
 # Nota: platform/auth e platform/tenants são API; /platform (sem sub-rota) cai no SPA (index.html).
-NGINX_API_PATHS="auth|billing|signup|internal|users|creators|collaborators|clients|professions|status-history|tasks|services|scale-entries|scale-months|holidays|absences|shifts|messages|conversations|notifications|push|reports|attachments|company|account|onboarding|platform/auth|platform/tenants"
+NGINX_API_PATHS="auth|billing|signup|internal|users|creators|collaborators|clients|professions|status-history|tasks|services|scale-entries|scale-months|holidays|absences|shifts|messages|conversations|notifications|push|reports|attachments|company|account|onboarding|platform/auth|platform/tenants|platform/plans"
 
 cd /var/www/creatorspro
 git pull origin main
@@ -38,10 +38,10 @@ import re, sys
 paths = sys.argv[1]
 with open(sys.argv[2]) as f:
     conf = f.read()
-# Substitui o location ~ ^/(...) existente pelo novo, com todos os prefixos.
+# Casa o padrão real do nginx nesta VPS: location ~ ^/(...)(/|\$) {
 conf = re.sub(
-    r'location ~ \^/\([^)]+\)',
-    'location ~ ^/(' + paths + ')',
+    r'location ~ \^/\([^)]+\)\(/\|\\\$\) \{',
+    'location ~ ^/(' + paths + r')(/|\$) {',
     conf,
     count=1,
 )
