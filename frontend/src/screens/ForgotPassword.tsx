@@ -53,7 +53,7 @@ export function ForgotPassword() {
               <form onSubmit={submit}>
                 <label style={{ display: 'block', marginBottom: 18 }}>
                   <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--tx2)', marginBottom: 6 }}>E-mail</span>
-                  <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="voce@empresa.com" autoComplete="email" autoFocus style={inputStyle} />
+                  <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="seuemail@empresa.com" autoComplete="email" autoFocus style={inputStyle} />
                 </label>
 
                 <button type="submit" disabled={busy}

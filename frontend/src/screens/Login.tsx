@@ -175,7 +175,7 @@ export function Login() {
               <label style={{ display: 'block', marginBottom: 14 }}>
                 <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--tx2)', marginBottom: 6 }}>E-mail</span>
                 <input
-                  value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@empresa.com"
+                  value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seuemail@empresa.com"
                   type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" autoComplete="username"
                   autoFocus enterKeyHint="next" className="cp-auth-input" style={inputStyle}
                 />

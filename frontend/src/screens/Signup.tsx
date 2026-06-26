@@ -125,7 +125,7 @@ export function Signup() {
           <form onSubmit={submitTrial}>
             <label style={{ display: 'block', marginBottom: 14 }}>
               <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--tx2)', marginBottom: 6 }}>Nome da empresa</span>
-              <input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Studio Norte Produções" style={inputStyle} />
+              <input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Nome da sua empresa" style={inputStyle} />
             </label>
             <label style={{ display: 'block', marginBottom: 14 }}>
               <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--tx2)', marginBottom: 6 }}>Seu nome</span>
@@ -133,7 +133,7 @@ export function Signup() {
             </label>
             <label style={{ display: 'block', marginBottom: 14 }}>
               <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--tx2)', marginBottom: 6 }}>E-mail</span>
-              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="voce@empresa.com" autoComplete="email" style={inputStyle} />
+              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="seuemail@empresa.com" autoComplete="email" style={inputStyle} />
             </label>
             <label style={{ display: 'block', marginBottom: 14 }}>
               <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--tx2)', marginBottom: 6 }}>Senha</span>
