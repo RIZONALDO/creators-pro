@@ -9,7 +9,7 @@ import { useToast } from '@/context/ToastContext';
 import { useConfirm } from '@/context/ConfirmContext';
 import type { Creator, Collaborator, Client, NewClient, NewCreator, NewCollaborator, Profession } from '@/types';
 
-type Tab = 'creators' | 'colabs' | 'clientes';
+type Tab = 'creators' | 'colabs' | 'profissoes' | 'clientes';
 
 type CreatorFormData = Omit<NewCreator, 'password'> & { password?: string };
 
@@ -162,13 +162,14 @@ export function Cadastros() {
       {/* Tab bar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', background: 'var(--bg2)', border: '1px solid var(--line)', borderRadius: 12, padding: 4, gap: 2 }}>
-          {([['creators', 'Creators'], ['colabs', 'Colaboradores'], ['clientes', 'Clientes']] as [Tab, string][]).map(([key, label]) => (
+          {([['creators', 'Creators'], ['colabs', 'Colaboradores'], ['profissoes', 'Profissões'], ['clientes', 'Clientes']] as [Tab, string][]).map(([key, label]) => (
             <button key={key} onClick={() => setTab(key)} style={{ padding: '8px 15px', borderRadius: 10, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer', background: tab === key ? 'linear-gradient(135deg,var(--pri),var(--pri2))' : 'transparent', color: tab === key ? '#fff' : 'var(--tx2)' }}>{label}</button>
           ))}
         </div>
         <div style={{ flex: 1 }} />
         {tab === 'creators' && <Button icon={<Add color="currentColor" size="small" />} onClick={() => setCreatorModal('new')}>Novo creator</Button>}
         {tab === 'colabs' && <Button icon={<Add color="currentColor" size="small" />} onClick={() => setColabModal('new')}>Novo colaborador</Button>}
+        {tab === 'profissoes' && <Button icon={<Add color="currentColor" size="small" />} onClick={() => setProfModal('new')}>Nova profissão</Button>}
         {tab === 'clientes' && <Button icon={<Add color="currentColor" size="small" />} onClick={() => setClientModal('new')}>Novo cliente</Button>}
       </div>
 
@@ -196,59 +197,43 @@ export function Cadastros() {
       )}
 
       {/* COLABORADORES */}
-      {tab === 'colabs' && (colabs.loading || professions.loading) && <Card pad={18}><Skeleton rows={5} /></Card>}
-      {tab === 'colabs' && !colabs.loading && !professions.loading && (
-        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+      {tab === 'colabs' && colabs.loading && <Card pad={18}><Skeleton rows={5} /></Card>}
+      {tab === 'colabs' && !colabs.loading && (
+        <Card pad={0} style={{ overflow: 'hidden' }}>
+          <Header cols="2fr 1.3fr 1.2fr" items={['COLABORADOR', 'PROFISSÃO', 'VÍNCULO']} />
+          {(colabs.data ?? []).length === 0 && (
+            <div style={{ padding: '24px 20px', fontSize: 13, color: 'var(--tx3)' }}>Nenhum colaborador cadastrado ainda.</div>
+          )}
+          {(colabs.data ?? []).map((c) => (
+            <Row key={c.id} cols="2fr 1.3fr 1.2fr" onClick={() => setColabModal(c)}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                <Avatar name={c.name} size={34} seed={c.id} />
+                <span style={{ fontWeight: 600 }}>{c.name}</span>
+                {!c.active && <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--tx3)', background: 'rgba(101,101,124,.14)', padding: '2px 7px', borderRadius: 6 }}>Inativo</span>}
+              </span>
+              <span style={{ color: 'var(--tx2)' }}>{c.profession ?? '—'}</span>
+              <span style={{ color: 'var(--tx2)' }}>{c.employment_type === 'fixed' ? 'Fixo' : 'Freelancer'}</span>
+            </Row>
+          ))}
+        </Card>
+      )}
 
-          {/* Tabela principal */}
-          <Card pad={0} style={{ overflow: 'hidden', flex: 1, minWidth: 0 }}>
-            <Header cols="2fr 1.3fr 1.2fr" items={['COLABORADOR', 'PROFISSÃO', 'VÍNCULO']} />
-            {(colabs.data ?? []).length === 0 && (
-              <div style={{ padding: '24px 20px', fontSize: 13, color: 'var(--tx3)', textAlign: 'center' }}>
-                Nenhum colaborador cadastrado ainda.
-              </div>
-            )}
-            {(colabs.data ?? []).map((c) => (
-              <Row key={c.id} cols="2fr 1.3fr 1.2fr" onClick={() => setColabModal(c)}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-                  <Avatar name={c.name} size={34} seed={c.id} />
-                  <span style={{ fontWeight: 600 }}>{c.name}</span>
-                  {!c.active && <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--tx3)', background: 'rgba(101,101,124,.14)', padding: '2px 7px', borderRadius: 6 }}>Inativo</span>}
-                </span>
-                <span style={{ color: 'var(--tx2)' }}>{c.profession ?? '—'}</span>
-                <span style={{ color: 'var(--tx2)' }}>{c.employment_type === 'fixed' ? 'Fixo' : 'Freelancer'}</span>
-              </Row>
-            ))}
-          </Card>
-
-          {/* Painel lateral: catálogo de profissões */}
-          <div style={{ width: 220, flexShrink: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, paddingLeft: 2 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--tx3)', letterSpacing: '.05em' }}>PROFISSÕES</span>
-              <button
-                onClick={() => setProfModal('new')}
-                title="Nova profissão"
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: 7, border: '1px solid var(--line)', background: 'var(--bg2)', cursor: 'pointer', color: 'var(--tx2)' }}
-              >
-                <Add color="currentColor" size="small" />
+      {/* PROFISSÕES */}
+      {tab === 'profissoes' && professions.loading && <Card pad={18}><Skeleton rows={5} /></Card>}
+      {tab === 'profissoes' && !professions.loading && (
+        <Card pad={0} style={{ overflow: 'hidden', maxWidth: 480 }}>
+          {(professions.data ?? []).length === 0 && (
+            <div style={{ padding: '24px 20px', fontSize: 13, color: 'var(--tx3)' }}>Nenhuma profissão cadastrada ainda.</div>
+          )}
+          {(professions.data ?? []).map((p) => (
+            <div key={p.id} style={{ display: 'flex', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid var(--line)' }}>
+              <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{p.name}</span>
+              <button onClick={() => handleDeleteProfession(p)} title="Excluir" style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--tx3)', padding: 4, borderRadius: 6 }}>
+                <Trash color="currentColor" size="small" />
               </button>
             </div>
-            <Card pad={0} style={{ overflow: 'hidden' }}>
-              {(professions.data ?? []).length === 0 && (
-                <div style={{ padding: '14px 14px', fontSize: 12, color: 'var(--tx3)' }}>Nenhuma ainda.</div>
-              )}
-              {(professions.data ?? []).map((p) => (
-                <div key={p.id} style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', borderBottom: '1px solid var(--line)', gap: 8 }}>
-                  <span style={{ flex: 1, fontSize: 12.5, fontWeight: 500, color: 'var(--tx1)' }}>{p.name}</span>
-                  <button onClick={() => handleDeleteProfession(p)} title="Excluir" style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--tx3)', padding: 3, borderRadius: 5, flexShrink: 0 }}>
-                    <Trash color="currentColor" size="small" />
-                  </button>
-                </div>
-              ))}
-            </Card>
-          </div>
-
-        </div>
+          ))}
+        </Card>
       )}
 
       {/* CLIENTES */}
