@@ -15,14 +15,16 @@ git pull origin main
 
 # ── Backend ──────────────────────────────────────────────────────────────────
 cd backend
-npm install --omit=dev --prefer-offline
+npm install --prefer-offline
 npm run db:migrate
 npm run build
+npm prune --omit=dev
 
 # ── Frontend ─────────────────────────────────────────────────────────────────
 cd ../frontend
-npm install --omit=dev --prefer-offline
+npm install --prefer-offline
 npm run build
+npm prune --omit=dev
 rsync -a --delete dist/ /var/www/creatorspro-public/
 
 # ── Reinicia o processo Node ──────────────────────────────────────────────────
