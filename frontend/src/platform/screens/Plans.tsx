@@ -8,6 +8,11 @@ const BILLING_LABELS: Record<string, string> = {
   manual: 'Manual',
 };
 
+function planTypeLabel(plan: Plan) {
+  if (plan.billing_type === 'manual' && plan.price_cents === 0) return 'Trial';
+  return BILLING_LABELS[plan.billing_type] ?? plan.billing_type;
+}
+
 function fmtCents(cents: number, currency: string) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: currency.toUpperCase() }).format(cents / 100);
 }
@@ -16,7 +21,7 @@ function PlanRow({ plan, onEdit, onDelete }: { plan: Plan; onEdit: (p: Plan) => 
   return (
     <tr style={{ borderBottom: '1px solid var(--line)' }}>
       <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--tx)', fontSize: 14 }}>{plan.name}</td>
-      <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--tx2)' }}>{BILLING_LABELS[plan.billing_type] ?? plan.billing_type}</td>
+      <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--tx2)' }}>{planTypeLabel(plan)}</td>
       <td style={{ padding: '12px 16px', fontSize: 14, fontWeight: 600, color: 'var(--tx)' }}>{fmtCents(plan.price_cents, plan.currency)}</td>
       <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--tx2)' }}>
         {plan.max_gestores ?? '∞'} gestores / {plan.max_creators ?? '∞'} creators
@@ -38,24 +43,39 @@ function PlanRow({ plan, onEdit, onDelete }: { plan: Plan; onEdit: (p: Plan) => 
 }
 
 type FormMode = { type: 'create' } | { type: 'edit'; plan: Plan };
+type UIBillingType = Plan['billing_type'] | 'trial';
 
 function PlanModal({ mode, onClose, onSaved }: { mode: FormMode; onClose: () => void; onSaved: (p: Plan) => void }) {
   const isEdit = mode.type === 'edit';
   const initial = isEdit ? mode.plan : null;
 
+  const initialUIType = (): UIBillingType => {
+    if (!initial) return 'trial';
+    if (initial.billing_type === 'manual' && initial.price_cents === 0) return 'trial';
+    return initial.billing_type;
+  };
+
   const [name, setName] = useState(initial?.name ?? '');
-  const [billingType, setBillingType] = useState<Plan['billing_type']>(initial?.billing_type ?? 'monthly');
-  const [priceCents, setPriceCents] = useState(initial ? String(initial.price_cents / 100) : '');
+  const [uiBillingType, setUIBillingType] = useState<UIBillingType>(initialUIType);
+  const [priceCents, setPriceCents] = useState(initial && initial.price_cents > 0 ? String(initial.price_cents / 100) : '');
   const [maxGestores, setMaxGestores] = useState(initial?.max_gestores != null ? String(initial.max_gestores) : '');
   const [maxCreators, setMaxCreators] = useState(initial?.max_creators != null ? String(initial.max_creators) : '');
   const [syncStripe, setSyncStripe] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
+  const isTrial = uiBillingType === 'trial';
+  const apiType: Plan['billing_type'] = isTrial ? 'manual' : uiBillingType;
+
+  function handleTypeChange(val: UIBillingType) {
+    setUIBillingType(val);
+    if (val === 'trial') setPriceCents('');
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const price = Math.round(parseFloat(priceCents.replace(',', '.')) * 100);
-    if (isNaN(price) || price < 0) { setError('Preço inválido.'); return; }
+    const price = isTrial ? 0 : Math.round(parseFloat(priceCents.replace(',', '.')) * 100);
+    if (!isTrial && (isNaN(price) || price < 0)) { setError('Preço inválido.'); return; }
     if (!name.trim()) { setError('Nome obrigatório.'); return; }
     setError(''); setBusy(true);
     try {
@@ -70,11 +90,11 @@ function PlanModal({ mode, onClose, onSaved }: { mode: FormMode; onClose: () => 
       } else {
         saved = await platformApi.plans.create({
           name,
-          billingType: billingType as Plan['billing_type'],
+          billingType: apiType,
           priceCents: price,
           maxGestores: maxGestores ? parseInt(maxGestores) : null,
           maxCreators: maxCreators ? parseInt(maxCreators) : null,
-          syncStripe,
+          syncStripe: isTrial ? false : syncStripe,
         });
       }
       onSaved(saved);
@@ -96,23 +116,31 @@ function PlanModal({ mode, onClose, onSaved }: { mode: FormMode; onClose: () => 
           <div style={{ display: 'grid', gap: 14 }}>
             <div>
               <label style={lbl}>Nome</label>
-              <input value={name} onChange={(e) => setName(e.target.value)} style={inp} />
+              <input value={name} onChange={(e) => setName(e.target.value)} style={inp} placeholder="Ex: Teste grátis, Pro, Agência…" />
             </div>
             {!isEdit && (
               <div>
-                <label style={lbl}>Tipo de cobrança</label>
-                <select value={billingType} onChange={(e) => setBillingType(e.target.value as Plan['billing_type'])} style={{ ...inp }}>
-                  <option value="monthly">Mensal</option>
-                  <option value="yearly">Anual</option>
-                  <option value="one_time">Pagamento único (Vitalício)</option>
-                  <option value="manual">Manual (sem Stripe)</option>
+                <label style={lbl}>Tipo</label>
+                <select value={uiBillingType} onChange={(e) => handleTypeChange(e.target.value as UIBillingType)} style={{ ...inp }}>
+                  <option value="trial">Trial (gratuito, 4 horas)</option>
+                  <option value="monthly">Pago — Mensal</option>
+                  <option value="yearly">Pago — Anual</option>
+                  <option value="one_time">Pago — Vitalício (pagamento único)</option>
+                  <option value="manual">Manual (sem Stripe, atribuído pelo admin)</option>
                 </select>
+                {isTrial && (
+                  <div style={{ fontSize: 11.5, color: 'var(--tx3)', marginTop: 5 }}>
+                    Aparece na landing como card gratuito — usuário inicia sem cartão.
+                  </div>
+                )}
               </div>
             )}
-            <div>
-              <label style={lbl}>Preço (R$)</label>
-              <input value={priceCents} onChange={(e) => setPriceCents(e.target.value)} style={inp} inputMode="decimal" placeholder="97,00" />
-            </div>
+            {!isTrial && (
+              <div>
+                <label style={lbl}>Preço (R$)</label>
+                <input value={priceCents} onChange={(e) => setPriceCents(e.target.value)} style={inp} inputMode="decimal" placeholder="97,00" />
+              </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
                 <label style={lbl}>Máx. gestores (vazio = ∞)</label>
@@ -123,7 +151,7 @@ function PlanModal({ mode, onClose, onSaved }: { mode: FormMode; onClose: () => 
                 <input value={maxCreators} onChange={(e) => setMaxCreators(e.target.value)} style={inp} inputMode="numeric" placeholder="ilimitado" />
               </div>
             </div>
-            {!isEdit && billingType !== 'manual' && (
+            {!isEdit && !isTrial && apiType !== 'manual' && (
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--tx2)', cursor: 'pointer' }}>
                 <input type="checkbox" checked={syncStripe} onChange={(e) => setSyncStripe(e.target.checked)} />
                 Criar produto e preço no Stripe automaticamente
