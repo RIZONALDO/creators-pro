@@ -125,6 +125,7 @@ function CoordinatorSchedule() {
   const absences = useAsync<Absence[]>(() => api.absences.list(), []);
   const holidays = useAsync<Holiday[]>(() => api.holidays.list(SCALE_MONTH), []);
   const [generating, setGenerating] = useState(false);
+  const [generateStep, setGenerateStep] = useState(-1); // -1 = idle, 0..N = step atual
   const [activeDragCreatorId, setActiveDragCreatorId] = useState<string | null>(null);
   // id do dia que o drag está sobrevoando (para highlight visual)
   const [overDayId, setOverDayId] = useState<string | null>(null);
@@ -215,11 +216,35 @@ function CoordinatorSchedule() {
     await Promise.all(assignments.map((a) => api.schedule.assign(a.date, a.creatorId)));
   }
 
+  const GENERATE_STEPS = [
+    { label: 'Analisando creators cadastrados…',       ms: 600 },
+    { label: 'Verificando feriados do mês…',           ms: 700 },
+    { label: 'Cruzando ausências aprovadas…',          ms: 900 },
+    { label: 'Calculando distribuição intercalada…',   ms: 1100 },
+    { label: 'Atribuindo creators aos dias úteis…',    ms: 800 },
+    { label: 'Salvando escala no servidor…',           ms: 0 },   // ms=0 = aguarda API real
+  ];
+
   async function handleGenerate() {
     setGenerating(true);
-    try { await autoFill(); toast.success('Escala gerada', 'Creators distribuídos nos dias úteis de forma intercalada.'); }
-    catch (err) { toast.error('Não foi possível gerar a escala', err instanceof Error ? err.message : 'Tente novamente.'); }
-    finally { setGenerating(false); }
+    try {
+      for (let i = 0; i < GENERATE_STEPS.length; i++) {
+        setGenerateStep(i);
+        const { ms } = GENERATE_STEPS[i]!;
+        if (ms > 0) {
+          // jitter ±20% para parecer mais orgânico
+          await new Promise((r) => setTimeout(r, ms * (0.8 + Math.random() * 0.4)));
+        } else {
+          await autoFill(); // último passo: chama a API de verdade
+        }
+      }
+      toast.success('Escala gerada', 'Creators distribuídos nos dias úteis de forma intercalada.');
+    } catch (err) {
+      toast.error('Não foi possível gerar a escala', err instanceof Error ? err.message : 'Tente novamente.');
+    } finally {
+      setGenerating(false);
+      setGenerateStep(-1);
+    }
   }
 
   // ── handlers DnD ──────────────────────────────────────────────────────────
@@ -321,6 +346,59 @@ function CoordinatorSchedule() {
 
   // ── fase onboarding (2+ creators, escala vazia) ───────────────────────────
   if (schedule.data !== null && schedule.data.length === 0) {
+    // — loading: processamento fake animado
+    if (generating) {
+      const total = GENERATE_STEPS.length;
+      const progress = generateStep >= 0 ? Math.round(((generateStep + 1) / total) * 100) : 0;
+      return (
+        <div className="cp-fade" style={{ maxWidth: 480, margin: '0 auto', paddingTop: 24 }}>
+          <div style={{ textAlign: 'center', marginBottom: 32 }}>
+            {/* ícone pulsante */}
+            <div style={{ position: 'relative', width: 72, height: 72, margin: '0 auto 18px' }}>
+              <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'rgba(108,99,255,.18)', animation: 'cp-pulse 1.4s ease-in-out infinite' }} />
+              <div style={{ position: 'absolute', inset: 6, borderRadius: '50%', background: 'rgba(108,99,255,.22)', animation: 'cp-pulse 1.4s ease-in-out infinite .2s' }} />
+              <div style={{ position: 'absolute', inset: 12, borderRadius: '50%', background: 'linear-gradient(135deg,var(--pri),var(--pri2))', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 20px rgba(108,99,255,.45)' }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" className="cp-spin"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8" /></svg>
+              </div>
+            </div>
+            <div style={{ fontFamily: "'Plus Jakarta Sans'", fontWeight: 800, fontSize: 19, marginBottom: 4 }}>Gerando escala…</div>
+            <div style={{ fontSize: 13, color: 'var(--tx3)' }}>Isso pode levar alguns segundos</div>
+          </div>
+
+          {/* barra de progresso */}
+          <div style={{ height: 6, background: 'var(--bg3)', borderRadius: 99, overflow: 'hidden', marginBottom: 24 }}>
+            <div style={{ height: '100%', width: `${progress}%`, background: 'linear-gradient(90deg,var(--pri),var(--pri2))', borderRadius: 99, transition: 'width .5s ease' }} />
+          </div>
+
+          {/* steps */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0, background: 'var(--bg1)', border: '1px solid var(--line)', borderRadius: 16, overflow: 'hidden' }}>
+            {GENERATE_STEPS.map((step, i) => {
+              const done = i < generateStep;
+              const active = i === generateStep;
+              return (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 18px', borderBottom: i < GENERATE_STEPS.length - 1 ? '1px solid var(--line)' : 'none', opacity: i > generateStep ? 0.35 : 1, transition: 'opacity .3s' }}>
+                  <div style={{ width: 28, height: 28, borderRadius: '50%', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', background: done ? 'rgba(34,197,94,.15)' : active ? 'rgba(108,99,255,.15)' : 'var(--bg3)', border: `1.5px solid ${done ? 'rgba(34,197,94,.4)' : active ? 'rgba(108,99,255,.4)' : 'var(--line)'}`, transition: 'background .3s, border-color .3s' }}>
+                    {done
+                      ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#22C55E" strokeWidth="2.8" strokeLinecap="round"><polyline points="20 6 9 17 4 12" /></svg>
+                      : active
+                        ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--pri)" strokeWidth="2.2" className="cp-spin"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8" /></svg>
+                        : <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx3)' }}>{i + 1}</span>}
+                  </div>
+                  <span style={{ fontSize: 13.5, fontWeight: active ? 600 : 400, color: done ? 'var(--tx2)' : active ? 'var(--tx)' : 'var(--tx3)', transition: 'color .3s, font-weight .3s' }}>{step.label}</span>
+                  {done && <svg style={{ marginLeft: 'auto', flex: 'none' }} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22C55E" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>}
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ textAlign: 'center', marginTop: 20, fontSize: 12, color: 'var(--tx3)' }}>
+            {progress}% concluído
+          </div>
+        </div>
+      );
+    }
+
+    // — formulário de configuração
     return (
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="cp-fade" style={{ maxWidth: 520, margin: '0 auto', paddingTop: 8 }}>
@@ -350,11 +428,9 @@ function CoordinatorSchedule() {
             <strong>Como funciona:</strong> cada creator recebe um dia útil na sequência acima, em ciclo. Feriados e ausências aprovadas são pulados automaticamente.
           </div>
 
-          <Button onClick={handleGenerate} disabled={generating} style={{ width: '100%', justifyContent: 'center', height: 48 }}
-            icon={generating
-              ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="cp-spin"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8" /></svg>
-              : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16" /></svg>}>
-            {generating ? 'Gerando escala…' : 'Gerar escala intercalada'}
+          <Button onClick={handleGenerate} style={{ width: '100%', justifyContent: 'center', height: 48 }}
+            icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16" /></svg>}>
+            Gerar escala intercalada
           </Button>
         </div>
 
