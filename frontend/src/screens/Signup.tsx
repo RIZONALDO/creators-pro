@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { api } from '@/api';
+import { api, type PublicPlan } from '@/api';
 import { ApiError } from '@/api/client';
 import { Spinner } from '@/components/ui';
 
@@ -8,23 +8,57 @@ const inputStyle = { width: '100%', background: 'var(--bg2)', border: '1px solid
 
 type Busy = 'trial' | 'subscribe' | null;
 
-/** Cadastro público — dois caminhos com os mesmos dados: testar 4h sem cartão (cria a empresa
- * direto, sessão já criada, mas só entra de fato depois de passar por TrialReady.tsx) ou assinar
- * de cara (abre o Checkout do Stripe; a empresa só é criada de fato depois do pagamento confirmar,
- * via webhook, e cai em SignupSuccess.tsx). `?plano=trial|pro` vem da Plans.tsx — só destaca
- * visualmente o botão correspondente (o formulário continua o mesmo, os dois caminhos sempre
- * disponíveis). */
+function fmtPlanPrice(plan: PublicPlan): string {
+  const price = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: plan.currency.toUpperCase() }).format(plan.price_cents / 100);
+  const suffix: Record<string, string> = { monthly: '/mês', yearly: '/ano', one_time: ' único' };
+  return `${price}${suffix[plan.billing_type] ?? ''}`;
+}
+
 export function Signup() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const proSelected = searchParams.get('plano') === 'pro';
   const planId = searchParams.get('plan_id') ?? undefined;
+  const plano = searchParams.get('plano') ?? 'trial';
+  const isTrial = plano === 'trial' || !planId;
+
+  const [plan, setPlan] = useState<PublicPlan | null>(null);
+  const [planLoading, setPlanLoading] = useState(!!planId);
+
   const [companyName, setCompanyName] = useState('');
   const [adminName, setAdminName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState<Busy>(null);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!planId) return;
+    api.billing.publicPlans()
+      .then((plans) => setPlan(plans.find((p) => p.id === planId) ?? null))
+      .catch(() => setPlan(null))
+      .finally(() => setPlanLoading(false));
+  }, [planId]);
+
+  // Um plano "trial" no banco é manual+price_cents=0 — não abre Stripe
+  const planIsFree = plan ? (plan.price_cents === 0 || plan.billing_type === 'manual') : false;
+  const canSubscribe = !!plan?.stripe_price_id && !planIsFree;
+
+  // Quando vem de trial OU o plano é gratuito, botão primário é o trial
+  const trialPrimary = isTrial || planIsFree;
+
+  function subscribeLabel() {
+    if (planLoading) return 'Carregando…';
+    if (!plan || !canSubscribe) return 'Assinar agora';
+    const cta = plan.billing_type === 'one_time' ? 'Adquirir' : 'Assinar';
+    return `${cta} ${plan.name} — ${fmtPlanPrice(plan)}`;
+  }
+
+  function subtitle() {
+    if (planLoading) return 'Carregando plano…';
+    if (canSubscribe && plan) return `Você escolheu o plano ${plan.name}`;
+    if (planIsFree && plan) return `Teste ${plan.name} — gratuito, sem cartão`;
+    return 'Teste grátis por 4h, sem cartão — ou assine direto';
+  }
 
   function validate(): boolean {
     if (!companyName || !adminName || !email || !password) { setError('Preencha todos os campos.'); return false; }
@@ -37,8 +71,6 @@ export function Signup() {
     if (!validate()) return;
     setError(''); setBusy('trial');
     try {
-      // Sessão já fica persistida aqui (api.billing.startTrial cuida disso) — só não entra no
-      // app ainda: TrialReady.tsx mostra o que esperar das 4h antes de "comitar" (useApp().enterApp).
       const session = await api.billing.startTrial({ company_name: companyName, admin_name: adminName, admin_email: email, admin_password: password });
       navigate('/cadastro/trial', { state: { user: session.user } });
     } catch (err) {
@@ -62,6 +94,9 @@ export function Signup() {
     }
   }
 
+  const btnPrimary: React.CSSProperties = { width: '100%', height: 46, borderRadius: 13, border: 'none', background: 'linear-gradient(135deg,var(--pri),var(--pri2))', color: '#fff', fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 8px 22px rgba(108,99,255,.4)', marginBottom: 10 };
+  const btnSecondary: React.CSSProperties = { width: '100%', height: 46, borderRadius: 13, border: '1px solid var(--line2)', background: 'var(--bg2)', color: 'var(--tx)', fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 };
+
   return (
     <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'radial-gradient(1000px 600px at 50% -10%, rgba(108,99,255,.18), transparent 60%), var(--bg0)' }}>
       <div style={{ width: 440, maxWidth: '100%' }}>
@@ -72,9 +107,20 @@ export function Signup() {
           <div style={{ fontFamily: "'Plus Jakarta Sans'", fontWeight: 800, fontSize: 24, letterSpacing: '-.02em' }}>CreatorsPro</div>
         </div>
 
+        {/* Badge do plano selecionado */}
+        {canSubscribe && plan && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--pri)', background: 'rgba(108,99,255,.1)', border: '1px solid rgba(108,99,255,.25)', borderRadius: 20, padding: '5px 14px', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+              {plan.name} — {fmtPlanPrice(plan)}
+            </div>
+            <Link to="/planos" style={{ fontSize: 12, color: 'var(--tx3)', textDecoration: 'none' }}>trocar</Link>
+          </div>
+        )}
+
         <div style={{ background: 'var(--bg1)', border: '1px solid var(--line)', borderRadius: 22, padding: 30 }}>
           <div style={{ fontSize: 19, fontWeight: 700, fontFamily: "'Plus Jakarta Sans'" }}>Comece agora</div>
-          <div style={{ fontSize: 13, color: 'var(--tx3)', marginTop: 4, marginBottom: 22 }}>Teste grátis por 4h, sem cartão — ou assine direto</div>
+          <div style={{ fontSize: 13, color: 'var(--tx3)', marginTop: 4, marginBottom: 22 }}>{subtitle()}</div>
 
           <form onSubmit={submitTrial}>
             <label style={{ display: 'block', marginBottom: 14 }}>
@@ -96,32 +142,39 @@ export function Signup() {
 
             {error && <div style={{ fontSize: 12, color: 'var(--red)', marginBottom: 14 }}>{error}</div>}
 
-            {proSelected ? (
+            {trialPrimary ? (
               <>
-                <button type="button" disabled={busy !== null} onClick={submitSubscribe}
-                  style={{ width: '100%', height: 46, borderRadius: 13, border: 'none', background: 'linear-gradient(135deg,var(--pri),var(--pri2))', color: '#fff', fontWeight: 700, fontSize: 14, cursor: busy ? 'default' : 'pointer', opacity: busy && busy !== 'subscribe' ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 8px 22px rgba(108,99,255,.4)', marginBottom: 10 }}>
-                  {busy === 'subscribe' ? <Spinner /> : 'Assinar agora — R$ 199,90/mês'}
-                </button>
+                {/* Trial é primário: veio de ?plano=trial ou plano é free */}
                 <button type="submit" disabled={busy !== null}
-                  style={{ width: '100%', height: 46, borderRadius: 13, border: '1px solid var(--line2)', background: 'var(--bg2)', color: 'var(--tx)', fontWeight: 700, fontSize: 14, cursor: busy ? 'default' : 'pointer', opacity: busy && busy !== 'trial' ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  style={{ ...btnPrimary, cursor: busy ? 'default' : 'pointer', opacity: busy && busy !== 'trial' ? 0.6 : 1 }}>
                   {busy === 'trial' ? <Spinner /> : 'Testar 4h grátis, sem cartão'}
                 </button>
+                {/* Só mostra "Assinar" se há um plano pago disponível */}
+                {canSubscribe && (
+                  <button type="button" disabled={busy !== null} onClick={submitSubscribe}
+                    style={{ ...btnSecondary, cursor: busy ? 'default' : 'pointer', opacity: busy && busy !== 'subscribe' ? 0.6 : 1 }}>
+                    {busy === 'subscribe' ? <Spinner /> : subscribeLabel()}
+                  </button>
+                )}
               </>
             ) : (
               <>
-                <button type="submit" disabled={busy !== null}
-                  style={{ width: '100%', height: 46, borderRadius: 13, border: 'none', background: 'linear-gradient(135deg,var(--pri),var(--pri2))', color: '#fff', fontWeight: 700, fontSize: 14, cursor: busy ? 'default' : 'pointer', opacity: busy && busy !== 'trial' ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 8px 22px rgba(108,99,255,.4)', marginBottom: 10 }}>
-                  {busy === 'trial' ? <Spinner /> : 'Testar 4h grátis, sem cartão'}
+                {/* Plano pago é primário */}
+                <button type="button" disabled={busy !== null || planLoading} onClick={submitSubscribe}
+                  style={{ ...btnPrimary, cursor: busy || planLoading ? 'default' : 'pointer', opacity: busy && busy !== 'subscribe' ? 0.6 : 1 }}>
+                  {busy === 'subscribe' ? <Spinner /> : subscribeLabel()}
                 </button>
-                <button type="button" disabled={busy !== null} onClick={submitSubscribe}
-                  style={{ width: '100%', height: 46, borderRadius: 13, border: '1px solid var(--line2)', background: 'var(--bg2)', color: 'var(--tx)', fontWeight: 700, fontSize: 14, cursor: busy ? 'default' : 'pointer', opacity: busy && busy !== 'subscribe' ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                  {busy === 'subscribe' ? <Spinner /> : 'Assinar agora — R$ 199,90/mês'}
+                <button type="submit" disabled={busy !== null}
+                  style={{ ...btnSecondary, cursor: busy ? 'default' : 'pointer', opacity: busy && busy !== 'trial' ? 0.6 : 1 }}>
+                  {busy === 'trial' ? <Spinner /> : 'Testar 4h grátis, sem cartão'}
                 </button>
               </>
             )}
 
             <div style={{ fontSize: 11.5, color: 'var(--tx3)', textAlign: 'center', marginTop: 12, lineHeight: 1.5 }}>
-              No teste, depois de 4h o acesso é bloqueado até você assinar — nenhuma cobrança é feita sem você confirmar.
+              {canSubscribe
+                ? 'Você será redirecionado para o pagamento seguro — nenhuma cobrança antes da confirmação.'
+                : 'No teste, depois de 4h o acesso é bloqueado até você assinar — nenhuma cobrança é feita sem você confirmar.'}
             </div>
           </form>
         </div>
@@ -130,7 +183,7 @@ export function Signup() {
           Já tem conta? <Link to="/login" style={{ color: 'var(--pri)', fontWeight: 600, textDecoration: 'none' }}>Entrar</Link>
         </div>
         <div style={{ fontSize: 12.5, color: 'var(--tx3)', textAlign: 'center', marginTop: 8 }}>
-          <Link to="/planos" style={{ color: 'var(--tx3)', textDecoration: 'none' }}>← Voltar pros planos</Link>
+          <Link to="/planos" style={{ color: 'var(--tx3)', textDecoration: 'none' }}>← Ver todos os planos</Link>
         </div>
       </div>
     </div>
