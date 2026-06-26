@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import type Stripe from 'stripe';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { db as Db } from '../../db/client.js';
 import type { AuthContext } from '../../middleware/authenticate.js';
 import { badRequest, conflict, unauthorized } from '../../lib/errors.js';
@@ -230,17 +230,32 @@ export function createBillingService(
       };
     },
 
-    /** Teste de 4h sem cartão — não passa pela Stripe (decisão deliberada: cobrança automática
-     * numa janela tão curta é risco de disputa/reputação numa marca nova; ver upgradeTrial pro
-     * caminho de quem decide continuar). Delega pro auth.service.ts, que já sabe criar
-     * empresa+admin+sessão (mesmo núcleo do provisionamento manual). */
+    /** Teste de 4h sem cartão — não passa pela Stripe. Após criar a empresa, vincula o plano trial
+     * ativo (billing_type='manual', price_cents=0) para que os limites de gestores/creators sejam
+     * aplicados desde o início. Se não houver plano trial cadastrado, a empresa fica sem limites. */
     async startTrial(input: SignupInput) {
-      return authService.startTrial({
+      const result = await authService.startTrial({
         companyName: input.company_name,
         adminName: input.admin_name,
         adminEmail: input.admin_email,
         adminPassword: input.admin_password,
       });
+
+      // Busca o plano trial (manual + gratuito) e associa à empresa recém-criada
+      const [trialPlan] = await db
+        .select({ id: plans.id })
+        .from(plans)
+        .where(and(eq(plans.billingType, 'manual'), eq(plans.priceCents, 0), eq(plans.active, true)))
+        .orderBy(plans.createdAt)
+        .limit(1);
+
+      if (trialPlan) {
+        await db.update(companies)
+          .set({ planId: trialPlan.id })
+          .where(eq(companies.id, result.user.tenantId));
+      }
+
+      return result;
     },
 
     /**

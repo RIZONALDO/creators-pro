@@ -289,7 +289,7 @@ export function createAuthService(
           html: `<p>Olá, ${adminUser.name}.</p>` +
             `<p>Obrigado por testar o CreatorsPro! Você tem <strong>4 horas</strong> de acesso completo — sem cartão, sem compromisso.</p>` +
             `<p>Aproveite pra cadastrar seus creators, montar a escala da semana e ver os relatórios de produção.</p>` +
-            `<p>Gostou? Assine o plano Pro (R$ 199,90/mês) e continue de onde parou, sem perder nada do que já configurou: <a href="${env.appUrl}/login">${env.appUrl}/login</a></p>`,
+            `<p>Gostou? Assine um plano e continue de onde parou, sem perder nada do que já configurou: <a href="${env.appUrl}/planos">${env.appUrl}/planos</a></p>`,
         });
       } catch (err) {
         logger.error('trial_welcome_email_failed', { error: err instanceof Error ? err.message : String(err) });
