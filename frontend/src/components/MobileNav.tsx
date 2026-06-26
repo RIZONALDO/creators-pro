@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import type { ReactNode } from 'react';
-import { Home, Calendar, Shield, Chat, Logout as AbsenceIcon } from 'grommet-icons';
+import { Home, Calendar, Shift, Chat, Logout as AbsenceIcon } from 'grommet-icons';
 
 interface NavItem { to: string; label: string; icon: ReactNode; }
 
@@ -9,7 +9,7 @@ const ICON_STYLE = { width: 26, height: 26 };
 const ITEMS: NavItem[] = [
   { to: '/dashboard', label: 'Início', icon: <Home color="currentColor" style={ICON_STYLE} /> },
   { to: '/escala', label: 'Cronograma', icon: <Calendar color="currentColor" style={ICON_STYLE} /> },
-  { to: '/plantoes', label: 'Plantões', icon: <Shield color="currentColor" style={ICON_STYLE} /> },
+  { to: '/plantoes', label: 'Plantões', icon: <Shift color="currentColor" style={ICON_STYLE} /> },
   { to: '/mensagens', label: 'Mensagens', icon: <Chat color="currentColor" style={ICON_STYLE} /> },
   { to: '/ausencias', label: 'Ausências', icon: <AbsenceIcon color="currentColor" style={ICON_STYLE} /> },
 ];
