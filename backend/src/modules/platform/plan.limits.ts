@@ -1,4 +1,4 @@
-import { and, count, eq, inArray } from 'drizzle-orm';
+import { and, count, eq } from 'drizzle-orm';
 import type { db as Db } from '../../db/client.js';
 import { companies, creators, plans, users } from '../../db/schema/index.js';
 import { badRequest } from '../../lib/errors.js';
@@ -31,11 +31,11 @@ export async function checkGestorLimit(db: typeof Db, tenantId: string) {
   const limits = await getEffectiveLimits(db, tenantId);
   if (limits.maxGestores === null) return; // ilimitado
 
-  // Conta admin + gestor — operacional (creator/colaborador) não entra no limite de gestores
+  // Conta apenas gestores — admin (dono da conta) não consome a cota
   const result = await db
     .select({ n: count(users.id) })
     .from(users)
-    .where(and(eq(users.tenantId, tenantId), inArray(users.role, ['admin', 'gestor'])));
+    .where(and(eq(users.tenantId, tenantId), eq(users.role, 'gestor')));
   const n = result[0]?.n ?? 0;
 
   if (n >= limits.maxGestores) {

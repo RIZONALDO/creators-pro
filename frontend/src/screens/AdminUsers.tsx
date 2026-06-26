@@ -84,7 +84,13 @@ export function AdminUsers() {
       {newModal && (
         <NewUserModal
           onClose={() => setNewModal(false)}
-          onCreateUser={async (d) => { const u = await api.users.create(d); users.setData((p) => [...(p ?? []), u]); setNewModal(false); toast.success('Gestor criado'); }}
+          onCreateUser={async (d) => {
+            const u = await api.users.create(d);
+            users.setData((p) => [...(p ?? []), u]);
+            setNewModal(false);
+            setChecklistToken((t) => t + 1);
+            toast.success('Gestor criado');
+          }}
         />
       )}
 
@@ -120,24 +126,36 @@ function Stat({ label, value, color }: { label: string; value: number; color: st
   );
 }
 
-/** Admin só cria Gestor por aqui — Creator/Colaborador nascem na aba do gestor (Cadastros), nunca
- * pelo admin (e nem outro Admin: ver users.schemas.ts). Perfil de acesso fixo (leitura), só pra
- * deixar claro que tipo de conta está sendo criada — Função/cargo é o campo livre de verdade. */
 function NewUserModal({ onClose, onCreateUser }: {
   onClose: () => void;
-  onCreateUser: (d: NewUser) => void;
+  onCreateUser: (d: NewUser) => Promise<void>;
 }) {
   const [f, setF] = useState({ name: '', email: '', phone: '' as string | null, password: '', funcao: '' });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
   const canSubmit = f.name && f.email && f.password.length >= 8;
 
-  function submit() {
-    if (!canSubmit) return;
-    onCreateUser({ name: f.name, email: f.email, phone: f.phone, role: 'gestor', status: 'active', password: f.password, alias: f.funcao.trim() || null });
+  async function submit() {
+    if (!canSubmit || busy) return;
+    setError(''); setBusy(true);
+    try {
+      await onCreateUser({ name: f.name, email: f.email, phone: f.phone, role: 'gestor', status: 'active', password: f.password, alias: f.funcao.trim() || null });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao criar gestor. Tente novamente.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
-    <Modal open title="Novo gestor" subtitle="Cria um acesso de gestor — Creators e Colaboradores são cadastrados pelo próprio gestor, em Cadastros" onClose={onClose} footer={<><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button onClick={submit}>Salvar</Button></>}>
+    <Modal open title="Novo gestor" subtitle="Cria um acesso de gestor — Creators e Colaboradores são cadastrados pelo próprio gestor, em Cadastros" onClose={onClose} footer={<><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button onClick={submit} disabled={busy}>{busy ? 'Salvando…' : 'Salvar'}</Button></>}>
+      {error && (
+        <div style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.25)', borderRadius: 12, padding: '11px 14px', marginBottom: 4, fontSize: 13, color: 'var(--red)', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" style={{ flex: 'none', marginTop: 1 }}><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          {error}
+        </div>
+      )}
       <Field label="Perfil de acesso">
         <div style={{ fontSize: 13, fontWeight: 600, color: ROLE_META.gestor.color, background: ROLE_META.gestor.bg, padding: '8px 12px', borderRadius: 10, display: 'inline-block' }}>Gestor</div>
       </Field>
