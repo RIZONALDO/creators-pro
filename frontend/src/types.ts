@@ -86,10 +86,19 @@ export interface CreatorRow {
   created_at: string;
 }
 
-/** collaborators — profession é VARCHAR(100) (não é tabela) */
+/** profissões cadastradas por tenant */
+export interface Profession {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
+/** collaborators — profissional externo sem login, gerido pelo gestor */
 export interface CollaboratorRow {
   id: string;
-  user_id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
   profession: string | null;
   employment_type: EmploymentType | null;
   active: boolean;
@@ -269,15 +278,8 @@ export interface Creator extends CreatorRow {
   invite_token?: string;
 }
 
-/** collaborators JOIN users */
-export interface Collaborator extends CollaboratorRow {
-  name: string;
-  email: string | null;
-  phone: string | null;
-  avatar_url: string | null;
-  status: UserStatus;
-  invite_token?: string;
-}
+/** collaborators — shape completo devolvido pela API */
+export type Collaborator = CollaboratorRow;
 
 /** Conversa derivada (NÃO é tabela): agrupamento de messages por par de usuários. */
 export interface Conversation {
@@ -373,7 +375,7 @@ export type NewUser = Pick<User, 'name' | 'email' | 'phone' | 'status' | 'alias'
  * name/password opcionais: omitir os dois cria um convite "pendente" — a pessoa entra com Google na
  * primeira vez, que captura nome/foto reais e ativa a conta (ver specs — login com Google). */
 export type NewCreator = { name?: string; email: string | null; phone: string | null; employment_type: EmploymentType; active: boolean; password?: string };
-export type NewCollaborator = { name?: string; email: string | null; phone: string | null; profession: string; employment_type: EmploymentType; active: boolean; password?: string };
+export type NewCollaborator = { name: string; email?: string | null; phone?: string | null; profession: string; employment_type: EmploymentType; active: boolean };
 export type NewClient = Pick<Client, 'name' | 'active'>;
 export type NewTask = Pick<CreatorTask, 'title' | 'format_type' | 'task_date' | 'creator_id' | 'client_id' | 'status' | 'description'>;
 export type NewService = Pick<ServiceRow, 'service_name' | 'service_type' | 'collaborator_id' | 'client_id' | 'service_date' | 'status' | 'notes'>;

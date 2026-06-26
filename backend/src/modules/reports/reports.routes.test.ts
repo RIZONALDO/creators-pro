@@ -129,26 +129,18 @@ describe('rotas de reports (integração)', () => {
     expect(asCreator.body.data).toHaveLength(1);
   });
 
-  it('GET /reports/services devolve listagem completa de outros serviços; operacional (colaborador) só a própria', async () => {
+  it('GET /reports/services devolve listagem completa de outros serviços para gestor', async () => {
     const { company, gestor, gestorToken } = await setupTenant();
-    const passwordHash = await bcrypt.hash('senha123', 4);
-    const colabUser = await usersRepo.create({ tenantId: company.id, name: 'Colaborador A', email: 'colabA@acme.com', passwordHash, role: 'operacional' });
-    const colab = await collaboratorsRepo.createRow({ tenantId: company.id, userId: colabUser.id, profession: 'Editor', employmentType: 'freelancer' });
-    const otherColabUser = await usersRepo.create({ tenantId: company.id, name: 'Colaborador B', email: 'colabB@acme.com', passwordHash, role: 'operacional' });
-    const otherColab = await collaboratorsRepo.createRow({ tenantId: company.id, userId: otherColabUser.id, profession: 'Editor', employmentType: 'freelancer' });
+    const colab = await collaboratorsRepo.createRow({ tenantId: company.id, name: 'Colaborador A', profession: 'Editor', employmentType: 'freelancer' });
+    const otherColab = await collaboratorsRepo.createRow({ tenantId: company.id, name: 'Colaborador B', profession: 'Editor', employmentType: 'freelancer' });
     const client = await clientsRepo.create(company.id, { name: 'Cliente Y' });
 
     await servicesRepo.create({ tenantId: company.id, serviceName: 'Captação drone', serviceType: 'drone', serviceDate: '2026-06-15', collaboratorId: colab.id, clientId: client.id, createdBy: gestor.id });
     await servicesRepo.create({ tenantId: company.id, serviceName: 'Edição', serviceType: 'edicao', serviceDate: '2026-06-16', collaboratorId: otherColab.id, clientId: client.id, createdBy: gestor.id });
 
-    const colabLogin = await request(app).post('/auth/login').send({ email: 'colabA@acme.com', password: 'senha123' });
-
     const asGestor = await request(app).get('/reports/services?from=2026-06-01&to=2026-06-30').set('Authorization', `Bearer ${gestorToken}`);
     expect(asGestor.body.data).toHaveLength(2);
-
-    const asColab = await request(app).get('/reports/services?from=2026-06-01&to=2026-06-30').set('Authorization', `Bearer ${colabLogin.body.token}`);
-    expect(asColab.body.data).toHaveLength(1);
-    expect(asColab.body.data[0].service_name).toBe('Captação drone');
+    expect(asGestor.body.data[0].service_name).toBe('Captação drone');
   });
 
   it('GET /reports/absences-list devolve a listagem completa de ausências no período', async () => {

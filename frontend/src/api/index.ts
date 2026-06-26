@@ -15,7 +15,7 @@ import type {
   ReportFilterParams, ProductionMonthlyRow, ProductionByClientRow, ProductionByCreatorRow,
   ShiftsCompletedReport, AbsencesReportSummary, ApprovedDeliveriesReport,
   TaskReportRow, ServiceReportRow, AbsenceReportRow,
-  Attachment, AttachmentEntity, CompanySettings,
+  Attachment, AttachmentEntity, CompanySettings, Profession,
 } from '@/types';
 
 const USE_MOCK = (import.meta.env.VITE_USE_MOCK ?? 'true') !== 'false';
@@ -115,16 +115,27 @@ export const usersApi = {
   },
 };
 
-/* ============================ PROFESSIONS (collaborators.profession VARCHAR) ============================
- * Não é tabela — apenas a lista distinta de valores já usados, para o autocomplete do modal. */
+/* ============================ PROFESSIONS ============================ */
 export const professionsApi = {
-  list: (): Promise<string[]> => {
-    if (USE_MOCK) return delay(60).then(() => Array.from(new Set([...db.PROFESSIONS, ...db.collaborators.map((c) => c.profession).filter(Boolean) as string[]])));
+  list: (): Promise<Profession[]> => {
+    if (USE_MOCK) return delay(60).then(() => db.professions.map((p) => ({ ...p })));
     return http.getList('/professions');
   },
-  create: (name: string): Promise<string> => {
-    if (USE_MOCK) { if (!db.PROFESSIONS.includes(name)) db.PROFESSIONS.push(name); return delay(100).then(() => name); }
+  create: (name: string): Promise<Profession> => {
+    if (USE_MOCK) {
+      const p: Profession = { id: uid('prof'), name, created_at: stamp() };
+      db.professions.push(p);
+      return delay(100).then(() => p);
+    }
     return http.post('/professions', { name });
+  },
+  remove: (id: string): Promise<void> => {
+    if (USE_MOCK) {
+      const idx = db.professions.findIndex((p) => p.id === id);
+      if (idx >= 0) db.professions.splice(idx, 1);
+      return delay(80);
+    }
+    return http.del<void>(`/professions/${id}`);
   },
 };
 
@@ -183,18 +194,13 @@ export const collaboratorsApi = {
   list: (): Promise<Collaborator[]> => (USE_MOCK ? delay().then(() => [...db.collaborators]) : http.getList('/collaborators')),
   create: (data: NewCollaborator): Promise<Collaborator> => {
     if (USE_MOCK) {
-      // Sem nome/senha: convite "pendente" — mesma lógica de creatorsApi.create.
-      const userId = uid('u');
-      const name = data.name?.trim() || data.email || '';
-      const status = data.password ? 'active' : 'pending';
-      db.users.push({ id: userId, name, email: data.email ?? '', phone: data.phone, role: 'operacional', status, created_at: stamp(), updated_at: stamp(), avatar_url: null });
-      const c: Collaborator = { id: uid('col'), user_id: userId, profession: data.profession, employment_type: data.employment_type, active: data.active, created_at: stamp(), name, email: data.email, phone: data.phone, avatar_url: null, status };
+      const c: Collaborator = { id: uid('col'), name: data.name, email: data.email ?? null, phone: data.phone ?? null, profession: data.profession, employment_type: data.employment_type, active: data.active, created_at: stamp() };
       db.collaborators.push(c);
       return delay().then(() => c);
     }
     return http.post('/collaborators', data);
   },
-  update: (id: string, data: Partial<Collaborator> & { password?: string }): Promise<Collaborator> => {
+  update: (id: string, data: Partial<Collaborator>): Promise<Collaborator> => {
     if (USE_MOCK) {
       const c = db.collaborators.find((x) => x.id === id)!;
       Object.assign(c, data);
@@ -210,11 +216,6 @@ export const collaboratorsApi = {
       return delay();
     }
     return http.del<void>(`/collaborators/${id}`);
-  },
-  /** Mesma lógica de creatorsApi.regenerateInvite. */
-  regenerateInvite: (id: string): Promise<{ invite_token: string }> => {
-    if (USE_MOCK) return Promise.reject(new Error('Convite não disponível em modo mock.'));
-    return http.post(`/collaborators/${id}/invite`);
   },
 };
 

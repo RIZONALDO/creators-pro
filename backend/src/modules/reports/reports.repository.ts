@@ -167,13 +167,12 @@ export function createReportsRepository(db: typeof Db) {
           status: collaboratorServices.status,
           notes: collaboratorServices.notes,
           clientName: clients.name,
-          collaboratorName: users.name,
+          collaboratorName: collaborators.name,
           responsibleName: responsibleUsers.name,
         })
         .from(collaboratorServices)
         .leftJoin(clients, eq(collaboratorServices.clientId, clients.id))
         .leftJoin(collaborators, eq(collaboratorServices.collaboratorId, collaborators.id))
-        .leftJoin(users, eq(collaborators.userId, users.id))
         .leftJoin(responsibleUsers, eq(collaboratorServices.createdBy, responsibleUsers.id))
         .where(and(...conditions))
         .orderBy(asc(collaboratorServices.serviceDate));

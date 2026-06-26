@@ -1,6 +1,5 @@
 import { boolean, index, pgTable, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
 import { companies } from './companies.js';
-import { users } from './users.js';
 import { employmentTypeEnum } from './enums.js';
 
 export const collaborators = pgTable(
@@ -8,10 +7,9 @@ export const collaborators = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     tenantId: uuid('tenant_id').notNull().references(() => companies.id, { onDelete: 'restrict' }),
-    userId: uuid('user_id')
-      .notNull()
-      .unique()
-      .references(() => users.id, { onDelete: 'cascade' }),
+    name: varchar('name', { length: 255 }).notNull(),
+    email: varchar('email', { length: 255 }),
+    phone: varchar('phone', { length: 50 }),
     profession: varchar('profession', { length: 100 }),
     employmentType: employmentTypeEnum('employment_type'),
     active: boolean('active').notNull().default(true),

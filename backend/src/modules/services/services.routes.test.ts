@@ -5,13 +5,11 @@ import { createApp } from '../../app.js';
 import { resetDb, testDb, testPool } from '../../test/db.js';
 import { createCompaniesRepository } from '../auth/companies.repository.js';
 import { createUsersRepository } from '../auth/users.repository.js';
-import { createCollaboratorsRepository } from '../collaborators/collaborators.repository.js';
 
 describe('rotas de services (integração)', () => {
   const app = createApp(testDb);
   const companiesRepo = createCompaniesRepository(testDb);
   const usersRepo = createUsersRepository(testDb);
-  const collaboratorsRepo = createCollaboratorsRepository(testDb);
 
   beforeEach(async () => {
     await resetDb();
@@ -45,21 +43,13 @@ describe('rotas de services (integração)', () => {
     expect(history.body.data[0].new_status).toBe('concluido');
   });
 
-  it('operacional vê só os próprios serviços', async () => {
-    const { company, gestorToken, passwordHash } = await setupTenant();
-    const collabUser = await usersRepo.create({ tenantId: company.id, name: 'Colab', email: 'colab@acme.com', passwordHash, role: 'operacional' });
-    const collaborator = await collaboratorsRepo.createRow({ tenantId: company.id, userId: collabUser.id, profession: 'Fotógrafo', employmentType: 'fixed' });
-    const collabLogin = await request(app).post('/auth/login').send({ email: 'colab@acme.com', password: 'senha123' });
+  it('operacional recebe 403 ao tentar listar serviços (GET /services requer gestor/admin)', async () => {
+    const { company, passwordHash } = await setupTenant();
+    await usersRepo.create({ tenantId: company.id, name: 'Op', email: 'op2@acme.com', passwordHash, role: 'operacional' });
+    const login = await request(app).post('/auth/login').send({ email: 'op2@acme.com', password: 'senha123' });
 
-    await request(app).post('/services').set('Authorization', `Bearer ${gestorToken}`).send({ service_name: 'Serviço de outro colaborador' });
-    await request(app)
-      .post('/services')
-      .set('Authorization', `Bearer ${gestorToken}`)
-      .send({ service_name: 'Serviço do colaborador logado', collaborator_id: collaborator.id });
-
-    const asCollaborator = await request(app).get('/services').set('Authorization', `Bearer ${collabLogin.body.token}`);
-    expect(asCollaborator.body.data).toHaveLength(1);
-    expect(asCollaborator.body.data[0].service_name).toBe('Serviço do colaborador logado');
+    const res = await request(app).get('/services').set('Authorization', `Bearer ${login.body.token}`);
+    expect(res.status).toBe(403);
   });
 
   it('operacional recebe 403 ao tentar criar serviço', async () => {

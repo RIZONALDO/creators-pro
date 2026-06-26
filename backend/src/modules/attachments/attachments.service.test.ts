@@ -40,8 +40,7 @@ describe('attachmentsService', () => {
     const creator = await creatorsRepo.createRow({ tenantId: company.id, userId: creatorUser.id, employmentType: 'fixed' });
     const otherCreatorUser = await usersRepo.create({ tenantId: company.id, name: 'Outro Creator', email: 'outro@acme.com', passwordHash: 'hash', role: 'operacional' });
     const otherCreator = await creatorsRepo.createRow({ tenantId: company.id, userId: otherCreatorUser.id, employmentType: 'fixed' });
-    const colabUser = await usersRepo.create({ tenantId: company.id, name: 'Colaborador', email: 'colab@acme.com', passwordHash: 'hash', role: 'operacional' });
-    const collaborator = await collaboratorsRepo.createRow({ tenantId: company.id, userId: colabUser.id, profession: 'Editor', employmentType: 'freelancer' });
+    const collaborator = await collaboratorsRepo.createRow({ tenantId: company.id, name: 'Colaborador', profession: 'Editor', employmentType: 'freelancer' });
 
     const task = await tasksRepo.create({ tenantId: company.id, title: 'Tarefa', taskDate: '2026-06-10', creatorId: creator.id, createdBy: gestor.id });
     const service_ = await servicesRepo.create({ tenantId: company.id, serviceName: 'Serviço', collaboratorId: collaborator.id, createdBy: gestor.id });
@@ -50,7 +49,7 @@ describe('attachmentsService', () => {
     const message = await messagesRepo.create({ tenantId: company.id, senderId: gestor.id, receiverId: creatorUser.id, message: 'Oi' });
 
     return {
-      company, gestor, creator, creatorUser, otherCreator, otherCreatorUser, collaborator, colabUser,
+      company, gestor, creator, creatorUser, otherCreator, otherCreatorUser, collaborator,
       task, service: service_, absence, shift, message,
     };
   }
@@ -93,14 +92,17 @@ describe('attachmentsService', () => {
     ).rejects.toMatchObject({ status: 404 });
   });
 
-  it('colaborador só sobe anexo no próprio serviço', async () => {
-    const { company, colabUser, otherCreatorUser, service: svc } = await setupTenant();
-    const att = await service.upload(asUser(company.id, colabUser.id), { entityType: 'service', entityId: svc.id, fileName: 'foto.jpg', mimeType: 'image/jpeg', buffer: buffer() });
-    expect(att.entityId).toBe(svc.id);
-
+  it('operacional recebe 403 ao tentar subir anexo em serviço (serviços são geridos só pelo gestor)', async () => {
+    const { company, creatorUser, service: svc } = await setupTenant();
     await expect(
-      service.upload(asUser(company.id, otherCreatorUser.id), { entityType: 'service', entityId: svc.id, fileName: 'x.jpg', mimeType: null, buffer: buffer() }),
+      service.upload(asUser(company.id, creatorUser.id), { entityType: 'service', entityId: svc.id, fileName: 'foto.jpg', mimeType: 'image/jpeg', buffer: buffer() }),
     ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('gestor sobe anexo num serviço sem problemas', async () => {
+    const { company, gestor, service: svc } = await setupTenant();
+    const att = await service.upload(asUser(company.id, gestor.id, 'gestor'), { entityType: 'service', entityId: svc.id, fileName: 'foto.jpg', mimeType: 'image/jpeg', buffer: buffer() });
+    expect(att.entityId).toBe(svc.id);
   });
 
   it('creator só sobe anexo na própria ausência e no próprio plantão', async () => {
@@ -171,9 +173,9 @@ describe('attachmentsService', () => {
     expect(triggered[0]?.description).toBe(`${task.title} — foto.png`);
   });
 
-  it('upload em outro entity_type (não task) não dispara registro_tarefa', async () => {
-    const { company, gestor, colabUser, service: svc } = await setupTenant();
-    await service.upload(asUser(company.id, colabUser.id), { entityType: 'service', entityId: svc.id, fileName: 'a.jpg', mimeType: null, buffer: buffer() });
+  it('upload em serviço (entity_type=service) não dispara registro_tarefa', async () => {
+    const { company, gestor, service: svc } = await setupTenant();
+    await service.upload(asUser(company.id, gestor.id, 'gestor'), { entityType: 'service', entityId: svc.id, fileName: 'a.jpg', mimeType: null, buffer: buffer() });
 
     const { rows } = await notificationsRepo.list(company.id, gestor.id, { page: 1, pageSize: 50, offset: 0, limit: 50 });
     expect(rows.filter((n) => n.type === 'registro_tarefa')).toHaveLength(0);

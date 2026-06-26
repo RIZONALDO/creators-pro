@@ -1,14 +1,11 @@
 /**
  * Dados mock em memória — fiéis ao schema PostgreSQL.
  * Usados quando VITE_USE_MOCK=true. Troque a flag para usar o backend.
- *
- * Para creators/collaborators os arrays já trazem o JOIN com users (name/email/phone),
- * que é o shape que a API devolve (Creator/Collaborator = *Row + dados do usuário).
  */
 import type {
   User, Creator, Collaborator, Client, CreatorTask, ServiceRow,
   ScaleMonth, ScaleEntry, Holiday, Absence, Shift, Conversation, Message, Notification,
-  StatusHistoryEntry,
+  StatusHistoryEntry, Profession,
 } from '@/types';
 
 const now = '2026-06-18T12:00:00Z';
@@ -26,8 +23,14 @@ export const users: User[] = [
   { id: 'u10', name: 'Diego Alves', email: 'diego@studionorte.com', phone: null, role: 'operacional', status: 'active', created_at: now, updated_at: now, avatar_url: null },
 ];
 
-/** collaborators.profession é VARCHAR — lista de valores usados (não é tabela). */
-export const PROFESSIONS = ['Creator', 'Fotógrafo', 'Operador de Drone', 'Editor', 'Sonoplasta', 'Roteirista', 'Outros'];
+/** profissões cadastradas pelo tenant */
+export const professions: Profession[] = [
+  { id: 'pf1', name: 'Fotógrafo', created_at: now },
+  { id: 'pf2', name: 'Operador de Drone', created_at: now },
+  { id: 'pf3', name: 'Editor', created_at: now },
+  { id: 'pf4', name: 'Roteirista', created_at: now },
+  { id: 'pf5', name: 'Sonoplasta', created_at: now },
+];
 
 /** creators (JOIN users → name/email/phone) */
 export const creators: Creator[] = [
@@ -36,13 +39,13 @@ export const creators: Creator[] = [
   { id: 'ac', user_id: 'u5', employment_type: 'freelancer', active: true, created_at: now, name: 'Aline Costa', email: 'aline@studionorte.com', phone: null, avatar_url: null, status: 'active' },
 ];
 
-/** collaborators (JOIN users) */
+/** collaborators — profissionais externos sem login */
 export const collaborators: Collaborator[] = [
-  { id: 'rs', user_id: 'u6', profession: 'Fotógrafo', employment_type: 'freelancer', active: true, created_at: now, name: 'Rafael Souza', email: 'rafael@studionorte.com', phone: null, avatar_url: null, status: 'active' },
-  { id: 'bt', user_id: 'u7', profession: 'Operador de Drone', employment_type: 'fixed', active: true, created_at: now, name: 'Bruno Tavares', email: 'bruno@studionorte.com', phone: null, avatar_url: null, status: 'active' },
-  { id: 'cr', user_id: 'u8', profession: 'Editor', employment_type: 'fixed', active: true, created_at: now, name: 'Camila Reis', email: 'camila@studionorte.com', phone: null, avatar_url: null, status: 'active' },
-  { id: 'lm', user_id: 'u9', profession: 'Roteirista', employment_type: 'freelancer', active: true, created_at: now, name: 'Larissa Maia', email: 'larissa@studionorte.com', phone: null, avatar_url: null, status: 'active' },
-  { id: 'da', user_id: 'u10', profession: 'Sonoplasta', employment_type: 'freelancer', active: true, created_at: now, name: 'Diego Alves', email: 'diego@studionorte.com', phone: null, avatar_url: null, status: 'active' },
+  { id: 'rs', profession: 'Fotógrafo', employment_type: 'freelancer', active: true, created_at: now, name: 'Rafael Souza', email: 'rafael@studionorte.com', phone: null },
+  { id: 'bt', profession: 'Operador de Drone', employment_type: 'fixed', active: true, created_at: now, name: 'Bruno Tavares', email: 'bruno@studionorte.com', phone: null },
+  { id: 'cr', profession: 'Editor', employment_type: 'fixed', active: true, created_at: now, name: 'Camila Reis', email: 'camila@studionorte.com', phone: null },
+  { id: 'lm', profession: 'Roteirista', employment_type: 'freelancer', active: true, created_at: now, name: 'Larissa Maia', email: 'larissa@studionorte.com', phone: null },
+  { id: 'da', profession: 'Sonoplasta', employment_type: 'freelancer', active: true, created_at: now, name: 'Diego Alves', email: 'diego@studionorte.com', phone: null },
 ];
 
 export const clients: Client[] = [

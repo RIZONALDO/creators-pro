@@ -21,7 +21,16 @@ export function createProfessionsRouter(service: ProfessionsService) {
   router.post('/professions', async (req, res, next) => {
     try {
       const { name } = newProfessionSchema.parse(req.body);
-      res.status(201).json(await service.create(name));
+      res.status(201).json(await service.create(req.auth!.tenantId, name));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.delete('/professions/:id', async (req, res, next) => {
+    try {
+      await service.remove(req.auth!.tenantId, req.params.id);
+      res.status(204).send();
     } catch (err) {
       next(err);
     }

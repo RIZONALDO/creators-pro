@@ -149,8 +149,7 @@ describe('reportsRepository (seed determinístico)', () => {
 
   it('servicesListing devolve linhas completas de "outros serviços", com nome do colaborador resolvido', async () => {
     const { company, gestor, client } = await setupTenant();
-    const colabUser = await usersRepo.create({ tenantId: company.id, name: 'Colaborador A', email: 'colab@acme.com', passwordHash: 'hash', role: 'operacional' });
-    const colab = await collaboratorsRepo.createRow({ tenantId: company.id, userId: colabUser.id, profession: 'Editor', employmentType: 'freelancer' });
+    const colab = await collaboratorsRepo.createRow({ tenantId: company.id, name: 'Colaborador A', profession: 'Editor', employmentType: 'freelancer' });
     await servicesRepo.create({ tenantId: company.id, serviceName: 'Captação aérea', serviceType: 'drone', serviceDate: '2026-06-15', collaboratorId: colab.id, clientId: client.id, createdBy: gestor.id });
 
     const rows = await reportsRepo.servicesListing(company.id, '2026-06-01', '2026-06-30');

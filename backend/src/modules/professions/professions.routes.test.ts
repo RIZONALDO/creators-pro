@@ -27,19 +27,36 @@ describe('rotas de professions (integração)', () => {
     return login.body.token as string;
   }
 
-  it('GET /professions retorna a lista default', async () => {
+  it('GET /professions retorna lista vazia inicialmente', async () => {
     const token = await loginAsGestor();
     const res = await request(app).get('/professions').set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
-    expect(res.body.data).toContain('Fotógrafo');
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.data).toHaveLength(0);
   });
 
-  it('POST /professions ecoa o nome enviado', async () => {
+  it('POST /professions cria profissão e GET a retorna', async () => {
     const token = await loginAsGestor();
-    const res = await request(app).post('/professions').set('Authorization', `Bearer ${token}`).send({ name: 'Drone Sênior' });
+    const created = await request(app).post('/professions').set('Authorization', `Bearer ${token}`).send({ name: 'Drone Sênior' });
 
-    expect(res.status).toBe(201);
-    expect(res.body.name).toBe('Drone Sênior');
+    expect(created.status).toBe(201);
+    expect(created.body.name).toBe('Drone Sênior');
+    expect(typeof created.body.id).toBe('string');
+
+    const list = await request(app).get('/professions').set('Authorization', `Bearer ${token}`);
+    expect(list.body.data).toHaveLength(1);
+    expect(list.body.data[0].name).toBe('Drone Sênior');
+  });
+
+  it('DELETE /professions/:id remove a profissão', async () => {
+    const token = await loginAsGestor();
+    const created = await request(app).post('/professions').set('Authorization', `Bearer ${token}`).send({ name: 'Videógrafo' });
+
+    const res = await request(app).delete(`/professions/${created.body.id}`).set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(204);
+
+    const list = await request(app).get('/professions').set('Authorization', `Bearer ${token}`);
+    expect(list.body.data).toHaveLength(0);
   });
 });

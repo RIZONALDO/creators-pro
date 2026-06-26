@@ -176,6 +176,13 @@
       "when": 1782428737896,
       "tag": "0024_lucky_yellow_claw",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1782900000000,
+      "tag": "0025_collaborators_no_login",
+      "breakpoints": true
     }
   ]
 }

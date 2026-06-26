@@ -2,7 +2,6 @@ import type { db as Db } from '../../db/client.js';
 import type { AuthContext } from '../../middleware/authenticate.js';
 import { badRequest } from '../../lib/errors.js';
 import { createCreatorsRepository } from '../creators/creators.repository.js';
-import { createCollaboratorsRepository } from '../collaborators/collaborators.repository.js';
 import { createReportsRepository } from './reports.repository.js';
 import type { exportReportSchema, reportFilterSchema, serviceReportFilterSchema } from './reports.schemas.js';
 import type { z } from 'zod';
@@ -16,13 +15,7 @@ interface ServiceScope { from: string; to: string; clientId?: string; collaborat
 export function createReportsService(db: typeof Db) {
   const repo = createReportsRepository(db);
   const creatorsRepo = createCreatorsRepository(db);
-  const collaboratorsRepo = createCollaboratorsRepository(db);
 
-  /**
-   * operacional só vê os próprios dados — creatorId vindo do client é ignorado e substituído pelo
-   * dele (nunca confiamos em filtro vindo do client pra isso, mesmo padrão de tasks/absences/shifts).
-   * `null` = sem creator vinculado, devolve vazio (não erro) — espelha list() dos outros módulos.
-   */
   async function resolveScope(auth: AuthContext, input: ReportInput): Promise<Scope | null> {
     if (input.to < input.from) throw badRequest('INVALID_DATE_RANGE', '"to" não pode ser anterior a "from".');
     if (auth.role !== 'operacional') return input;
@@ -31,13 +24,9 @@ export function createReportsService(db: typeof Db) {
     return { ...input, creatorId: own.id };
   }
 
-  /** Mesma ideia de resolveScope, mas pro lado de "outros serviços" (collaborator, não creator). */
-  async function resolveServiceScope(auth: AuthContext, input: ServiceReportInput): Promise<ServiceScope | null> {
+  async function resolveServiceScope(_auth: AuthContext, input: ServiceReportInput): Promise<ServiceScope> {
     if (input.to < input.from) throw badRequest('INVALID_DATE_RANGE', '"to" não pode ser anterior a "from".');
-    if (auth.role !== 'operacional') return input;
-    const own = await collaboratorsRepo.findRowByUserId(auth.tenantId, auth.userId);
-    if (!own) return null;
-    return { ...input, collaboratorId: own.id };
+    return input;
   }
 
   /** Listagem completa (não agregada) — relatório em formato de planilha, não card de estatística. */
@@ -48,7 +37,7 @@ export function createReportsService(db: typeof Db) {
 
   async function servicesListing(auth: AuthContext, input: ServiceReportInput) {
     const scope = await resolveServiceScope(auth, input);
-    return scope ? repo.servicesListing(auth.tenantId, scope.from, scope.to, scope) : [];
+    return repo.servicesListing(auth.tenantId, scope.from, scope.to, scope);
   }
 
   async function absencesListing(auth: AuthContext, input: ReportInput) {

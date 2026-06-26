@@ -11,7 +11,6 @@ import { generateOpaqueToken, hashToken } from '../../lib/tokens.js';
 import { logger } from '../../lib/logger.js';
 import type { CompanyStatus } from '../../db/schema/index.js';
 import { createCreatorsRepository } from '../creators/creators.repository.js';
-import { createCollaboratorsRepository } from '../collaborators/collaborators.repository.js';
 import { createCompanyRepository } from '../company/company.repository.js';
 import { createCompaniesRepository } from './companies.repository.js';
 import { createRefreshTokensRepository } from './refreshTokens.repository.js';
@@ -33,21 +32,14 @@ export function createAuthService(
   const companiesRepo = createCompaniesRepository(db);
   const companySettingsRepo = createCompanyRepository(db);
   const creatorsRepo = createCreatorsRepository(db);
-  const collaboratorsRepo = createCollaboratorsRepository(db);
 
-  /** Mesmo enriquecimento usado por login() e me() — o frontend precisa disso nos dois casos pra
-   * saber "quem" essa conta operacional é (Creator vs Colaborador) e qual a profissão real
-   * cadastrada, em vez de cravar um rótulo genérico de role no front (specs/06 — alias/função). */
   async function buildUserResponse(user: NonNullable<Awaited<ReturnType<typeof usersRepo.findById>>>) {
-    const [creator, collaborator] = await Promise.all([
-      creatorsRepo.findRowByUserId(user.tenantId, user.id),
-      collaboratorsRepo.findRowByUserId(user.tenantId, user.id),
-    ]);
+    const creator = await creatorsRepo.findRowByUserId(user.tenantId, user.id);
     return {
       ...sanitizeUser(user),
       creator_id: creator?.id ?? null,
-      collaborator_id: collaborator?.id ?? null,
-      profession: collaborator?.profession ?? null,
+      collaborator_id: null,
+      profession: null,
     };
   }
 

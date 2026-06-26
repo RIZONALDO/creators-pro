@@ -5,7 +5,6 @@ import { createApp } from '../../app.js';
 import { resetDb, testDb, testPool } from '../../test/db.js';
 import { generateOpaqueToken, hashToken } from '../../lib/tokens.js';
 import { createCreatorsRepository } from '../creators/creators.repository.js';
-import { createCollaboratorsRepository } from '../collaborators/collaborators.repository.js';
 import { createCompaniesRepository } from './companies.repository.js';
 import { createUsersRepository } from './users.repository.js';
 
@@ -14,7 +13,6 @@ describe('rotas de auth (integração)', () => {
   const companiesRepo = createCompaniesRepository(testDb);
   const usersRepo = createUsersRepository(testDb);
   const creatorsRepo = createCreatorsRepository(testDb);
-  const collaboratorsRepo = createCollaboratorsRepository(testDb);
 
   beforeEach(async () => {
     await resetDb();
@@ -121,18 +119,17 @@ describe('rotas de auth (integração)', () => {
     expect(res.body.user.creator_id).toBe(creator.id);
   });
 
-  it('login de colaborador inclui collaborator_id e a profissão real cadastrada (não um rótulo genérico)', async () => {
+  it('login de operacional sem creator vinculado retorna collaborator_id null (colaboradores não têm login)', async () => {
     const { company } = await createDemoUser();
     const passwordHash = await bcrypt.hash('senha-correta', 4);
-    const colabUser = await usersRepo.create({ tenantId: company.id, name: 'Colab', email: 'colab-login@acme.com', passwordHash, role: 'operacional' });
-    const colab = await collaboratorsRepo.createRow({ tenantId: company.id, userId: colabUser.id, profession: 'Editor de Vídeo', employmentType: 'freelancer' });
+    await usersRepo.create({ tenantId: company.id, name: 'Op Sem Vínculo', email: 'op-sem-vinculo@acme.com', passwordHash, role: 'operacional' });
 
-    const res = await request(app).post('/auth/login').send({ email: 'colab-login@acme.com', password: 'senha-correta' });
+    const res = await request(app).post('/auth/login').send({ email: 'op-sem-vinculo@acme.com', password: 'senha-correta' });
 
     expect(res.status).toBe(200);
     expect(res.body.user.creator_id).toBeNull();
-    expect(res.body.user.collaborator_id).toBe(colab.id);
-    expect(res.body.user.profession).toBe('Editor de Vídeo');
+    expect(res.body.user.collaborator_id).toBeNull();
+    expect(res.body.user.profession).toBeNull();
   });
 
   it('POST /auth/refresh emite novo par de tokens', async () => {

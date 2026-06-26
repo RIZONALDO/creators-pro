@@ -7,7 +7,7 @@ import { newServiceSchema, setServiceStatusSchema, updateServiceSchema } from '.
 
 export function createServicesRouter(service: ServicesService) {
   const router = Router();
-  router.use('/services', authenticate);
+  router.use('/services', authenticate, authorize('admin', 'gestor'));
 
   router.get('/services', async (req, res, next) => {
     try {

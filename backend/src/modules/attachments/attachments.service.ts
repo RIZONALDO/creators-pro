@@ -5,7 +5,6 @@ import { deleteFileByKey, readFileByKey, saveFile } from '../../lib/localStorage
 import { createNoopEmitter, type RealtimeEmitter } from '../../realtime/emitter.js';
 import { createNoopPushSender, type PushSender } from '../../realtime/pushSender.js';
 import { createCreatorsRepository } from '../creators/creators.repository.js';
-import { createCollaboratorsRepository } from '../collaborators/collaborators.repository.js';
 import { createTasksRepository } from '../tasks/tasks.repository.js';
 import { createServicesRepository } from '../services/services.repository.js';
 import { createAbsencesRepository } from '../absences/absences.repository.js';
@@ -32,7 +31,6 @@ export function createAttachmentsService(
 ) {
   const repo = createAttachmentsRepository(db);
   const creatorsRepo = createCreatorsRepository(db);
-  const collaboratorsRepo = createCollaboratorsRepository(db);
   const tasksRepo = createTasksRepository(db);
   const servicesRepo = createServicesRepository(db);
   const absencesRepo = createAbsencesRepository(db);
@@ -77,10 +75,7 @@ export function createAttachmentsService(
     if (entityType === 'service') {
       const row = await servicesRepo.findById(auth.tenantId, entityId);
       if (!row) throw notFound('SERVICE_NOT_FOUND', 'Serviço não encontrado.');
-      if (auth.role === 'operacional') {
-        const own = await collaboratorsRepo.findRowByUserId(auth.tenantId, auth.userId);
-        if (!own || row.collaboratorId !== own.id) throw forbidden('FORBIDDEN', 'Sem acesso a este serviço.');
-      }
+      if (auth.role === 'operacional') throw forbidden('FORBIDDEN', 'Sem acesso a serviços.');
       return;
     }
     // message

@@ -1,23 +1,25 @@
-import { and, eq, isNotNull } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import type { db as Db } from '../../db/client.js';
-import { collaborators } from '../../db/schema/index.js';
-import { DEFAULT_PROFESSIONS } from './professions.constants.js';
+import { professions } from '../../db/schema/index.js';
+import { firstOrThrow } from '../../lib/firstOrThrow.js';
+import { notFound } from '../../lib/errors.js';
 
 export function createProfessionsService(db: typeof Db) {
   return {
-    async list(tenantId: string): Promise<string[]> {
-      const rows = await db
-        .selectDistinct({ profession: collaborators.profession })
-        .from(collaborators)
-        .where(and(eq(collaborators.tenantId, tenantId), isNotNull(collaborators.profession)));
-
-      const used = rows.map((r) => r.profession).filter((p): p is string => Boolean(p));
-      return Array.from(new Set([...DEFAULT_PROFESSIONS, ...used]));
+    async list(tenantId: string): Promise<{ id: string; name: string; created_at: string }[]> {
+      const rows = await db.select().from(professions).where(eq(professions.tenantId, tenantId)).orderBy(asc(professions.name));
+      return rows.map((r) => ({ id: r.id, name: r.name, created_at: r.createdAt.toISOString() }));
     },
 
-    // Não persiste em tabela própria (profession é VARCHAR em collaborators) — só eco pro autocomplete, ver specs/04.
-    async create(name: string): Promise<{ name: string }> {
-      return { name };
+    async create(tenantId: string, name: string): Promise<{ id: string; name: string }> {
+      const rows = await db.insert(professions).values({ tenantId, name: name.trim() }).returning();
+      const row = firstOrThrow(rows);
+      return { id: row.id, name: row.name };
+    },
+
+    async remove(tenantId: string, id: string): Promise<void> {
+      const rows = await db.delete(professions).where(and(eq(professions.tenantId, tenantId), eq(professions.id, id))).returning();
+      if (rows.length === 0) throw notFound('PROFESSION_NOT_FOUND', 'Profissão não encontrada.');
     },
   };
 }

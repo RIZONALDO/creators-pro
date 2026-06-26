@@ -28,13 +28,7 @@ export function createServicesService(db: typeof Db) {
   }
 
   return {
-    /** operacional só vê os próprios serviços (resolvido pelo collaborator vinculado ao seu user_id). */
     async list(auth: AuthContext, pagination: Pagination) {
-      if (auth.role === 'operacional') {
-        const collaborator = await collaboratorsRepo.findRowByUserId(auth.tenantId, auth.userId);
-        if (!collaborator) return { rows: [], total: 0 };
-        return servicesRepo.list(auth.tenantId, pagination, { collaboratorId: collaborator.id });
-      }
       return servicesRepo.list(auth.tenantId, pagination);
     },
 
