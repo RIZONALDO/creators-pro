@@ -36,7 +36,18 @@ export function Login() {
   // volta — só uma mensagem de bloqueio sem ação possível.
   const [canReactivate, setCanReactivate] = useState(false);
   const [upgradeBusy, setUpgradeBusy] = useState(false);
+  const [upgradeLabel, setUpgradeLabel] = useState('Assinar agora');
   const googleButtonRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    api.billing.publicPlans().then((plans) => {
+      const paid = plans.find((p) => p.stripe_price_id && p.price_cents > 0);
+      if (!paid) return;
+      const val = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: paid.currency.toUpperCase() }).format(paid.price_cents / 100);
+      const period = paid.billing_type === 'yearly' ? '/ano' : paid.billing_type === 'monthly' ? '/mês' : '';
+      setUpgradeLabel(`Assinar agora — ${val}${period}`);
+    }).catch(() => {});
+  }, []);
 
   // Mesma classificação de erro do submit() por senha — reaproveitada pelos dois fluxos.
   function describeAuthError(err: unknown): string {
@@ -195,7 +206,7 @@ export function Login() {
               {canReactivate ? (
                 <button type="button" disabled={upgradeBusy} onClick={upgrade}
                   style={{ width: '100%', height: 46, borderRadius: 13, border: 'none', background: 'linear-gradient(135deg,var(--pri),var(--pri2))', color: '#fff', fontWeight: 700, fontSize: 14, cursor: upgradeBusy ? 'default' : 'pointer', opacity: upgradeBusy ? 0.75 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 8px 22px rgba(108,99,255,.4)' }}>
-                  {upgradeBusy ? <Spinner /> : 'Assinar agora — R$ 199,90/mês'}
+                  {upgradeBusy ? <Spinner /> : upgradeLabel}
                 </button>
               ) : (
                 <button type="submit" disabled={busy}

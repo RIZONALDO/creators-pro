@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '@/api';
 import { useApp } from '@/context/AppContext';
@@ -25,6 +25,17 @@ export function ResetPassword() {
   const [error, setError] = useState('');
   const [blocked, setBlocked] = useState<BlockedInfo | null>(null);
   const [upgradeBusy, setUpgradeBusy] = useState(false);
+  const [upgradeLabel, setUpgradeLabel] = useState('Assinar agora');
+
+  useEffect(() => {
+    api.billing.publicPlans().then((plans) => {
+      const paid = plans.find((p) => p.stripe_price_id && p.price_cents > 0);
+      if (!paid) return;
+      const val = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: paid.currency.toUpperCase() }).format(paid.price_cents / 100);
+      const period = paid.billing_type === 'yearly' ? '/ano' : paid.billing_type === 'monthly' ? '/mês' : '';
+      setUpgradeLabel(`Assinar agora — ${val}${period}`);
+    }).catch(() => {});
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -80,7 +91,7 @@ export function ResetPassword() {
               {blocked.code === 'TRIAL_EXPIRED' ? (
                 <button onClick={upgrade} disabled={upgradeBusy}
                   style={{ width: '100%', height: 46, borderRadius: 13, border: 'none', background: 'linear-gradient(135deg,var(--pri),var(--pri2))', color: '#fff', fontWeight: 700, fontSize: 14, cursor: upgradeBusy ? 'default' : 'pointer', opacity: upgradeBusy ? 0.75 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 8px 22px rgba(108,99,255,.4)' }}>
-                  {upgradeBusy ? <Spinner /> : 'Assinar agora — R$ 199,90/mês'}
+                  {upgradeBusy ? <Spinner /> : upgradeLabel}
                 </button>
               ) : (
                 <div style={{ fontSize: 12.5, color: 'var(--tx3)' }}>
