@@ -140,7 +140,8 @@ function CoordinatorSchedule() {
     if (!e.creator_id) continue;
     byDate.set(e.work_date, [...(byDate.get(e.work_date) ?? []), e.creator_id]);
   }
-  const cre = creators.data ?? [];
+  // Pendentes não entram na escala — ainda não aceitaram o convite e não sabem que estão sendo escalados
+  const cre = (creators.data ?? []).filter((c) => c.status !== 'pending');
   const creById = (id: string) => cre.find((c) => c.id === id) ?? null;
   const approvedAbsences = (absences.data ?? []).filter((a) => a.status === 'approved');
   const hasApprovedAbsenceOn = (creatorId: string, date: string) =>
