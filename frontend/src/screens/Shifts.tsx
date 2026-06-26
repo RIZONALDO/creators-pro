@@ -194,8 +194,8 @@ export function Shifts() {
         </div>
       )}
 
-      {modal?.mode === 'novo' && <NewShiftModal creators={cre} onClose={() => setModal(null)} onCreate={create} />}
-      {modal?.mode === 'editar' && <EditShiftModal shift={modal.shift} creators={cre} onClose={() => setModal(null)} onSave={(data) => saveEdit(modal.shift.id, data)} onDelete={() => handleDelete(modal.shift)} />}
+      {modal?.mode === 'novo' && <NewShiftModal creators={cre.filter((c) => c.active)} onClose={() => setModal(null)} onCreate={create} />}
+      {modal?.mode === 'editar' && <EditShiftModal shift={modal.shift} creators={cre.filter((c) => c.active)} onClose={() => setModal(null)} onSave={(data) => saveEdit(modal.shift.id, data)} onDelete={() => handleDelete(modal.shift)} />}
       {modal?.mode === 'historico' && <HistoryModal shift={modal.shift} onClose={() => setModal(null)} />}
       {detail && <ShiftDetailScreen shift={detail} onClose={() => setDetail(null)} />}
     </div>

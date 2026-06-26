@@ -52,7 +52,9 @@ export function createCreatorsService(db: typeof Db) {
           tenantId,
           userId: user.id,
           employmentType: input.employment_type,
-          active: input.active ?? true,
+          // Convidado (sem senha) nasce inativo até aceitar o convite — active vira true em
+          // auth.service.ts#claimInviteWithGoogle. Creator com senha definida pelo admin já entra ativo.
+          active: passwordHash ? (input.active ?? true) : false,
         });
 
         return {

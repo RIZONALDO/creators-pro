@@ -35,6 +35,7 @@ export function createTasksService(
     if (!creatorId) return;
     const row = await creatorsRepo.findRowById(tenantId, creatorId);
     if (!row) throw badRequest('INVALID_CREATOR', 'Creator inválido para este tenant.');
+    if (!row.active) throw badRequest('CREATOR_INACTIVE', 'Creator inativo não pode receber tarefas.');
   }
 
   async function assertClientBelongsToTenant(tenantId: string, clientId: string | null | undefined) {

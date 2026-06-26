@@ -203,6 +203,14 @@ export function createAuthService(
         inviteTokenHash: null,
       });
 
+      // Creator convidado nasce active=false (ver creators.service.ts#create) — agora que aceitou
+      // o convite, ativa operacionalmente. Colaboradores/gestores não têm linha em creators, então
+      // findRowByUserId devolve null e o bloco é pulado sem erro.
+      const creatorRow = await creatorsRepo.findRowByUserId(finalUser.tenantId, finalUser.id);
+      if (creatorRow && !creatorRow.active) {
+        await creatorsRepo.updateRow(finalUser.tenantId, creatorRow.id, { active: true });
+      }
+
       const session = await issueSession(finalUser, userAgent);
       return { ...session, user: await buildUserResponse(finalUser) };
     },

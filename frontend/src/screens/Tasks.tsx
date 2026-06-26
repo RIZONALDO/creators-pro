@@ -162,7 +162,7 @@ export function Tasks() {
       )}
 
       <TaskModal key={modal === 'new' || modal === null ? 'new' : modal.id} open={modal !== null} task={modal !== 'new' ? modal : null}
-        onClose={() => setModal(null)} creators={cre} clients={cli} onSave={handleSave} onDelete={handleDelete} />
+        onClose={() => setModal(null)} creators={cre.filter((c) => c.active)} clients={cli} onSave={handleSave} onDelete={handleDelete} />
     </div>
   );
 }
