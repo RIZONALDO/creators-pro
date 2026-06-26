@@ -161,7 +161,7 @@ function NewUserModal({ onClose, onCreateUser }: {
       </Field>
       <Field label="Nome completo"><TextInput value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <Field label="E-mail"><TextInput value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
+        <Field label="E-mail"><TextInput type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
         <Field label="Telefone"><TextInput value={f.phone ?? ''} onChange={(e) => setF({ ...f, phone: e.target.value || null })} /></Field>
       </div>
       <Field label="Função / cargo (opcional)">
@@ -220,7 +220,7 @@ function EditUserModal({ user, onClose, onUpdateUser, onDelete, deleteError, onC
 
       <Field label="Nome completo"><TextInput value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <Field label="E-mail"><TextInput value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
+        <Field label="E-mail"><TextInput type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
         <Field label="Telefone"><TextInput value={f.phone ?? ''} onChange={(e) => setF({ ...f, phone: e.target.value || null })} /></Field>
       </div>
       <Field label="Função / cargo (opcional)"><TextInput value={f.funcao} onChange={(e) => setF({ ...f, funcao: e.target.value })} placeholder="Ex.: Diretor, Supervisor, Gerente de operações…" /></Field>

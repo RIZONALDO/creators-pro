@@ -9,7 +9,7 @@ const userStatusSchema = z.enum(['active', 'inactive']);
 
 export const newUserSchema = z.object({
   name: z.string().min(1),
-  email: z.string().email(),
+  email: z.string().trim().toLowerCase().email('E-mail inválido.'),
   phone: z.string().nullable().optional(),
   role: z.literal('gestor'),
   status: userStatusSchema.optional(),
@@ -23,7 +23,7 @@ export const newUserSchema = z.object({
 // reseta se enviado (ver users.repository.ts#updatePassword).
 export const updateUserSchema = z.object({
   name: z.string().min(1).optional(),
-  email: z.string().email().optional(),
+  email: z.string().trim().toLowerCase().email('E-mail inválido.').optional(),
   phone: z.string().nullable().optional(),
   status: userStatusSchema.optional(),
   alias: z.string().trim().min(1).max(100).nullable().optional(),

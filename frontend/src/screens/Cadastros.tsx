@@ -323,12 +323,12 @@ function CreatorModal({ creator, onClose, onSave, onDelete }: { creator: Creator
       })}>Salvar</Button>
     </>}>
       {isNew ? (
-        <Field label="E-mail"><TextInput value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} placeholder="email@exemplo.com" autoFocus /></Field>
+        <Field label="E-mail"><TextInput type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} placeholder="email@exemplo.com" autoFocus /></Field>
       ) : (
         <>
           <Field label="Nome completo"><TextInput value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <Field label="E-mail"><TextInput value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
+            <Field label="E-mail"><TextInput type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
             <Field label="Telefone"><TextInput value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
           </div>
           <Field label="Tipo de vínculo"><Select value={f.employment_type} onChange={(e) => setF({ ...f, employment_type: e.target.value as 'fixed' | 'freelancer' })}><option value="fixed">Fixo</option><option value="freelancer">Freelancer</option></Select></Field>
@@ -377,7 +377,7 @@ function CollaboratorModal({ collaborator, professions, onClose, onSave, onDelet
         <TextInput value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
       </Field>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <Field label="E-mail"><TextInput value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
+        <Field label="E-mail"><TextInput type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
         <Field label="Telefone"><TextInput value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
       </div>
       <Field label="Profissão (collaborators.profession)">
