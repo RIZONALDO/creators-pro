@@ -3,17 +3,20 @@ import { Link, useNavigate } from 'react-router-dom';
 import { StatusGood } from 'grommet-icons';
 import { api, type PublicPlan } from '@/api';
 
+const BILLING_NOTE: Record<string, string> = { monthly: 'por mês', yearly: 'por ano', one_time: 'pagamento único', manual: '' };
+
 function fmtPrice(plan: PublicPlan): { main: string; note: string } {
+  if (plan.price_cents === 0 || plan.billing_type === 'manual') return { main: 'Grátis', note: '' };
   const value = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: plan.currency.toUpperCase() }).format(plan.price_cents / 100);
-  const notes: Record<string, string> = { monthly: 'por mês', yearly: 'por ano', one_time: 'pagamento único', manual: '' };
-  return { main: value, note: notes[plan.billing_type] ?? '' };
+  return { main: value, note: BILLING_NOTE[plan.billing_type] ?? '' };
 }
 
 function planFeatures(plan: PublicPlan): string[] {
   const feats: string[] = [];
   if (plan.max_gestores != null) feats.push(`Até ${plan.max_gestores} gestor${plan.max_gestores !== 1 ? 'es' : ''}`);
   if (plan.max_creators != null) feats.push(`Até ${plan.max_creators} creator${plan.max_creators !== 1 ? 's' : ''}`);
-  feats.push('Tarefas, escala e plantões sem planilha', 'Relatórios e indicadores de produção', 'Mensagens internas com a equipe', 'App mobile (PWA)');
+  feats.push('Tarefas, escala e plantões', 'Relatórios e indicadores', 'App mobile (PWA)');
+  if (plan.price_cents === 0 || plan.billing_type === 'manual') feats.push('Sem precisar de cartão');
   return feats;
 }
 
@@ -27,13 +30,8 @@ export function Plans() {
     api.billing.publicPlans().then(setPlans).catch(() => setPlans([]));
   }, []);
 
-  // Enquanto carrega ou se não há planos no banco, usa o layout estático de fallback
-  const hasDynamicPlans = plans !== null && plans.length > 0;
-
-  // Planos sem Stripe (manual) não podem fazer signup — só podem ser atribuídos pelo superadmin
-  const signupPlans = hasDynamicPlans
-    ? plans.filter((p) => p.stripe_price_id || p.billing_type === 'manual')
-    : null;
+  // O primeiro plano pago (com Stripe) recebe o badge "Mais escolhido"
+  const firstPaidIdx = plans?.findIndex((p) => p.stripe_price_id) ?? -1;
 
   return (
     <div style={{ minHeight: '100dvh', background: 'radial-gradient(1100px 650px at 50% -10%, rgba(108,99,255,.22), transparent 60%), var(--bg0)', padding: '48px 24px 64px' }}>
@@ -58,54 +56,37 @@ export function Plans() {
           <div style={{ textAlign: 'center', color: 'var(--tx3)', fontSize: 14 }}>Carregando planos…</div>
         )}
 
-        {plans !== null && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 22, maxWidth: signupPlans && signupPlans.length > 0 ? Math.min(signupPlans.length * 340, 980) : 720, margin: '0 auto' }}>
-            {/* Botão de trial sempre aparece primeiro */}
-            <PlanCard
-              name="Teste grátis"
-              price="Grátis"
-              priceNote="por 4 horas, sem cartão"
-              cta="Testar agora"
-              features={['Tarefas, escala e plantões', 'Relatórios e indicadores', 'App mobile (PWA)', 'Sem precisar de cartão']}
-              onSelect={() => navigate('/cadastro?plano=trial')}
-            />
+        {plans !== null && plans.length === 0 && (
+          <div style={{ textAlign: 'center', color: 'var(--tx3)', fontSize: 14, padding: 40 }}>
+            Planos em breve. <Link to="/cadastro?plano=trial" style={{ color: 'var(--pri)', fontWeight: 600, textDecoration: 'none' }}>Comece com o teste grátis →</Link>
+          </div>
+        )}
 
-            {/* Planos dinâmicos do banco */}
-            {signupPlans && signupPlans.map((plan, idx) => {
+        {plans !== null && plans.length > 0 && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 22, maxWidth: Math.min(plans.length * 340, 980), margin: '0 auto' }}>
+            {plans.map((plan, idx) => {
               const { main, note } = fmtPrice(plan);
-              const isFirst = idx === 0;
-              const canSignup = !!plan.stripe_price_id;
+              const isFree = plan.price_cents === 0 || plan.billing_type === 'manual';
+              const canPay = !!plan.stripe_price_id;
+              const highlighted = idx === firstPaidIdx;
               return (
                 <PlanCard
                   key={plan.id}
                   name={plan.name}
                   price={main}
                   priceNote={note}
-                  cta={canSignup ? (plan.billing_type === 'one_time' ? 'Adquirir agora' : 'Assinar agora') : 'Entre em contato'}
-                  highlighted={isFirst}
+                  cta={isFree ? 'Testar agora' : canPay ? (plan.billing_type === 'one_time' ? 'Adquirir agora' : 'Assinar agora') : 'Entre em contato'}
+                  highlighted={highlighted}
                   footnote={plan.billing_type === 'monthly' ? 'Cancele quando quiser' : undefined}
                   features={planFeatures(plan)}
                   onSelect={() => {
-                    if (canSignup) navigate(`/cadastro?plano=pro&plan_id=${plan.id}`);
+                    if (isFree) navigate('/cadastro?plano=trial');
+                    else if (canPay) navigate(`/cadastro?plano=pro&plan_id=${plan.id}`);
                     else navigate('/cadastro?plano=trial');
                   }}
                 />
               );
             })}
-
-            {/* Fallback: se não há planos com Stripe cadastrados, mostra o cartão Pro estático */}
-            {(!signupPlans || signupPlans.length === 0) && (
-              <PlanCard
-                name="Pro"
-                price="R$ 199,90"
-                priceNote="por mês"
-                cta="Assinar agora"
-                highlighted
-                footnote="Cancele quando quiser"
-                features={['Até 3 gestores', 'Até 8 creators e colaboradores', 'Tarefas, escala e plantões', 'Relatórios e indicadores', 'App mobile (PWA)']}
-                onSelect={() => navigate('/cadastro?plano=pro')}
-              />
-            )}
           </div>
         )}
 
