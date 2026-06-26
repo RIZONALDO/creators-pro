@@ -11,6 +11,7 @@ const createPlanSchema = z.object({
   maxGestores: z.number().int().positive().nullable().optional(),
   maxCreators: z.number().int().positive().nullable().optional(),
   syncStripe: z.boolean().optional(),
+  stripeImportPriceId: z.string().optional(),
 });
 
 const updatePlanSchema = z.object({
@@ -18,10 +19,21 @@ const updatePlanSchema = z.object({
   priceCents: z.number().int().min(0).optional(),
   maxGestores: z.number().int().positive().nullable().optional(),
   maxCreators: z.number().int().positive().nullable().optional(),
+  stripeImportPriceId: z.string().optional(),
 });
 
 export function createPlatformPlansRouter(service: PlatformPlansService) {
   const router = Router();
+
+  // Preview de um price_id do Stripe — retorna nome do produto, valor, moeda e tipo de cobrança
+  router.get('/platform/plans/stripe-price-preview', authenticatePlatform, async (req, res, next) => {
+    try {
+      const priceId = z.string().min(1).parse(req.query['priceId']);
+      res.json(await service.previewStripePrice(priceId));
+    } catch (err) {
+      next(err);
+    }
+  });
 
   router.get('/platform/plans', authenticatePlatform, async (_req, res, next) => {
     try {

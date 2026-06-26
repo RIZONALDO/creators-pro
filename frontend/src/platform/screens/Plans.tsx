@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { platformApi, type Plan } from '../api';
+import { platformApi, type Plan, type StripePricePreview } from '../api';
 
 const BILLING_LABELS: Record<string, string> = {
   monthly: 'Mensal',
@@ -45,6 +45,19 @@ function PlanRow({ plan, onEdit, onDelete }: { plan: Plan; onEdit: (p: Plan) => 
 type FormMode = { type: 'create' } | { type: 'edit'; plan: Plan };
 type UIBillingType = Plan['billing_type'] | 'trial';
 
+const BILLING_TYPE_LABEL: Record<string, string> = {
+  monthly: 'Mensal',
+  yearly: 'Anual',
+  one_time: 'Vitalício',
+  manual: 'Manual',
+};
+
+function fmtPreview(p: StripePricePreview) {
+  const val = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: p.currency.toUpperCase() }).format(p.unitAmount / 100);
+  const tipo = BILLING_TYPE_LABEL[p.billingType] ?? p.billingType;
+  return `${val} — ${tipo}`;
+}
+
 function PlanModal({ mode, onClose, onSaved }: { mode: FormMode; onClose: () => void; onSaved: (p: Plan) => void }) {
   const isEdit = mode.type === 'edit';
   const initial = isEdit ? mode.plan : null;
@@ -60,22 +73,43 @@ function PlanModal({ mode, onClose, onSaved }: { mode: FormMode; onClose: () => 
   const [priceCents, setPriceCents] = useState(initial && initial.price_cents > 0 ? String(initial.price_cents / 100) : '');
   const [maxGestores, setMaxGestores] = useState(initial?.max_gestores != null ? String(initial.max_gestores) : '');
   const [maxCreators, setMaxCreators] = useState(initial?.max_creators != null ? String(initial.max_creators) : '');
-  const [syncStripe, setSyncStripe] = useState(false);
+
+  // Stripe import
+  const [stripePriceInput, setStripePriceInput] = useState(initial?.stripe_price_id ?? '');
+  const [stripePreview, setStripePreview] = useState<StripePricePreview | null>(null);
+  const [fetchingStripe, setFetchingStripe] = useState(false);
+  const [stripeError, setStripeError] = useState('');
+
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
   const isTrial = uiBillingType === 'trial';
   const apiType: Plan['billing_type'] = isTrial ? 'manual' : uiBillingType;
+  const usingStripeImport = !!stripePreview;
 
   function handleTypeChange(val: UIBillingType) {
     setUIBillingType(val);
-    if (val === 'trial') setPriceCents('');
+    if (val === 'trial') { setPriceCents(''); setStripePreview(null); setStripePriceInput(''); }
+  }
+
+  async function fetchStripePrice() {
+    const id = stripePriceInput.trim();
+    if (!id) return;
+    setStripeError(''); setFetchingStripe(true); setStripePreview(null);
+    try {
+      const preview = await platformApi.plans.previewStripePrice(id);
+      setStripePreview(preview);
+      // auto-preenche nome se ainda vazio
+      if (!name.trim()) setName(preview.productName);
+    } catch (err) {
+      setStripeError(err instanceof Error ? err.message : 'Price ID não encontrado no Stripe.');
+    } finally {
+      setFetchingStripe(false);
+    }
   }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const price = isTrial ? 0 : Math.round(parseFloat(priceCents.replace(',', '.')) * 100);
-    if (!isTrial && (isNaN(price) || price < 0)) { setError('Preço inválido.'); return; }
     if (!name.trim()) { setError('Nome obrigatório.'); return; }
     setError(''); setBusy(true);
     try {
@@ -83,18 +117,22 @@ function PlanModal({ mode, onClose, onSaved }: { mode: FormMode; onClose: () => 
       if (isEdit) {
         saved = await platformApi.plans.update(mode.plan.id, {
           name,
-          priceCents: price,
+          ...(usingStripeImport
+            ? { stripeImportPriceId: stripePreview!.priceId }
+            : { priceCents: isTrial ? 0 : Math.round(parseFloat(priceCents.replace(',', '.')) * 100) }),
           maxGestores: maxGestores ? parseInt(maxGestores) : null,
           maxCreators: maxCreators ? parseInt(maxCreators) : null,
         });
       } else {
+        const price = isTrial ? 0 : usingStripeImport ? 0 : Math.round(parseFloat(priceCents.replace(',', '.')) * 100);
+        if (!isTrial && !usingStripeImport && (isNaN(price) || price < 0)) { setError('Preço inválido.'); setBusy(false); return; }
         saved = await platformApi.plans.create({
           name,
-          billingType: apiType,
+          billingType: usingStripeImport ? (stripePreview!.billingType) : apiType,
           priceCents: price,
           maxGestores: maxGestores ? parseInt(maxGestores) : null,
           maxCreators: maxCreators ? parseInt(maxCreators) : null,
-          syncStripe: isTrial ? false : syncStripe,
+          stripeImportPriceId: usingStripeImport ? stripePreview!.priceId : undefined,
         });
       }
       onSaved(saved);
@@ -110,37 +148,82 @@ function PlanModal({ mode, onClose, onSaved }: { mode: FormMode; onClose: () => 
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }} onClick={onClose}>
-      <div style={{ background: 'var(--bg1)', border: '1px solid var(--line)', borderRadius: 20, padding: 28, width: '100%', maxWidth: 440 }} onClick={(e) => e.stopPropagation()}>
+      <div style={{ background: 'var(--bg1)', border: '1px solid var(--line)', borderRadius: 20, padding: 28, width: '100%', maxWidth: 480, maxHeight: '90dvh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
         <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--tx)', marginBottom: 22 }}>{isEdit ? 'Editar plano' : 'Novo plano'}</div>
         <form onSubmit={submit}>
-          <div style={{ display: 'grid', gap: 14 }}>
-            <div>
-              <label style={lbl}>Nome</label>
-              <input value={name} onChange={(e) => setName(e.target.value)} style={inp} placeholder="Ex: Teste grátis, Pro, Agência…" />
-            </div>
-            {!isEdit && (
+          <div style={{ display: 'grid', gap: 16 }}>
+
+            {/* ── Stripe Price ID (campo principal) ───────────────── */}
+            {!isTrial && (
               <div>
-                <label style={lbl}>Tipo</label>
-                <select value={uiBillingType} onChange={(e) => handleTypeChange(e.target.value as UIBillingType)} style={{ ...inp }}>
-                  <option value="trial">Trial (gratuito, 4 horas)</option>
-                  <option value="monthly">Pago — Mensal</option>
-                  <option value="yearly">Pago — Anual</option>
-                  <option value="one_time">Pago — Vitalício (pagamento único)</option>
-                  <option value="manual">Manual (sem Stripe, atribuído pelo admin)</option>
-                </select>
-                {isTrial && (
+                <label style={lbl}>Stripe Price ID</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    value={stripePriceInput}
+                    onChange={(e) => { setStripePriceInput(e.target.value); setStripePreview(null); setStripeError(''); }}
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), fetchStripePrice())}
+                    style={{ ...inp, flex: 1, fontFamily: 'monospace', fontSize: 12 }}
+                    placeholder="price_1TmRVH…"
+                  />
+                  <button
+                    type="button"
+                    onClick={fetchStripePrice}
+                    disabled={!stripePriceInput.trim() || fetchingStripe}
+                    style={{ padding: '0 16px', borderRadius: 10, background: 'var(--pri)', border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', opacity: fetchingStripe ? 0.6 : 1 }}
+                  >
+                    {fetchingStripe ? '…' : 'Buscar'}
+                  </button>
+                </div>
+                {stripeError && <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 5 }}>{stripeError}</div>}
+
+                {/* Preview do que foi encontrado no Stripe */}
+                {stripePreview && (
+                  <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 10, background: 'rgba(34,197,94,.08)', border: '1px solid rgba(34,197,94,.25)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22C55E" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12" /></svg>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--tx)' }}>{stripePreview.productName}</div>
+                      <div style={{ fontSize: 12, color: 'var(--tx2)', marginTop: 1 }}>{fmtPreview(stripePreview)}</div>
+                    </div>
+                    <button type="button" onClick={() => { setStripePreview(null); setStripePriceInput(''); }} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--tx3)', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
+                  </div>
+                )}
+                {!stripePreview && (
                   <div style={{ fontSize: 11.5, color: 'var(--tx3)', marginTop: 5 }}>
-                    Aparece na landing como card gratuito — usuário inicia sem cartão.
+                    Cole o Price ID do Stripe e clique em Buscar — o valor e tipo de cobrança são preenchidos automaticamente.
                   </div>
                 )}
               </div>
             )}
-            {!isTrial && (
+
+            {/* ── Nome ───────────────────────────────────────────── */}
+            <div>
+              <label style={lbl}>Nome do plano</label>
+              <input value={name} onChange={(e) => setName(e.target.value)} style={inp} placeholder="Ex: Teste grátis, Pro, Agência…" />
+            </div>
+
+            {/* ── Tipo (só para criar, sem Stripe import) ─────────── */}
+            {!isEdit && !usingStripeImport && (
               <div>
-                <label style={lbl}>Preço (R$)</label>
+                <label style={lbl}>Tipo</label>
+                <select value={uiBillingType} onChange={(e) => handleTypeChange(e.target.value as UIBillingType)} style={{ ...inp }}>
+                  <option value="trial">Trial (gratuito)</option>
+                  <option value="monthly">Pago — Mensal</option>
+                  <option value="yearly">Pago — Anual</option>
+                  <option value="one_time">Pago — Vitalício (pagamento único)</option>
+                  <option value="manual">Manual (sem Stripe)</option>
+                </select>
+              </div>
+            )}
+
+            {/* ── Preço manual (quando não usa Stripe import) ─────── */}
+            {!isTrial && !usingStripeImport && (
+              <div>
+                <label style={lbl}>Preço (R$) — manual</label>
                 <input value={priceCents} onChange={(e) => setPriceCents(e.target.value)} style={inp} inputMode="decimal" placeholder="97,00" />
               </div>
             )}
+
+            {/* ── Limites ─────────────────────────────────────────── */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
                 <label style={lbl}>Máx. gestores (vazio = ∞)</label>
@@ -151,13 +234,8 @@ function PlanModal({ mode, onClose, onSaved }: { mode: FormMode; onClose: () => 
                 <input value={maxCreators} onChange={(e) => setMaxCreators(e.target.value)} style={inp} inputMode="numeric" placeholder="ilimitado" />
               </div>
             </div>
-            {!isEdit && !isTrial && apiType !== 'manual' && (
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--tx2)', cursor: 'pointer' }}>
-                <input type="checkbox" checked={syncStripe} onChange={(e) => setSyncStripe(e.target.checked)} />
-                Criar produto e preço no Stripe automaticamente
-              </label>
-            )}
           </div>
+
           {error && <div style={{ fontSize: 13, color: 'var(--red)', marginTop: 12, padding: '8px 12px', background: 'rgba(239,68,68,.08)', borderRadius: 8 }}>{error}</div>}
           <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
             <button type="button" onClick={onClose} style={{ flex: 1, padding: '10px 0', borderRadius: 10, background: 'var(--bg3)', border: '1px solid var(--line)', color: 'var(--tx)', fontSize: 14, cursor: 'pointer' }}>Cancelar</button>

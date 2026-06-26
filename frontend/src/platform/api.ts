@@ -64,6 +64,16 @@ export interface TenantDetail extends TenantSummary {
   metrics: { users: number; creators: number; tasks: number };
 }
 
+export interface StripePricePreview {
+  priceId: string;
+  productId: string;
+  productName: string;
+  unitAmount: number;
+  currency: string;
+  billingType: 'monthly' | 'yearly' | 'one_time' | 'manual';
+  active: boolean;
+}
+
 export interface Plan {
   id: string;
   name: string;
@@ -114,6 +124,8 @@ export const platformApi = {
       platformRequest<Plan[]>('GET', '/platform/plans'),
     get: (id: string) =>
       platformRequest<Plan>('GET', `/platform/plans/${id}`),
+    previewStripePrice: (priceId: string) =>
+      platformRequest<StripePricePreview>('GET', `/platform/plans/stripe-price-preview?priceId=${encodeURIComponent(priceId)}`),
     create: (input: {
       name: string;
       billingType: string;
@@ -122,8 +134,9 @@ export const platformApi = {
       maxGestores?: number | null;
       maxCreators?: number | null;
       syncStripe?: boolean;
+      stripeImportPriceId?: string;
     }) => platformRequest<Plan>('POST', '/platform/plans', input),
-    update: (id: string, input: { name?: string; priceCents?: number; maxGestores?: number | null; maxCreators?: number | null }) =>
+    update: (id: string, input: { name?: string; priceCents?: number; maxGestores?: number | null; maxCreators?: number | null; stripeImportPriceId?: string }) =>
       platformRequest<Plan>('PUT', `/platform/plans/${id}`, input),
     delete: (id: string) =>
       platformRequest<{ ok: boolean }>('DELETE', `/platform/plans/${id}`),

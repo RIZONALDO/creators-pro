@@ -6,22 +6,58 @@ import { plans } from '../../db/schema/index.js';
 import { stripeClient } from '../../lib/stripe.js';
 import { badRequest, notFound } from '../../lib/errors.js';
 
+export type BillingType = 'monthly' | 'yearly' | 'one_time' | 'manual';
+
 export type CreatePlanInput = {
   name: string;
-  billingType: 'monthly' | 'yearly' | 'one_time' | 'manual';
+  billingType: BillingType;
   priceCents: number;
   currency?: string;
   maxGestores?: number | null;
   maxCreators?: number | null;
   syncStripe?: boolean;
+  stripeImportPriceId?: string;
 };
 
-export type UpdatePlanInput = Partial<Omit<CreatePlanInput, 'syncStripe'>>;
+export type UpdatePlanInput = {
+  name?: string;
+  priceCents?: number;
+  maxGestores?: number | null;
+  maxCreators?: number | null;
+  stripeImportPriceId?: string;
+};
 
 export function createPlatformPlansService(db: NodePgDatabase<typeof schema>, stripe: Stripe | null = stripeClient) {
   function requireStripe(): Stripe {
     if (!stripe) throw badRequest('STRIPE_NOT_CONFIGURED', 'Stripe não está configurado neste ambiente.');
     return stripe;
+  }
+
+  async function previewStripePrice(priceId: string) {
+    const s = requireStripe();
+    const price = await s.prices.retrieve(priceId, { expand: ['product'] });
+    const product = price.product as Stripe.Product;
+
+    let billingType: BillingType;
+    if (price.type === 'one_time') {
+      billingType = 'one_time';
+    } else if (price.recurring?.interval === 'month') {
+      billingType = 'monthly';
+    } else if (price.recurring?.interval === 'year') {
+      billingType = 'yearly';
+    } else {
+      billingType = 'manual';
+    }
+
+    return {
+      priceId: price.id,
+      productId: product.id,
+      productName: product.name,
+      unitAmount: price.unit_amount ?? 0,
+      currency: price.currency,
+      billingType,
+      active: price.active && product.active,
+    };
   }
 
   async function list() {
@@ -37,24 +73,30 @@ export function createPlatformPlansService(db: NodePgDatabase<typeof schema>, st
   async function create(input: CreatePlanInput) {
     let stripeProductId: string | null = null;
     let stripePriceId: string | null = null;
+    let priceCents = input.priceCents;
+    let currency = input.currency ?? 'brl';
+    let billingType = input.billingType;
 
-    if (input.syncStripe && input.billingType !== 'manual') {
+    if (input.stripeImportPriceId) {
+      const preview = await previewStripePrice(input.stripeImportPriceId);
+      stripePriceId = preview.priceId;
+      stripeProductId = preview.productId;
+      priceCents = preview.unitAmount;
+      currency = preview.currency;
+      billingType = preview.billingType;
+    } else if (input.syncStripe && input.billingType !== 'manual') {
       const s = requireStripe();
       const product = await s.products.create({ name: input.name });
       stripeProductId = product.id;
 
       const priceData: Stripe.PriceCreateParams = {
         product: product.id,
-        unit_amount: input.priceCents,
-        currency: input.currency ?? 'brl',
+        unit_amount: priceCents,
+        currency,
       };
 
-      if (input.billingType === 'monthly') {
-        priceData.recurring = { interval: 'month' };
-      } else if (input.billingType === 'yearly') {
-        priceData.recurring = { interval: 'year' };
-      }
-      // one_time: sem recurring — Stripe price de pagamento único
+      if (billingType === 'monthly') priceData.recurring = { interval: 'month' };
+      else if (billingType === 'yearly') priceData.recurring = { interval: 'year' };
 
       const price = await s.prices.create(priceData);
       stripePriceId = price.id;
@@ -62,16 +104,7 @@ export function createPlatformPlansService(db: NodePgDatabase<typeof schema>, st
 
     const [plan] = await db
       .insert(plans)
-      .values({
-        name: input.name,
-        billingType: input.billingType,
-        priceCents: input.priceCents,
-        currency: input.currency ?? 'brl',
-        maxGestores: input.maxGestores ?? null,
-        maxCreators: input.maxCreators ?? null,
-        stripeProductId,
-        stripePriceId,
-      })
+      .values({ name: input.name, billingType, priceCents, currency, maxGestores: input.maxGestores ?? null, maxCreators: input.maxCreators ?? null, stripeProductId, stripePriceId })
       .returning();
 
     return plan!;
@@ -83,7 +116,6 @@ export function createPlatformPlansService(db: NodePgDatabase<typeof schema>, st
 
     if (input.name !== undefined) {
       updates.name = input.name;
-      // Sincroniza nome do produto no Stripe se existir
       if (existing.stripeProductId && stripe) {
         await stripe.products.update(existing.stripeProductId, { name: input.name });
       }
@@ -92,8 +124,18 @@ export function createPlatformPlansService(db: NodePgDatabase<typeof schema>, st
     if (input.maxGestores !== undefined) updates.maxGestores = input.maxGestores;
     if (input.maxCreators !== undefined) updates.maxCreators = input.maxCreators;
 
-    // Mudança de preço: cria novo price no Stripe, arquiva o antigo
-    if (input.priceCents !== undefined && input.priceCents !== existing.priceCents) {
+    if (input.stripeImportPriceId) {
+      const preview = await previewStripePrice(input.stripeImportPriceId);
+      updates.stripePriceId = preview.priceId;
+      updates.stripeProductId = preview.productId;
+      updates.priceCents = preview.unitAmount;
+      updates.currency = preview.currency;
+      updates.billingType = preview.billingType;
+      // Arquiva o price antigo no Stripe se era diferente
+      if (existing.stripePriceId && stripe && existing.stripePriceId !== preview.priceId) {
+        try { await stripe.prices.update(existing.stripePriceId, { active: false }); } catch { /* preço já pode estar arquivado */ }
+      }
+    } else if (input.priceCents !== undefined && input.priceCents !== existing.priceCents) {
       updates.priceCents = input.priceCents;
       if (existing.stripeProductId && stripe) {
         const s = stripe;
@@ -104,19 +146,13 @@ export function createPlatformPlansService(db: NodePgDatabase<typeof schema>, st
         };
         if (existing.billingType === 'monthly') newPriceData.recurring = { interval: 'month' };
         if (existing.billingType === 'yearly') newPriceData.recurring = { interval: 'year' };
-
         const newPrice = await s.prices.create(newPriceData);
-
-        if (existing.stripePriceId) {
-          await s.prices.update(existing.stripePriceId, { active: false });
-        }
-
+        if (existing.stripePriceId) await s.prices.update(existing.stripePriceId, { active: false });
         updates.stripePriceId = newPrice.id;
       }
     }
 
     if (Object.keys(updates).length === 0) return existing;
-
     const [updated] = await db.update(plans).set(updates).where(eq(plans.id, id)).returning();
     return updated!;
   }
@@ -140,7 +176,7 @@ export function createPlatformPlansService(db: NodePgDatabase<typeof schema>, st
     return { plan, stripe: { product, price } };
   }
 
-  return { list, getById, create, update, deletePlan, syncStripeById };
+  return { list, getById, create, update, deletePlan, syncStripeById, previewStripePrice };
 }
 
 export type PlatformPlansService = ReturnType<typeof createPlatformPlansService>;
