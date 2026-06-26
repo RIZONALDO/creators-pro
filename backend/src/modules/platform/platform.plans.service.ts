@@ -50,12 +50,12 @@ export function createPlatformPlansService(db: NodePgDatabase<typeof schema>, st
     }
 
     return {
-      priceId: price.id,
-      productId: product.id,
-      productName: product.name,
-      unitAmount: price.unit_amount ?? 0,
+      price_id: price.id,
+      product_id: product.id,
+      product_name: product.name,
+      unit_amount: price.unit_amount ?? 0,
       currency: price.currency,
-      billingType,
+      billing_type: billingType,
       active: price.active && product.active,
     };
   }
@@ -79,11 +79,11 @@ export function createPlatformPlansService(db: NodePgDatabase<typeof schema>, st
 
     if (input.stripeImportPriceId) {
       const preview = await previewStripePrice(input.stripeImportPriceId);
-      stripePriceId = preview.priceId;
-      stripeProductId = preview.productId;
-      priceCents = preview.unitAmount;
+      stripePriceId = preview.price_id;
+      stripeProductId = preview.product_id;
+      priceCents = preview.unit_amount;
       currency = preview.currency;
-      billingType = preview.billingType;
+      billingType = preview.billing_type;
     } else if (input.syncStripe && input.billingType !== 'manual') {
       const s = requireStripe();
       const product = await s.products.create({ name: input.name });
@@ -126,13 +126,12 @@ export function createPlatformPlansService(db: NodePgDatabase<typeof schema>, st
 
     if (input.stripeImportPriceId) {
       const preview = await previewStripePrice(input.stripeImportPriceId);
-      updates.stripePriceId = preview.priceId;
-      updates.stripeProductId = preview.productId;
-      updates.priceCents = preview.unitAmount;
+      updates.stripePriceId = preview.price_id;
+      updates.stripeProductId = preview.product_id;
+      updates.priceCents = preview.unit_amount;
       updates.currency = preview.currency;
-      updates.billingType = preview.billingType;
-      // Arquiva o price antigo no Stripe se era diferente
-      if (existing.stripePriceId && stripe && existing.stripePriceId !== preview.priceId) {
+      updates.billingType = preview.billing_type;
+      if (existing.stripePriceId && stripe && existing.stripePriceId !== preview.price_id) {
         try { await stripe.prices.update(existing.stripePriceId, { active: false }); } catch { /* preço já pode estar arquivado */ }
       }
     } else if (input.priceCents !== undefined && input.priceCents !== existing.priceCents) {

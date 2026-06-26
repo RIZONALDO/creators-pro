@@ -53,8 +53,8 @@ const BILLING_TYPE_LABEL: Record<string, string> = {
 };
 
 function fmtPreview(p: StripePricePreview) {
-  const val = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: p.currency.toUpperCase() }).format(p.unitAmount / 100);
-  const tipo = BILLING_TYPE_LABEL[p.billingType] ?? p.billingType;
+  const val = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: p.currency.toUpperCase() }).format(p.unit_amount / 100);
+  const tipo = BILLING_TYPE_LABEL[p.billing_type] ?? p.billing_type;
   return `${val} — ${tipo}`;
 }
 
@@ -99,8 +99,7 @@ function PlanModal({ mode, onClose, onSaved }: { mode: FormMode; onClose: () => 
     try {
       const preview = await platformApi.plans.previewStripePrice(id);
       setStripePreview(preview);
-      // auto-preenche nome se ainda vazio
-      if (!name.trim()) setName(preview.productName);
+      if (!name.trim()) setName(preview.product_name);
     } catch (err) {
       setStripeError(err instanceof Error ? err.message : 'Price ID não encontrado no Stripe.');
     } finally {
@@ -118,7 +117,7 @@ function PlanModal({ mode, onClose, onSaved }: { mode: FormMode; onClose: () => 
         saved = await platformApi.plans.update(mode.plan.id, {
           name,
           ...(usingStripeImport
-            ? { stripeImportPriceId: stripePreview!.priceId }
+            ? { stripeImportPriceId: stripePreview!.price_id }
             : { priceCents: isTrial ? 0 : Math.round(parseFloat(priceCents.replace(',', '.')) * 100) }),
           maxGestores: maxGestores ? parseInt(maxGestores) : null,
           maxCreators: maxCreators ? parseInt(maxCreators) : null,
@@ -128,11 +127,11 @@ function PlanModal({ mode, onClose, onSaved }: { mode: FormMode; onClose: () => 
         if (!isTrial && !usingStripeImport && (isNaN(price) || price < 0)) { setError('Preço inválido.'); setBusy(false); return; }
         saved = await platformApi.plans.create({
           name,
-          billingType: usingStripeImport ? (stripePreview!.billingType) : apiType,
+          billingType: usingStripeImport ? stripePreview!.billing_type : apiType,
           priceCents: price,
           maxGestores: maxGestores ? parseInt(maxGestores) : null,
           maxCreators: maxCreators ? parseInt(maxCreators) : null,
-          stripeImportPriceId: usingStripeImport ? stripePreview!.priceId : undefined,
+          stripeImportPriceId: usingStripeImport ? stripePreview!.price_id : undefined,
         });
       }
       onSaved(saved);
@@ -181,7 +180,7 @@ function PlanModal({ mode, onClose, onSaved }: { mode: FormMode; onClose: () => 
                   <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 10, background: 'rgba(34,197,94,.08)', border: '1px solid rgba(34,197,94,.25)', display: 'flex', alignItems: 'center', gap: 10 }}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22C55E" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12" /></svg>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--tx)' }}>{stripePreview.productName}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--tx)' }}>{stripePreview.product_name}</div>
                       <div style={{ fontSize: 12, color: 'var(--tx2)', marginTop: 1 }}>{fmtPreview(stripePreview)}</div>
                     </div>
                     <button type="button" onClick={() => { setStripePreview(null); setStripePriceInput(''); }} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--tx3)', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>

@@ -65,12 +65,12 @@ export interface TenantDetail extends TenantSummary {
 }
 
 export interface StripePricePreview {
-  priceId: string;
-  productId: string;
-  productName: string;
-  unitAmount: number;
+  price_id: string;
+  product_id: string;
+  product_name: string;
+  unit_amount: number;
   currency: string;
-  billingType: 'monthly' | 'yearly' | 'one_time' | 'manual';
+  billing_type: 'monthly' | 'yearly' | 'one_time' | 'manual';
   active: boolean;
 }
 
