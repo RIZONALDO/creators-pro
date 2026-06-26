@@ -180,7 +180,11 @@ export function Cadastros() {
                 {c.status === 'pending' && <PendingBadge />}
               </span>
               <span style={{ color: 'var(--tx2)' }}>{c.employment_type === 'fixed' ? 'Fixo' : 'Freelancer'}</span>
-              <span><span style={{ fontSize: 11, fontWeight: 600, color: c.active ? '#22C55E' : '#65657C', background: c.active ? 'rgba(34,197,94,.16)' : 'rgba(101,101,124,.14)', padding: '3px 9px', borderRadius: 7 }}>{c.active ? 'Ativo' : 'Inativo'}</span></span>
+              <span>
+                {c.status === 'pending'
+                  ? <span style={{ fontSize: 11, fontWeight: 600, color: '#D97706', background: 'rgba(245,158,11,.14)', padding: '3px 9px', borderRadius: 7 }}>Aguardando convite</span>
+                  : <span style={{ fontSize: 11, fontWeight: 600, color: c.active ? '#22C55E' : '#65657C', background: c.active ? 'rgba(34,197,94,.16)' : 'rgba(101,101,124,.14)', padding: '3px 9px', borderRadius: 7 }}>{c.active ? 'Ativo' : 'Inativo'}</span>}
+              </span>
             </Row>
           ))}
         </Card>
