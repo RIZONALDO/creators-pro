@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '@/api';
 import { useApp } from '@/context/AppContext';
 import { useAsync } from '@/lib/useAsync';
@@ -34,6 +35,7 @@ function CoordinatorSchedule() {
   const absences = useAsync<Absence[]>(() => api.absences.list(), []);
   const holidays = useAsync<Holiday[]>(() => api.holidays.list(SCALE_MONTH), []);
   const [drag, setDrag] = useState<Drag | null>(null);
+  const [generating, setGenerating] = useState(false);
 
   const byDate = new Map<string, string[]>();
   for (const e of schedule.data ?? []) {
@@ -43,73 +45,47 @@ function CoordinatorSchedule() {
   const cre = creators.data ?? [];
   const creById = (id: string) => cre.find((c) => c.id === id) ?? null;
   const approvedAbsences = (absences.data ?? []).filter((a) => a.status === 'approved');
-  // Por dia, não por creator: um creator com ausência aprovada em outro período não pode "contaminar"
-  // os dias escalados dele que ficam fora do intervalo [start_date, end_date] daquela ausência.
   const hasApprovedAbsenceOn = (creatorId: string, date: string) =>
     approvedAbsences.some((a) => a.creator_id === creatorId && a.start_date <= date && date <= a.end_date);
-  /** Quem está de ausência aprovada nesse dia, esteja ou não escalado ali — pra ficar sempre visível
-   * pro gestor mesmo que ninguém tenha arrastado esse creator pro quadro (ele só não recebe tarefa, isso já é garantido no backend). */
   const absentCreatorIdsOn = (date: string) => approvedAbsences.filter((a) => a.start_date <= date && date <= a.end_date).map((a) => a.creator_id);
   const holidayByDate = new Map((holidays.data ?? []).map((h) => [h.holiday_date, h.description]));
 
-  // grade de junho/2026 (dias úteis seg–sex)
   const weeks = [[1, 2, 3, 4, 5], [8, 9, 10, 11, 12], [15, 16, 17, 18, 19], [22, 23, 24, 25, 26], [29, 30, null, null, null]];
   const iso = (d: number) => `${SCALE_MONTH}-${String(d).padStart(2, '0')}`;
   const workdays = weeks.flat().filter((d): d is number => d !== null);
 
-  /** Solta num dia: se vier de outro dia, move (remove da origem); se vier da paleta, só adiciona. */
   async function dropOnDay(date: string) {
     if (!drag || holidayByDate.has(date)) return;
     const { creatorId, fromDate } = drag;
     setDrag(null);
-    if (fromDate === date) return; // soltou no mesmo dia, nada a fazer
-
-    if ((byDate.get(date) ?? []).includes(creatorId)) {
-      toast.warning('Já escalado', 'Esse creator já está nesse dia.');
-      return;
-    }
-
+    if (fromDate === date) return;
+    if ((byDate.get(date) ?? []).includes(creatorId)) { toast.warning('Já escalado', 'Esse creator já está nesse dia.'); return; }
     schedule.setData((prev) => {
       const kept = fromDate ? (prev ?? []).filter((e) => !(e.work_date === fromDate && e.creator_id === creatorId)) : (prev ?? []);
       return [...kept, { id: `${date}-${creatorId}`, scale_month_id: 'sm1', creator_id: creatorId, work_date: date, is_holiday: false, created_at: '' }];
     });
-
     try {
       if (fromDate) await api.schedule.unassign(fromDate, creatorId);
       await api.schedule.assign(date, creatorId);
-    } catch (err) {
-      schedule.reload();
-      toast.error('Não foi possível mover', err instanceof Error ? err.message : 'Tente novamente.');
-    }
+    } catch (err) { schedule.reload(); toast.error('Não foi possível mover', err instanceof Error ? err.message : 'Tente novamente.'); }
   }
 
-  /** Remove 1 creator de 1 dia — botão × no chip, ou arrastar de volta pra paleta. */
   async function removeFromDay(date: string, creatorId: string) {
     schedule.setData((prev) => (prev ?? []).filter((e) => !(e.work_date === date && e.creator_id === creatorId)));
     try {
       await api.schedule.unassign(date, creatorId);
-    } catch (err) {
-      schedule.reload();
-      toast.error('Não foi possível remover', err instanceof Error ? err.message : 'Tente novamente.');
-    }
+    } catch (err) { schedule.reload(); toast.error('Não foi possível remover', err instanceof Error ? err.message : 'Tente novamente.'); }
   }
 
-  function dropOnPalette() {
-    if (drag?.fromDate) removeFromDay(drag.fromDate, drag.creatorId);
-    setDrag(null);
-  }
+  function dropOnPalette() { if (drag?.fromDate) removeFromDay(drag.fromDate, drag.creatorId); setDrag(null); }
 
-  /** Solto sobre outro chip da paleta (não num dia): veio de um dia -> remove; veio da própria paleta -> reordena.
-   * A ordem da paleta é a mesma usada pelo round-robin da escala automática (api.creators.reorder). */
   async function dropOnPaletteItem(targetId: string, e: React.DragEvent) {
-    e.stopPropagation(); // senão o onDrop do container (dropOnPalette) também dispara
+    e.stopPropagation();
     if (!drag) return;
     if (drag.fromDate) { removeFromDay(drag.fromDate, drag.creatorId); setDrag(null); return; }
-
     const { creatorId: draggedId } = drag;
     setDrag(null);
     if (draggedId === targetId) return;
-
     const ids = cre.map((c) => c.id);
     const from = ids.indexOf(draggedId);
     const to = ids.indexOf(targetId);
@@ -117,24 +93,17 @@ function CoordinatorSchedule() {
     const nextIds = [...ids];
     nextIds.splice(from, 1);
     nextIds.splice(to, 0, draggedId);
-
     creators.setData(nextIds.map((id) => creById(id)!));
     try {
       await api.creators.reorder(nextIds);
-    } catch (err) {
-      creators.reload();
-      toast.error('Não foi possível reordenar', err instanceof Error ? err.message : 'Tente novamente.');
-    }
+    } catch (err) { creators.reload(); toast.error('Não foi possível reordenar', err instanceof Error ? err.message : 'Tente novamente.'); }
   }
 
-  /** Distribui creators nos dias úteis (round-robin), pulando feriados e — dia a dia, não o creator
-   * inteiro — quem tiver ausência aprovada cobrindo aquela data específica (mesmo algoritmo do
-   * POST /scale-months/:id/auto-assign real). Substitui o que já estava em cada dia. */
+  /** Round-robin nos dias úteis respeitando a ordem atual de `cre` e ausências aprovadas. */
   async function autoFill() {
     if (!cre.length) return;
     const days = workdays.map(iso).filter((date) => !holidayByDate.has(date));
     if (!days.length) return;
-
     const assignments: { date: string; creatorId: string }[] = [];
     let pointer = 0;
     for (const date of days) {
@@ -148,19 +117,137 @@ function CoordinatorSchedule() {
       }
     }
     if (!assignments.length) return;
-
     const toRemove = days.flatMap((date) => (byDate.get(date) ?? []).map((creatorId) => ({ date, creatorId })));
     schedule.setData(() => assignments.map((a) => ({ id: `${a.date}-${a.creatorId}`, scale_month_id: 'sm1', creator_id: a.creatorId, work_date: a.date, is_holiday: false, created_at: '' })));
-
-    await Promise.all(toRemove.map((r) => api.schedule.unassign(r.date, r.creatorId))); // limpa antes — agora mais de 1 por dia é possível
+    await Promise.all(toRemove.map((r) => api.schedule.unassign(r.date, r.creatorId)));
     await Promise.all(assignments.map((a) => api.schedule.assign(a.date, a.creatorId)));
   }
 
-  function duplicateMonth() {
-    autoFill();
-    toast.success('Escala duplicada', 'Escala de Junho duplicada para o próximo mês (distribuição mantida).');
+  async function handleGenerate() {
+    setGenerating(true);
+    try {
+      await autoFill();
+      toast.success('Escala gerada', 'Creators distribuídos nos dias úteis de forma intercalada.');
+    } catch (err) {
+      toast.error('Não foi possível gerar a escala', err instanceof Error ? err.message : 'Tente novamente.');
+    } finally {
+      setGenerating(false);
+    }
   }
 
+  function duplicateMonth() { autoFill(); toast.success('Escala duplicada', 'Escala de Junho duplicada para o próximo mês (distribuição mantida).'); }
+
+  // — Fase 1: carregando
+  const isLoading = creators.loading || schedule.loading;
+  if (isLoading) {
+    return (
+      <div className="cp-fade" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 320 }}>
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--tx3)" strokeWidth="2" className="cp-spin"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8" /></svg>
+      </div>
+    );
+  }
+
+  // — Fase 2: nenhum creator cadastrado
+  if (creators.data !== null && cre.length === 0) {
+    return (
+      <div className="cp-fade" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 340, gap: 18, textAlign: 'center', padding: '0 24px' }}>
+        <div style={{ width: 64, height: 64, borderRadius: 20, background: 'var(--bg2)', border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--tx3)" strokeWidth="1.7"><rect x="3" y="4" width="18" height="18" rx="3" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+        </div>
+        <div>
+          <div style={{ fontFamily: "'Plus Jakarta Sans'", fontWeight: 700, fontSize: 17, marginBottom: 6 }}>Nenhum creator cadastrado</div>
+          <div style={{ fontSize: 13.5, color: 'var(--tx3)', lineHeight: 1.55, maxWidth: 340 }}>
+            Cadastre pelo menos 2 creators em <strong>Cadastros</strong> para poder gerar a escala do mês.
+          </div>
+        </div>
+        <Link to="/cadastros">
+          <Button icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>}>
+            Ir para Cadastros
+          </Button>
+        </Link>
+      </div>
+    );
+  }
+
+  // — Fase 3: apenas 1 creator (precisa de 2+)
+  if (cre.length === 1) {
+    return (
+      <div className="cp-fade" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 340, gap: 18, textAlign: 'center', padding: '0 24px' }}>
+        <div style={{ width: 64, height: 64, borderRadius: 20, background: 'var(--bg2)', border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--tx3)" strokeWidth="1.7"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" /></svg>
+        </div>
+        <div>
+          <div style={{ fontFamily: "'Plus Jakarta Sans'", fontWeight: 700, fontSize: 17, marginBottom: 6 }}>Você tem 1 creator</div>
+          <div style={{ fontSize: 13.5, color: 'var(--tx3)', lineHeight: 1.55, maxWidth: 340 }}>
+            A escala intercalada precisa de pelo menos <strong>2 creators</strong>. Cadastre mais um para poder gerar a escala.
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: 'var(--bg2)', border: '1px solid var(--line)', borderRadius: 14, padding: '10px 14px' }}>
+          <Avatar name={cre[0]!.name} size={32} seed={cre[0]!.id} />
+          <span style={{ fontSize: 13, fontWeight: 600 }}>{cre[0]!.name}</span>
+        </div>
+        <Link to="/cadastros">
+          <Button icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>}>
+            Adicionar creator
+          </Button>
+        </Link>
+      </div>
+    );
+  }
+
+  // — Fase 4: 2+ creators mas escala do mês ainda vazia → onboarding
+  if (schedule.data !== null && schedule.data.length === 0) {
+    return (
+      <div className="cp-fade" style={{ maxWidth: 520, margin: '0 auto', paddingTop: 8 }}>
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <div style={{ width: 56, height: 56, borderRadius: 18, background: 'linear-gradient(135deg,var(--pri),var(--pri2))', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', boxShadow: '0 8px 22px rgba(108,99,255,.35)' }}>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8"><rect x="3" y="4" width="18" height="18" rx="3" /><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" /></svg>
+          </div>
+          <div style={{ fontFamily: "'Plus Jakarta Sans'", fontWeight: 800, fontSize: 20, marginBottom: 6 }}>Gerar primeira escala</div>
+          <div style={{ fontSize: 13.5, color: 'var(--tx3)', lineHeight: 1.55 }}>
+            Defina a ordem dos creators arrastando — a escala vai intercalá-los nos dias úteis do mês.
+          </div>
+        </div>
+
+        <Card pad={0} style={{ overflow: 'hidden', marginBottom: 16 }}>
+          <div style={{ padding: '12px 18px', borderBottom: '1px solid var(--line)', fontSize: 11, fontWeight: 700, letterSpacing: '.05em', color: 'var(--tx3)', display: 'flex', gap: 10, alignItems: 'center' }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M9 5l7 7-7 7" /></svg>
+            ORDEM DE ESCALAÇÃO — arraste para reordenar
+          </div>
+          {cre.map((c, i) => (
+            <div key={c.id} draggable
+              onDragStart={() => setDrag({ creatorId: c.id, fromDate: null })}
+              onDragEnd={() => setDrag(null)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => dropOnPaletteItem(c.id, e)}
+              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', borderBottom: i < cre.length - 1 ? '1px solid var(--line)' : 'none', cursor: 'grab', userSelect: 'none', background: drag?.creatorId === c.id && !drag.fromDate ? 'var(--bg2)' : 'transparent' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--tx3)" strokeWidth="2"><path d="M9 5h2M13 5h2M9 12h2M13 12h2M9 19h2M13 19h2" /></svg>
+              <div style={{ width: 26, height: 26, borderRadius: 8, background: 'var(--bg3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'var(--tx3)', flex: 'none' }}>{i + 1}</div>
+              <Avatar name={c.name} size={34} seed={c.id} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 600 }}>{c.name}</div>
+                <div style={{ fontSize: 11.5, color: 'var(--tx3)' }}>{c.employment_type === 'fixed' ? 'Fixo' : 'Freelancer'}</div>
+              </div>
+              <div style={{ fontSize: 11.5, color: 'var(--tx3)', background: 'var(--bg2)', border: '1px solid var(--line)', borderRadius: 8, padding: '3px 9px' }}>
+                {i === 0 ? '1º dia' : `${i + 1}º dia`}
+              </div>
+            </div>
+          ))}
+        </Card>
+
+        <div style={{ background: 'rgba(108,99,255,.07)', border: '1px solid rgba(108,99,255,.2)', borderRadius: 13, padding: '10px 14px', marginBottom: 20, fontSize: 12.5, color: 'var(--tx2)', lineHeight: 1.5 }}>
+          <strong>Como funciona:</strong> cada creator recebe um dia útil na sequência acima, em ciclo. Feriados e ausências aprovadas são pulados automaticamente.
+        </div>
+
+        <Button onClick={handleGenerate} disabled={generating} style={{ width: '100%', justifyContent: 'center', height: 48 }}
+          icon={generating ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="cp-spin"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8" /></svg> : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16" /></svg>}>
+          {generating ? 'Gerando escala…' : 'Gerar escala intercalada'}
+        </Button>
+      </div>
+    );
+  }
+
+  // — Fase 5: escala existe → calendário normal
   return (
     <div className="cp-fade">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
@@ -196,7 +283,6 @@ function CoordinatorSchedule() {
                       style={{ minHeight: 96, background: holidayName ? 'rgba(239,68,68,.06)' : 'var(--bg2)', border: `1px solid ${holidayName ? 'rgba(239,68,68,.25)' : 'var(--line)'}`, borderRadius: 13, padding: 9, display: 'flex', flexDirection: 'column', gap: 6, opacity: holidayName ? 0.75 : 1 }}>
                       <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--tx2)' }}>{d}</span>
                       {holidayName && <div style={{ fontSize: 9.5, color: 'var(--red)', fontWeight: 600, lineHeight: 1.3 }}>{holidayName}</div>}
-                      {/* Sempre visível, mesmo sem ninguém ter arrastado esse creator pro dia — é só informativo, não dá pra remover daqui (a ausência é quem manda). */}
                       {!holidayName && absentCreatorIdsOn(date).filter((id) => !dayCreatorIds.includes(id)).map((creatorId) => {
                         const c = creById(creatorId);
                         if (!c) return null;
