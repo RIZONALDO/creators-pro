@@ -78,11 +78,11 @@ export function createApp(
 
   // Webhook do Stripe precisa do corpo cru (bytes exatos) pra validar a assinatura — tem que vir
   // ANTES do express.json() global, senão o corpo já chega parseado e a verificação falha sempre.
-  app.post(
-    '/billing/webhook',
-    express.raw({ type: 'application/json' }),
-    createBillingWebhookHandler(billingService, billingDeps?.stripe, billingDeps?.webhookSecret),
-  );
+  // /webhook é alias de /billing/webhook para compatibilidade com configurações antigas do Stripe.
+  const webhookHandler = createBillingWebhookHandler(billingService, billingDeps?.stripe, billingDeps?.webhookSecret);
+  const rawBody = express.raw({ type: 'application/json' });
+  app.post('/billing/webhook', rawBody, webhookHandler);
+  app.post('/webhook', rawBody, webhookHandler);
 
   app.use(express.json());
   app.use(snakeCaseResponse);
