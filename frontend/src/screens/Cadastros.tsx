@@ -31,21 +31,23 @@ export function Cadastros() {
 
   async function handleSaveCreator(data: CreatorFormData) {
     const isNew = modal === 'new';
-    // nome do registro salvo (não do form — sem nome digitado, o backend resolve pro e-mail como
-    // placeholder; usar data.name aqui mostraria "undefined" no toast quando o campo ficou em branco).
-    let savedName: string;
-    if (modal !== 'new' && modal) {
-      const updated = await api.creators.update(modal.id, data);
-      creators.setData((p) => (p ?? []).map((x) => (x.id === updated.id ? updated : x)));
-      savedName = updated.name;
-    } else {
-      const created = await api.creators.create(data as NewCreator);
-      creators.setData((p) => [...(p ?? []), created]);
-      savedName = created.name;
-      if (created.invite_token) setInviteLink({ name: savedName, link: `${window.location.origin}/convite/${created.invite_token}` });
+    try {
+      let savedName: string;
+      if (modal !== 'new' && modal) {
+        const updated = await api.creators.update(modal.id, data);
+        creators.setData((p) => (p ?? []).map((x) => (x.id === updated.id ? updated : x)));
+        savedName = updated.name;
+      } else {
+        const created = await api.creators.create(data as NewCreator);
+        creators.setData((p) => [...(p ?? []), created]);
+        savedName = created.name;
+        if (created.invite_token) setInviteLink({ name: savedName, link: `${window.location.origin}/convite/${created.invite_token}` });
+      }
+      setModal(null);
+      toast.success(isNew ? 'Creator criado' : 'Creator atualizado', `"${savedName}" foi salvo.`);
+    } catch (err) {
+      toast.error(isNew ? 'Não foi possível criar creator' : 'Não foi possível atualizar creator', err instanceof Error ? err.message : 'Tente novamente.');
     }
-    setModal(null);
-    toast.success(isNew ? 'Creator criado' : 'Creator atualizado', `"${savedName}" foi salvo.`);
   }
 
   async function handleDeleteCreator(c: Creator) {
@@ -62,19 +64,23 @@ export function Cadastros() {
 
   async function handleSaveCollaborator(data: CollaboratorFormData) {
     const isNew = modal === 'new';
-    let savedName: string;
-    if (modal !== 'new' && modal) {
-      const updated = await api.collaborators.update(modal.id, data);
-      colabs.setData((p) => (p ?? []).map((x) => (x.id === updated.id ? updated : x)));
-      savedName = updated.name;
-    } else {
-      const created = await api.collaborators.create(data as NewCollaborator);
-      colabs.setData((p) => [...(p ?? []), created]);
-      savedName = created.name;
-      if (created.invite_token) setInviteLink({ name: savedName, link: `${window.location.origin}/convite/${created.invite_token}` });
+    try {
+      let savedName: string;
+      if (modal !== 'new' && modal) {
+        const updated = await api.collaborators.update(modal.id, data);
+        colabs.setData((p) => (p ?? []).map((x) => (x.id === updated.id ? updated : x)));
+        savedName = updated.name;
+      } else {
+        const created = await api.collaborators.create(data as NewCollaborator);
+        colabs.setData((p) => [...(p ?? []), created]);
+        savedName = created.name;
+        if (created.invite_token) setInviteLink({ name: savedName, link: `${window.location.origin}/convite/${created.invite_token}` });
+      }
+      setModal(null);
+      toast.success(isNew ? 'Colaborador criado' : 'Colaborador atualizado', `"${savedName}" foi salvo.`);
+    } catch (err) {
+      toast.error(isNew ? 'Não foi possível criar colaborador' : 'Não foi possível atualizar colaborador', err instanceof Error ? err.message : 'Tente novamente.');
     }
-    setModal(null);
-    toast.success(isNew ? 'Colaborador criado' : 'Colaborador atualizado', `"${savedName}" foi salvo.`);
   }
 
   async function handleDeleteCollaborator(c: Collaborator) {
@@ -113,15 +119,19 @@ export function Cadastros() {
 
   async function handleSaveClient(data: NewClient) {
     const isNew = modal === 'new';
-    if (modal !== 'new' && modal) {
-      const updated = await api.clients.update(modal.id, data);
-      clients.setData((p) => (p ?? []).map((x) => (x.id === updated.id ? updated : x)));
-    } else {
-      const created = await api.clients.create(data);
-      clients.setData((p) => [...(p ?? []), created]);
+    try {
+      if (modal !== 'new' && modal) {
+        const updated = await api.clients.update(modal.id, data);
+        clients.setData((p) => (p ?? []).map((x) => (x.id === updated.id ? updated : x)));
+      } else {
+        const created = await api.clients.create(data);
+        clients.setData((p) => [...(p ?? []), created]);
+      }
+      setModal(null);
+      toast.success(isNew ? 'Cliente criado' : 'Cliente atualizado', `"${data.name}" foi salvo.`);
+    } catch (err) {
+      toast.error(isNew ? 'Não foi possível criar cliente' : 'Não foi possível atualizar cliente', err instanceof Error ? err.message : 'Tente novamente.');
     }
-    setModal(null);
-    toast.success(isNew ? 'Cliente criado' : 'Cliente atualizado', `"${data.name}" foi salvo.`);
   }
 
   async function handleDeleteClient(c: Client) {
