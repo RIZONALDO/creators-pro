@@ -53,7 +53,10 @@ export function DatePicker({ value, onChange, large, min }: { value: string | nu
 
   function updatePosition() {
     const rect = triggerRef.current?.getBoundingClientRect();
-    if (rect) setPos({ top: rect.bottom + 6, left: rect.left, width: rect.width });
+    if (!rect) return;
+    const w = Math.max(rect.width, 240);
+    const left = Math.min(rect.left, window.innerWidth - w - 8);
+    setPos({ top: rect.bottom + 6, left, width: w });
   }
 
   useEffect(() => {
