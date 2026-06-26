@@ -12,6 +12,7 @@ interface NotificationsContextValue {
   unreadCount: number;
   loading: boolean;
   markAllRead: () => Promise<void>;
+  deleteRead: () => Promise<void>;
   reload: () => void;
   /** Registra `cb` pra rodar sempre que uma notification de um dos `types` chegar ao vivo — ver `useRealtimeRefresh`. */
   subscribe: (types: NotificationType[], cb: () => void) => () => void;
@@ -67,10 +68,15 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
   }
 
+  async function deleteRead() {
+    await api.notifications.deleteRead();
+    setNotifications((prev) => prev.filter((n) => !n.is_read));
+  }
+
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   return (
-    <NotificationsContext.Provider value={{ notifications, unreadCount, loading, markAllRead, reload, subscribe }}>
+    <NotificationsContext.Provider value={{ notifications, unreadCount, loading, markAllRead, deleteRead, reload, subscribe }}>
       {children}
     </NotificationsContext.Provider>
   );

@@ -34,12 +34,14 @@ function NotificationRow({ n }: { n: Notification }) {
 
 /** Conteúdo compartilhado entre o dropdown desktop (Topbar) e a tela cheia mobile (AppLayout/Dashboard). */
 export function NotificationsList() {
-  const { notifications, unreadCount, loading, markAllRead } = useNotifications();
+  const { notifications, unreadCount, loading, markAllRead, deleteRead } = useNotifications();
+  const readCount = notifications.length - unreadCount;
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', alignItems: 'center', padding: '2px 4px 10px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '2px 4px 10px' }}>
         <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--tx3)', letterSpacing: '.04em', textTransform: 'uppercase' }}>{unreadCount} não lida{unreadCount === 1 ? '' : 's'}</span>
         {unreadCount > 0 && <button onClick={markAllRead} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--pri)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>Marcar lidas</button>}
+        {readCount > 0 && <button onClick={deleteRead} style={{ marginLeft: unreadCount > 0 ? 0 : 'auto', background: 'none', border: 'none', color: 'var(--tx3)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>Limpar lidas</button>}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 3, overflowY: 'auto' }}>
         {!loading && notifications.length === 0 && <EmptyState title="Você está em dia ✦" hint="Nenhuma notificação por aqui." />}

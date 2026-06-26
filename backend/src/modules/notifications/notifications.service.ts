@@ -22,6 +22,10 @@ export function createNotificationsService(
       return repo.markAllRead(auth.tenantId, auth.userId);
     },
 
+    deleteRead(auth: AuthContext) {
+      return repo.deleteRead(auth.tenantId, auth.userId);
+    },
+
     /**
      * Entry point único dos gatilhos (tasks/absences/shifts/schedule) — grava em `notifications`,
      * emite `notification:new` (app aberto) e dispara push (app fechado/em background) na mesma

@@ -26,5 +26,14 @@ export function createNotificationsRouter(service: NotificationsService) {
     }
   });
 
+  router.delete('/notifications/read', async (req, res, next) => {
+    try {
+      await service.deleteRead(req.auth!);
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  });
+
   return router;
 }

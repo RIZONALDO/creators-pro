@@ -45,6 +45,12 @@ export function createNotificationsRepository(db: typeof Db) {
         .set({ isRead: true })
         .where(and(eq(notifications.tenantId, tenantId), eq(notifications.userId, userId), eq(notifications.isRead, false)));
     },
+
+    async deleteRead(tenantId: string, userId: string) {
+      await db
+        .delete(notifications)
+        .where(and(eq(notifications.tenantId, tenantId), eq(notifications.userId, userId), eq(notifications.isRead, true)));
+    },
   };
 }
 

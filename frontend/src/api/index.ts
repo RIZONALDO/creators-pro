@@ -459,10 +459,14 @@ export const messagesApi = {
 
 /* ============================ NOTIFICATIONS ============================ */
 export const notificationsApi = {
-  list: (): Promise<Notification[]> => (USE_MOCK ? delay(80).then(() => [...db.notifications]) : http.getList('/notifications')),
+  list: (): Promise<Notification[]> => (USE_MOCK ? delay(80).then(() => [...db.notifications]) : http.getList('/notifications?pageSize=30')),
   markAllRead: (): Promise<void> => {
     if (USE_MOCK) { db.notifications.forEach((n) => (n.is_read = true)); return delay(60); }
     return http.post<void>('/notifications/read-all');
+  },
+  deleteRead: (): Promise<void> => {
+    if (USE_MOCK) { db.notifications.splice(0, db.notifications.length, ...db.notifications.filter((n) => !n.is_read)); return delay(60); }
+    return http.del<void>('/notifications/read');
   },
 };
 
