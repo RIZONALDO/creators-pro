@@ -1,16 +1,17 @@
+import { Checkmark, Refresh, FormClose, Sun, Alert, Camera } from 'grommet-icons';
 import { useNotifications } from '@/context/NotificationsContext';
 import { EmptyState } from './ui';
 import { shortTime } from '@/lib/display';
 import type { Notification, NotificationType } from '@/types';
 
 const TYPE_META: Record<NotificationType, { color: string; icon: JSX.Element }> = {
-  nova_tarefa: { color: '#6C63FF', icon: <path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /> },
-  mudanca_status: { color: '#06B6D4', icon: <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16" /> },
-  ausencia_aprovada: { color: '#22C55E', icon: <path d="M20 6L9 17l-5-5" /> },
-  ausencia_rejeitada: { color: '#EF4444', icon: <path d="M18 6L6 18M6 6l12 12" /> },
-  novo_plantao: { color: '#8B5CF6', icon: <><circle cx="12" cy="12" r="5" /><path d="M12 1v2M12 21v2M1 12h2M21 12h2" /></> },
-  alteracao_escala: { color: '#F59E0B', icon: <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /> },
-  registro_tarefa: { color: '#EC4899', icon: <><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></> },
+  nova_tarefa: { color: '#6C63FF', icon: <Checkmark color="currentColor" size="small" /> },
+  mudanca_status: { color: '#06B6D4', icon: <Refresh color="currentColor" size="small" /> },
+  ausencia_aprovada: { color: '#22C55E', icon: <Checkmark color="currentColor" size="small" /> },
+  ausencia_rejeitada: { color: '#EF4444', icon: <FormClose color="currentColor" size="small" /> },
+  novo_plantao: { color: '#8B5CF6', icon: <Sun color="currentColor" size="small" /> },
+  alteracao_escala: { color: '#F59E0B', icon: <Alert color="currentColor" size="small" /> },
+  registro_tarefa: { color: '#EC4899', icon: <Camera color="currentColor" size="small" /> },
 };
 
 function NotificationRow({ n }: { n: Notification }) {
@@ -18,7 +19,7 @@ function NotificationRow({ n }: { n: Notification }) {
   return (
     <div style={{ display: 'flex', gap: 12, padding: '12px 13px', borderRadius: 13, background: n.is_read ? 'transparent' : 'rgba(108,99,255,.07)' }}>
       <div style={{ width: 36, height: 36, flex: 'none', borderRadius: 10, background: `${meta.color}22`, color: meta.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">{meta.icon}</svg>
+        {meta.icon}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>

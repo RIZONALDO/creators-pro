@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Attachment, Search, Add, FormPrevious, Send } from 'grommet-icons';
 import { api } from '@/api';
 import { connectRealtime } from '@/api/socket';
 import { getAuthToken } from '@/api/client';
@@ -12,7 +13,7 @@ import type { Conversation, Message, MessageContact } from '@/types';
 
 interface ActiveContact { userId: string; name: string; }
 
-const paperclipIcon = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>;
+const paperclipIcon = <Attachment size="small" color="currentColor" />;
 
 export function Messages() {
   const { user } = useApp();
@@ -87,11 +88,11 @@ export function Messages() {
     <div style={{ width: isMobile ? '100%' : 300, flex: isMobile ? undefined : 'none', background: 'var(--bg1)', border: '1px solid var(--line)', borderRadius: 18, padding: 12, display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flex: 'none' }}>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg2)', border: '1px solid var(--line)', borderRadius: 11, padding: isMobile ? '12px 15px' : '8px 12px' }}>
-          <svg width={isMobile ? 17 : 14} height={isMobile ? 17 : 14} viewBox="0 0 24 24" fill="none" stroke="var(--tx3)" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg>
+          <Search size="small" color="var(--tx3)" />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar conversa" style={{ flex: 1, background: 'none', border: 'none', outline: 'none', fontSize: isMobile ? 15 : 12.5, color: 'var(--tx)' }} />
         </div>
         <button onClick={() => setShowPicker(true)} title="Nova conversa" style={{ width: isMobile ? 46 : 36, height: isMobile ? 46 : 36, flex: 'none', borderRadius: 11, background: 'linear-gradient(135deg,var(--pri),var(--pri2))', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 5px 14px rgba(108,99,255,.35)' }}>
-          <svg width={isMobile ? 19 : 16} height={isMobile ? 19 : 16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M12 5v14M5 12h14" /></svg>
+          <Add size="small" style={{ width: isMobile ? 19 : 16, height: isMobile ? 19 : 16 }} color="currentColor" />
         </button>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 3, overflowY: 'auto' }}>
@@ -118,7 +119,7 @@ export function Messages() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: isMobile ? '17px 20px' : '14px 18px', borderBottom: '1px solid var(--line)' }}>
             {isMobile && (
               <button onClick={() => setShowThread(false)} style={{ width: 38, height: 38, flex: 'none', borderRadius: 11, background: 'var(--bg2)', border: '1px solid var(--line)', color: 'var(--tx2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M15 18l-6-6 6-6" /></svg>
+                <FormPrevious size="small" color="currentColor" />
               </button>
             )}
             <Avatar name={activeContact.name} size={isMobile ? 46 : 38} seed={activeContact.userId} />
@@ -147,7 +148,7 @@ export function Messages() {
           <div style={{ padding: isMobile ? '17px 20px' : '14px 18px', borderTop: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 10 }}>
             <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') send(); }} placeholder="Escreva uma mensagem…" style={{ flex: 1, background: 'var(--bg2)', border: '1px solid var(--line)', borderRadius: 12, padding: isMobile ? '13px 17px' : '11px 14px', fontSize: isMobile ? 15.5 : 13, color: 'var(--tx)', outline: 'none' }} />
             <button onClick={send} style={{ width: isMobile ? 48 : 40, height: isMobile ? 48 : 40, flex: 'none', borderRadius: 12, background: 'linear-gradient(135deg,var(--pri),var(--pri2))', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 5px 14px rgba(108,99,255,.4)' }}>
-              <svg width={isMobile ? 20 : 17} height={isMobile ? 20 : 17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" /></svg>
+              <Send style={{ width: isMobile ? 20 : 17, height: isMobile ? 20 : 17 }} color="currentColor" />
             </button>
           </div>
         </>

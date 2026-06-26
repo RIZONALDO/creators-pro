@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Tasks, Schedule, Shift } from 'grommet-icons';
+import { Tasks, Schedule, Shift, Moon, Sun, Alert } from 'grommet-icons';
 import { useApp } from '@/context/AppContext';
 import { Spinner } from '@/components/ui';
 import { PasswordInput } from '@/components/PasswordInput';
@@ -116,8 +116,8 @@ export function Login() {
         color: 'var(--tx2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         {theme === 'dark'
-          ? <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5" /><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" /></svg>
-          : <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>}
+          ? <Sun color="currentColor" size="small" />
+          : <Moon color="currentColor" size="small" />}
       </button>
 
       {/* Painel de marca — só em telas largas (>=900px), oculto no mobile pra ir direto ao formulário. */}
@@ -198,7 +198,7 @@ export function Login() {
 
               {error && (
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12.5, color: 'var(--red)', background: 'rgba(239,68,68,.1)', border: '1px solid rgba(239,68,68,.25)', borderRadius: 11, padding: '10px 12px', marginBottom: 16 }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flex: 'none', marginTop: 1 }}><circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" /></svg>
+                  <Alert color="currentColor" size="small" style={{ flex: 'none', marginTop: 1 }} />
                   <span>{error}</span>
                 </div>
               )}

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { FormClose, Calendar, Add, Checkmark, FormNext, FormPrevious, Refresh } from 'grommet-icons';
 import {
   DndContext, DragOverlay, PointerSensor, TouchSensor,
   useSensor, useSensors, useDroppable, useDraggable,
@@ -95,7 +96,7 @@ function CalendarCreatorChip({ creator, date, canManage, hasConflict, onRemove }
       {canManage && (
         <button onPointerDown={(e) => e.stopPropagation()} onClick={onRemove} title="Remover desse dia"
           style={{ flex: 'none', width: 16, height: 16, borderRadius: 5, border: 'none', background: 'transparent', color: 'var(--tx3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M18 6L6 18M6 6l12 12" /></svg>
+          <FormClose color="currentColor" size="small" style={{ width: 10, height: 10 }} />
         </button>
       )}
     </div>
@@ -301,7 +302,7 @@ function CoordinatorSchedule() {
   if (isLoading) {
     return (
       <div className="cp-fade" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 320 }}>
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--tx3)" strokeWidth="2" className="cp-spin"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8" /></svg>
+        <Refresh color="var(--tx3)" className="cp-spin" style={{ width: 28, height: 28 }} />
       </div>
     );
   }
@@ -310,7 +311,7 @@ function CoordinatorSchedule() {
     return (
       <div className="cp-fade" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 340, gap: 18, textAlign: 'center', padding: '0 24px' }}>
         <div style={{ width: 64, height: 64, borderRadius: 20, background: 'var(--bg2)', border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--tx3)" strokeWidth="1.7"><rect x="3" y="4" width="18" height="18" rx="3" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+          <Calendar color="var(--tx3)" style={{ width: 28, height: 28 }} />
         </div>
         <div>
           <div style={{ fontFamily: "'Plus Jakarta Sans'", fontWeight: 700, fontSize: 17, marginBottom: 6 }}>Nenhum creator cadastrado</div>
@@ -318,7 +319,7 @@ function CoordinatorSchedule() {
             Cadastre pelo menos 2 creators em <strong>Cadastros</strong> para poder gerar a escala do mês.
           </div>
         </div>
-        <Link to="/cadastros"><Button icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>}>Ir para Cadastros</Button></Link>
+        <Link to="/cadastros"><Button icon={<Add color="currentColor" size="small" />}>Ir para Cadastros</Button></Link>
       </div>
     );
   }
@@ -339,7 +340,7 @@ function CoordinatorSchedule() {
           <Avatar name={cre[0]!.name} size={32} seed={cre[0]!.id} />
           <span style={{ fontSize: 13, fontWeight: 600 }}>{cre[0]!.name}</span>
         </div>
-        <Link to="/cadastros"><Button icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>}>Adicionar creator</Button></Link>
+        <Link to="/cadastros"><Button icon={<Add color="currentColor" size="small" />}>Adicionar creator</Button></Link>
       </div>
     );
   }
@@ -358,7 +359,7 @@ function CoordinatorSchedule() {
               <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'rgba(108,99,255,.18)', animation: 'cp-pulse 1.4s ease-in-out infinite' }} />
               <div style={{ position: 'absolute', inset: 6, borderRadius: '50%', background: 'rgba(108,99,255,.22)', animation: 'cp-pulse 1.4s ease-in-out infinite .2s' }} />
               <div style={{ position: 'absolute', inset: 12, borderRadius: '50%', background: 'linear-gradient(135deg,var(--pri),var(--pri2))', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 20px rgba(108,99,255,.45)' }}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" className="cp-spin"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8" /></svg>
+                <Refresh color="#fff" className="cp-spin" style={{ width: 22, height: 22 }} />
               </div>
             </div>
             <div style={{ fontFamily: "'Plus Jakarta Sans'", fontWeight: 800, fontSize: 19, marginBottom: 4 }}>Gerando escala…</div>
@@ -379,13 +380,13 @@ function CoordinatorSchedule() {
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 18px', borderBottom: i < GENERATE_STEPS.length - 1 ? '1px solid var(--line)' : 'none', opacity: i > generateStep ? 0.35 : 1, transition: 'opacity .3s' }}>
                   <div style={{ width: 28, height: 28, borderRadius: '50%', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', background: done ? 'rgba(34,197,94,.15)' : active ? 'rgba(108,99,255,.15)' : 'var(--bg3)', border: `1.5px solid ${done ? 'rgba(34,197,94,.4)' : active ? 'rgba(108,99,255,.4)' : 'var(--line)'}`, transition: 'background .3s, border-color .3s' }}>
                     {done
-                      ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#22C55E" strokeWidth="2.8" strokeLinecap="round"><polyline points="20 6 9 17 4 12" /></svg>
+                      ? <Checkmark color="#22C55E" style={{ width: 13, height: 13 }} />
                       : active
-                        ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--pri)" strokeWidth="2.2" className="cp-spin"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8" /></svg>
+                        ? <Refresh color="var(--pri)" className="cp-spin" style={{ width: 13, height: 13 }} />
                         : <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx3)' }}>{i + 1}</span>}
                   </div>
                   <span style={{ fontSize: 13.5, fontWeight: active ? 600 : 400, color: done ? 'var(--tx2)' : active ? 'var(--tx)' : 'var(--tx3)', transition: 'color .3s, font-weight .3s' }}>{step.label}</span>
-                  {done && <svg style={{ marginLeft: 'auto', flex: 'none' }} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22C55E" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>}
+                  {done && <Checkmark color="#22C55E" style={{ marginLeft: 'auto', flex: 'none', width: 12, height: 12 }} />}
                 </div>
               );
             })}
@@ -404,7 +405,7 @@ function CoordinatorSchedule() {
         <div className="cp-fade" style={{ maxWidth: 520, margin: '0 auto', paddingTop: 8 }}>
           <div style={{ textAlign: 'center', marginBottom: 28 }}>
             <div style={{ width: 56, height: 56, borderRadius: 18, background: 'linear-gradient(135deg,var(--pri),var(--pri2))', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', boxShadow: '0 8px 22px rgba(108,99,255,.35)' }}>
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8"><rect x="3" y="4" width="18" height="18" rx="3" /><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" /></svg>
+              <Calendar color="#fff" style={{ width: 26, height: 26 }} />
             </div>
             <div style={{ fontFamily: "'Plus Jakarta Sans'", fontWeight: 800, fontSize: 20, marginBottom: 6 }}>Gerar primeira escala</div>
             <div style={{ fontSize: 13.5, color: 'var(--tx3)', lineHeight: 1.55 }}>
@@ -414,7 +415,7 @@ function CoordinatorSchedule() {
 
           <Card pad={0} style={{ overflow: 'hidden', marginBottom: 16 }}>
             <div style={{ padding: '12px 18px', borderBottom: '1px solid var(--line)', fontSize: 11, fontWeight: 700, letterSpacing: '.05em', color: 'var(--tx3)', display: 'flex', gap: 10, alignItems: 'center' }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M9 5l7 7-7 7" /></svg>
+              <FormNext color="currentColor" size="small" style={{ width: 13, height: 13 }} />
               ORDEM DE ESCALAÇÃO — arraste para reordenar
             </div>
             <SortableContext items={cre.map((c) => c.id)} strategy={verticalListSortingStrategy}>
@@ -429,7 +430,7 @@ function CoordinatorSchedule() {
           </div>
 
           <Button onClick={handleGenerate} style={{ width: '100%', justifyContent: 'center', height: 48 }}
-            icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16" /></svg>}>
+            icon={<Refresh color="currentColor" size="small" style={{ width: 16, height: 16 }} />}>
             Gerar escala intercalada
           </Button>
         </div>
@@ -452,14 +453,14 @@ function CoordinatorSchedule() {
       <div className="cp-fade">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg2)', border: '1px solid var(--line)', borderRadius: 12, padding: '7px 14px' }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--tx2)" strokeWidth="2.2"><path d="M15 18l-6-6 6-6" /></svg>
+            <FormPrevious color="var(--tx2)" size="small" />
             <span style={{ fontWeight: 700, fontSize: 14, fontFamily: "'Plus Jakarta Sans'" }}>Junho 2026</span>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--tx2)" strokeWidth="2.2"><path d="M9 18l6-6-6-6" /></svg>
+            <FormNext color="var(--tx2)" size="small" />
           </div>
           {canManage && (
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 9 }}>
               <Button variant="ghost" onClick={() => { autoFill(); }} icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 2h6v4H9z" /></svg>}>Duplicar mês</Button>
-              <Button onClick={autoFill} icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16" /></svg>}>Escala automática</Button>
+              <Button onClick={autoFill} icon={<Refresh color="currentColor" size="small" />}>Escala automática</Button>
             </div>
           )}
         </div>

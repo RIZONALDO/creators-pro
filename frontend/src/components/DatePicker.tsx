@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Calendar, FormPrevious, FormNext } from 'grommet-icons';
 import { shortDate, monthLabel } from '@/lib/display';
 
 const WD = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -109,7 +110,7 @@ export function DatePicker({ value, onChange, large, min }: { value: string | nu
         border: `1px solid ${open ? 'rgba(108,99,255,.4)' : 'var(--line)'}`,
         boxShadow: open ? '0 0 0 3px rgba(108,99,255,.12)' : 'none',
       }}>
-        <svg width={large ? 18 : 15} height={large ? 18 : 15} viewBox="0 0 24 24" fill="none" stroke={open ? 'var(--pri)' : 'var(--tx3)'} strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+        <Calendar color={open ? 'var(--pri)' : 'var(--tx3)'} size="small" />
         <span style={{ color: displayValue ? 'var(--tx)' : 'var(--tx3)' }}>{displayValue ?? 'Selecionar data'}</span>
       </button>
 
@@ -120,11 +121,11 @@ export function DatePicker({ value, onChange, large, min }: { value: string | nu
         }}>
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: large ? 14 : 10 }}>
             <button type="button" onClick={() => changeMonth(-1)} style={{ width: large ? 36 : 28, height: large ? 36 : 28, flex: 'none', borderRadius: 9, background: 'var(--bg3)', border: '1px solid var(--line)', color: 'var(--tx2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width={large ? 16 : 13} height={large ? 16 : 13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M15 18l-6-6 6-6" /></svg>
+              <FormPrevious color="currentColor" size="small" />
             </button>
             <span style={{ flex: 1, textAlign: 'center', fontSize: large ? 16 : 13, fontWeight: 700, fontFamily: "'Plus Jakarta Sans'", textTransform: 'capitalize' }}>{monthLabel(`${cursor.year}-${pad(cursor.month + 1)}`)}</span>
             <button type="button" onClick={() => changeMonth(1)} style={{ width: large ? 36 : 28, height: large ? 36 : 28, flex: 'none', borderRadius: 9, background: 'var(--bg3)', border: '1px solid var(--line)', color: 'var(--tx2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width={large ? 16 : 13} height={large ? 16 : 13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M9 18l6-6-6-6" /></svg>
+              <FormNext color="currentColor" size="small" />
             </button>
           </div>
 

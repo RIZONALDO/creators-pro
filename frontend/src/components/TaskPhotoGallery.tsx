@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Download, FormClose, FormPrevious, FormNext } from 'grommet-icons';
 import { api } from '@/api';
 import { useToast } from '@/context/ToastContext';
 import { useRealtimeRefresh } from '@/context/NotificationsContext';
@@ -6,10 +7,10 @@ import { useAsync } from '@/lib/useAsync';
 import { downloadBlob } from '@/lib/download';
 import type { Attachment, NotificationType } from '@/types';
 
-const downloadIcon = <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>;
-const closeIcon = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M18 6L6 18M6 6l12 12" /></svg>;
-const chevronLeft = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M15 18l-6-6 6-6" /></svg>;
-const chevronRight = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M9 18l6-6-6-6" /></svg>;
+const downloadIcon = <Download color="currentColor" size="small" />;
+const closeIcon = <FormClose color="currentColor" size="small" />;
+const chevronLeft = <FormPrevious color="currentColor" style={{ width: 20, height: 20 }} />;
+const chevronRight = <FormNext color="currentColor" style={{ width: 20, height: 20 }} />;
 
 const THUMB_SIZE = 92;
 const REGISTRO_TAREFA_TYPES: NotificationType[] = ['registro_tarefa'];

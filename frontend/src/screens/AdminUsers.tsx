@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Add, Alert, FormClose } from 'grommet-icons';
 import { api } from '@/api';
 import { useAsync } from '@/lib/useAsync';
 import { useConfirm } from '@/context/ConfirmContext';
@@ -56,7 +57,7 @@ export function AdminUsers() {
 
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14 }}>
         <div><div style={{ fontFamily: "'Plus Jakarta Sans'", fontWeight: 700, fontSize: 18 }}>Usuários</div><div style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 2 }}>Crie gestores — Creators e Colaboradores são cadastrados pelo gestor, em Cadastros</div></div>
-        <div style={{ marginLeft: 'auto' }}><Button icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>} onClick={() => setNewModal(true)}>Novo gestor</Button></div>
+        <div style={{ marginLeft: 'auto' }}><Button icon={<Add size="small" color="currentColor" />} onClick={() => setNewModal(true)}>Novo gestor</Button></div>
       </div>
 
       <div style={{ background: 'var(--bg1)', border: '1px solid var(--line)', borderRadius: 18, overflow: 'hidden' }}>
@@ -152,7 +153,7 @@ function NewUserModal({ onClose, onCreateUser }: {
     <Modal open title="Novo gestor" subtitle="Cria um acesso de gestor — Creators e Colaboradores são cadastrados pelo próprio gestor, em Cadastros" onClose={onClose} footer={<><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button onClick={submit} disabled={busy}>{busy ? 'Salvando…' : 'Salvar'}</Button></>}>
       {error && (
         <div style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.25)', borderRadius: 12, padding: '11px 14px', marginBottom: 4, fontSize: 13, color: 'var(--red)', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" style={{ flex: 'none', marginTop: 1 }}><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          <Alert size="small" color="currentColor" style={{ flex: 'none', marginTop: 1 }} />
           {error}
         </div>
       )}
@@ -204,7 +205,7 @@ function EditUserModal({ user, onClose, onUpdateUser, onDelete, deleteError, onC
       {deleteError && (
         <div style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.25)', borderRadius: 12, padding: '12px 14px', marginBottom: 4, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
           <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(239,68,68,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', marginTop: 1 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2.2" strokeLinecap="round"><path d="M12 9v5M12 17.5v.5"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+            <Alert size="small" color="#EF4444" />
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#EF4444', marginBottom: 4 }}>Não é possível excluir este gestor</div>
@@ -213,7 +214,7 @@ function EditUserModal({ user, onClose, onUpdateUser, onDelete, deleteError, onC
             </div>
           </div>
           <button onClick={onClearDeleteError} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--tx3)', padding: 2, lineHeight: 1, flex: 'none' }}>
-            <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
+            <FormClose size="small" color="currentColor" />
           </button>
         </div>
       )}

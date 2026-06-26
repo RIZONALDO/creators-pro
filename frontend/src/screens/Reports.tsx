@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Document } from 'grommet-icons';
 import { api } from '@/api';
 import { useApp } from '@/context/AppContext';
 import { useToast } from '@/context/ToastContext';
@@ -23,8 +24,8 @@ type ExportFormat = 'pdf' | 'excel';
 const DATASET_LABEL: Record<Dataset, string> = { tasks: 'Tarefas', services: 'Outros serviços', absences: 'Ausências', all: 'Todos' };
 
 const printIcon = <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><path d="M6 14h12v8H6z" /></svg>;
-const pdfIcon = <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>;
-const excelIcon = <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#22C55E" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>;
+const pdfIcon = <Document size="small" color="#EF4444" />;
+const excelIcon = <Document size="small" color="#22C55E" />;
 
 const TASKS_GRID = '1.9fr .9fr 1.1fr 1.2fr 1.2fr 1.2fr 1fr';
 const SERVICES_GRID = '1.9fr 1.1fr 1.1fr 1.2fr 1.2fr 1.2fr 1fr';

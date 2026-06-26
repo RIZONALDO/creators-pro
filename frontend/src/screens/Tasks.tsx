@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { FormClose, Add } from 'grommet-icons';
 import { api } from '@/api';
 import { useAsync } from '@/lib/useAsync';
 import { Card, Avatar, Tag, StatusPill, Button } from '@/components/ui';
@@ -84,12 +85,12 @@ export function Tasks() {
         {filterStatus !== null && <Chip label={`Status: ${TASK_STATUS_META[filterStatus].label}`} onRemove={() => setFilterStatus(null)} />}
         {filterClient !== null && filterStatus !== null && (
           <div onClick={() => { setFilterClient(null); setFilterStatus(null); }} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(108,99,255,.1)', border: '1px solid rgba(108,99,255,.28)', borderRadius: 11, padding: '8px 12px', fontSize: 12.5, color: 'var(--pri)', fontWeight: 600, cursor: 'pointer' }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M18 6L6 18M6 6l12 12" /></svg>Limpar tudo
+            <FormClose color="currentColor" size="small" />Limpar tudo
           </div>
         )}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 12.5, color: 'var(--tx3)' }}>{t.length} tarefas</span>
-          {canManage && <Button icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>} onClick={() => setModal('new')}>Nova tarefa</Button>}
+          {canManage && <Button icon={<Add color="currentColor" size="small" />} onClick={() => setModal('new')}>Nova tarefa</Button>}
         </div>
       </div>
 

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Info, Attachment, Checkmark, FormClose, Add } from 'grommet-icons';
 import { api } from '@/api';
 import { useApp } from '@/context/AppContext';
 import { useAsync } from '@/lib/useAsync';
@@ -39,7 +40,7 @@ function AbsencesReview() {
   return (
     <div className="cp-fade">
       <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 16, fontSize: 12.5, color: 'var(--tx2)', background: 'var(--bg2)', border: '1px solid var(--line)', borderRadius: 11, padding: '10px 14px' }}>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--tx3)" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" /></svg>
+        <Info color="var(--tx3)" size="small" />
         Creators solicitam ausências pelo app. Aqui o gestor apenas <strong style={{ color: 'var(--tx)' }}>aprova ou rejeita</strong>.
       </div>
 
@@ -54,11 +55,11 @@ function AbsencesReview() {
             <div style={{ lineHeight: 1.3 }}><div style={{ fontSize: 12.5 }}>{a.reason ?? '—'}</div></div>
             <div><StatusPill meta={ABSENCE_STATUS_META[a.status]} /></div>
             <div style={{ display: 'flex', gap: 7, justifyContent: 'flex-end' }}>
-              <button onClick={() => setAttachmentsFor(a)} title="Anexos" style={{ width: 34, height: 34, borderRadius: 10, background: 'var(--bg2)', border: '1px solid var(--line)', color: 'var(--tx2)', cursor: 'pointer' }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ margin: '0 auto' }}><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg></button>
+              <button onClick={() => setAttachmentsFor(a)} title="Anexos" style={{ width: 34, height: 34, borderRadius: 10, background: 'var(--bg2)', border: '1px solid var(--line)', color: 'var(--tx2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Attachment color="currentColor" size="small" /></button>
               {a.status === 'pending' && (
                 <>
-                  <button onClick={() => review(a.id, 'approved')} title="Aprovar" style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(34,197,94,.14)', border: '1px solid rgba(34,197,94,.3)', color: '#22C55E', cursor: 'pointer' }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M20 6L9 17l-5-5" /></svg></button>
-                  <button onClick={() => review(a.id, 'rejected')} title="Rejeitar" style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(239,68,68,.14)', border: '1px solid rgba(239,68,68,.3)', color: '#EF4444', cursor: 'pointer' }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M18 6L6 18M6 6l12 12" /></svg></button>
+                  <button onClick={() => review(a.id, 'approved')} title="Aprovar" style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(34,197,94,.14)', border: '1px solid rgba(34,197,94,.3)', color: '#22C55E', cursor: 'pointer' }}><Checkmark color="currentColor" size="small" /></button>
+                  <button onClick={() => review(a.id, 'rejected')} title="Rejeitar" style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(239,68,68,.14)', border: '1px solid rgba(239,68,68,.3)', color: '#EF4444', cursor: 'pointer' }}><FormClose color="currentColor" size="small" /></button>
                 </>
               )}
             </div>
@@ -100,7 +101,7 @@ function MyAbsences() {
     <div className="cp-fade" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <button onClick={() => setModal(true)} style={{ background: 'linear-gradient(135deg,var(--pri),var(--pri2))', border: 'none', borderRadius: 18, padding: 17, display: 'flex', alignItems: 'center', gap: 13, boxShadow: '0 10px 24px rgba(108,99,255,.35)', cursor: 'pointer', textAlign: 'left' }}>
         <div style={{ width: 46, height: 46, flex: 'none', borderRadius: 13, background: 'rgba(255,255,255,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2"><path d="M12 5v14M5 12h14" /></svg>
+          <Add color="#fff" style={{ width: 23, height: 23 }} />
         </div>
         <div>
           <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>Solicitar ausência</div>

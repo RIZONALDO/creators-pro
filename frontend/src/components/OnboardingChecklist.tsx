@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Checkmark, FormClose } from 'grommet-icons';
 import { api, type OnboardingStatus } from '@/api';
 import { useAsync } from '@/lib/useAsync';
 import { useApp } from '@/context/AppContext';
@@ -16,9 +17,7 @@ function StepNumber({ n, done, current }: { n: number; done: boolean; current: b
   if (done) {
     return (
       <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(34,197,94,.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <path d="M3 8.5l3.5 3.5 6.5-7" stroke="#22C55E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+        <Checkmark color="#22C55E" size="small" />
       </div>
     );
   }
@@ -105,7 +104,7 @@ export function OnboardingChecklist({ refreshToken = 0 }: { refreshToken?: numbe
             </div>
           </div>
           <button onClick={dismiss} title="Fechar" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--tx3)', padding: 4, lineHeight: 1, marginLeft: 4 }}>
-            <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
+            <FormClose color="currentColor" size="small" />
           </button>
         </div>
       </div>

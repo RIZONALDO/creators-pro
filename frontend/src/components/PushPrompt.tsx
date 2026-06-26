@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Notification, FormClose } from 'grommet-icons';
 import { useToast } from '@/context/ToastContext';
 import { isPushSupported, isIos, isStandaloneDisplay, getCurrentPushSubscription, enablePush } from '@/lib/push';
 
@@ -50,7 +51,7 @@ export function PushPrompt() {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, background: 'linear-gradient(145deg,rgba(108,99,255,.16),rgba(108,99,255,.05))', border: '1px solid rgba(108,99,255,.28)', borderRadius: 16, padding: 14, marginBottom: 18 }}>
       <div style={{ width: 38, height: 38, flex: 'none', borderRadius: 11, background: 'rgba(108,99,255,.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--pri)' }}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></svg>
+        <Notification color="currentColor" size="small" />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         {needsInstall ? (
@@ -71,7 +72,7 @@ export function PushPrompt() {
         )}
       </div>
       <button onClick={dismiss} title="Fechar" style={{ flex: 'none', background: 'none', border: 'none', color: 'var(--tx3)', cursor: 'pointer', padding: 4 }}>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M18 6L6 18M6 6l12 12" /></svg>
+        <FormClose color="currentColor" size="small" />
       </button>
     </div>
   );

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Checkmark } from 'grommet-icons';
 import { api, type PublicPlan } from '@/api';
 import { ApiError } from '@/api/client';
 import { Spinner } from '@/components/ui';
@@ -111,7 +112,7 @@ export function Signup() {
         {canSubscribe && plan && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--pri)', background: 'rgba(108,99,255,.1)', border: '1px solid rgba(108,99,255,.25)', borderRadius: 20, padding: '5px 14px', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+              <Checkmark color="currentColor" size="small" />
               {plan.name} — {fmtPlanPrice(plan)}
             </div>
             <Link to="/planos" style={{ fontSize: 12, color: 'var(--tx3)', textDecoration: 'none' }}>trocar</Link>

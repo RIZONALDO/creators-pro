@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FormPrevious } from 'grommet-icons';
 import { useApp } from '@/context/AppContext';
 import { TextInput } from '@/components/Modal';
 import { MobileField, MOBILE_INPUT_STYLE } from '@/components/MobileField';
@@ -16,7 +17,7 @@ export function Profile() {
     <div className="cp-fade">
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '8px 18px 18px' }}>
         <button onClick={() => navigate(-1)} style={{ width: 42, height: 42, flex: 'none', borderRadius: 12, background: 'var(--bg2)', border: '1px solid var(--line)', color: 'var(--tx2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M15 18l-6-6 6-6" /></svg>
+          <FormPrevious color="currentColor" style={{ width: 20, height: 20 }} />
         </button>
         <div style={{ fontSize: 22, fontWeight: 800, fontFamily: "'Plus Jakarta Sans'" }}>Perfil</div>
       </div>

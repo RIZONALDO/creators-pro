@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Notification } from 'grommet-icons';
 import { useToast } from '@/context/ToastContext';
 import { isPushSupported, getCurrentPushSubscription, enablePush, disablePush } from '@/lib/push';
 
@@ -57,9 +58,7 @@ export function PushToggle({ large }: { large?: boolean }) {
         background: isOn ? 'rgba(34,197,94,.14)' : 'var(--bg3)', color: isOn ? '#22C55E' : 'var(--tx3)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
-        <svg width={large ? 19 : 15} height={large ? 19 : 15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" />
-        </svg>
+        <Notification color="currentColor" style={{ width: large ? 19 : 15, height: large ? 19 : 15 }} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: large ? 15 : 13, fontWeight: 600 }}>Notificações no aparelho</div>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Clock, Calendar, Add, FormNext } from 'grommet-icons';
 import { api } from '@/api';
 import { useApp } from '@/context/AppContext';
 import { useAsync } from '@/lib/useAsync';
@@ -115,7 +116,7 @@ export function Shifts() {
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: isMobile ? 16 : 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: isMobile ? 48 : 40, height: isMobile ? 48 : 40, borderRadius: 12, background: 'rgba(139,92,246,.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--pri2)' }}>
-              <svg width={isMobile ? 22 : 18} height={isMobile ? 22 : 18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5" /><path d="M12 1v2M12 21v2M1 12h2M21 12h2" /></svg>
+              <Clock color="currentColor" style={{ width: isMobile ? 22 : 18, height: isMobile ? 22 : 18 }} />
             </div>
             <div style={{ lineHeight: 1.2 }}><div style={{ fontSize: isMobile ? 16.5 : 14, fontWeight: 700, fontFamily: "'Plus Jakarta Sans'" }}>{label(s.shift_date)}</div><div style={{ fontSize: isMobile ? 13 : 11, color: 'var(--tx3)' }}>{s.notes ?? 'Plantão'}</div></div>
           </div>
@@ -134,7 +135,7 @@ export function Shifts() {
           {canManage && (
             <>
               <button onClick={() => setModal({ mode: 'historico', shift: s })} title="Histórico" style={{ width: 32, height: 32, flex: 'none', color: 'var(--tx2)', background: 'var(--bg2)', border: '1px solid var(--line)', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></svg>
+                <Clock color="currentColor" size="small" />
               </button>
               <button onClick={() => setModal({ mode: 'editar', shift: s })} style={{ fontSize: 11.5, color: 'var(--pri)', background: 'rgba(108,99,255,.1)', border: '1px solid rgba(108,99,255,.25)', borderRadius: 8, padding: '5px 10px', fontWeight: 600, cursor: 'pointer' }}>Editar</button>
             </>
@@ -161,7 +162,7 @@ export function Shifts() {
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 18 }}>
           <div style={{ fontSize: 13, color: 'var(--tx2)' }}>Plantões de fim de semana · <strong style={{ color: 'var(--tx)' }}>Junho 2026</strong></div>
           <div style={{ marginLeft: 'auto' }}>
-            <Button icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>} onClick={() => setModal({ mode: 'novo' })}>Criar plantão</Button>
+            <Button icon={<Add color="currentColor" size="small" />} onClick={() => setModal({ mode: 'novo' })}>Criar plantão</Button>
           </div>
         </div>
       )}
@@ -175,7 +176,7 @@ export function Shifts() {
             return (
               <div key={weekStart} style={{ marginBottom: 24 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, paddingLeft: 12, borderLeft: '3px solid var(--pri)' }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--pri2)" strokeWidth="2.2"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+                  <Calendar color="var(--pri2)" size="small" />
                   <span style={{ fontSize: 13.5, fontWeight: 800, fontFamily: "'Plus Jakarta Sans'" }}>{shortDate(weekStart)} – {shortDate(weekEnd)}</span>
                   <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--tx3)', background: 'var(--bg2)', border: '1px solid var(--line)', padding: '2px 9px', borderRadius: 7 }}>
                     {weekShifts.length} plantão{weekShifts.length > 1 ? 'ões' : ''}
@@ -291,7 +292,7 @@ function HistoryModal({ shift, onClose }: { shift: Shift; onClose: () => void })
         {list.map((h) => (
           <div key={h.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 11, background: 'var(--bg2)', border: '1px solid var(--line)' }}>
             <span style={{ fontSize: 11.5 }}>{h.old_status ? SHIFT_STATUS_META[h.old_status as ShiftStatus]?.label ?? h.old_status : '—'}</span>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--tx3)" strokeWidth="2.4"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+            <FormNext color="var(--tx3)" size="small" />
             <span style={{ fontSize: 11.5, fontWeight: 700 }}>{h.new_status ? SHIFT_STATUS_META[h.new_status as ShiftStatus]?.label ?? h.new_status : '—'}</span>
             <span style={{ marginLeft: 'auto', fontSize: 10.5, color: 'var(--tx3)' }}>{shortDate(h.changed_at.slice(0, 10))}</span>
           </div>

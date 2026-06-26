@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Camera, FormClose } from 'grommet-icons';
 import { api } from '@/api';
 import { useApp } from '@/context/AppContext';
 import { useToast } from '@/context/ToastContext';
@@ -8,8 +9,8 @@ import type { Attachment } from '@/types';
 
 const MAX_PHOTOS = 10;
 
-const cameraIcon = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>;
-const trashIcon = <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4"><path d="M18 6L6 18M6 6l12 12" /></svg>;
+const cameraIcon = <Camera color="currentColor" style={{ width: 20, height: 20 }} />;
+const trashIcon = <FormClose color="#fff" size="small" />;
 
 /**
  * "Registro da Tarefa" — PWA mobile (creator/colaborador): câmera direto (sem galeria/arquivo),

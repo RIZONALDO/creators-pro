@@ -1,4 +1,5 @@
 import { useRef, useState, type CSSProperties } from 'react';
+import { Document, Camera, Attachment as AttachmentIcon, Trash } from 'grommet-icons';
 import { api } from '@/api';
 import { useApp } from '@/context/AppContext';
 import { useToast } from '@/context/ToastContext';
@@ -7,10 +8,10 @@ import { resizeImageIfNeeded } from '@/lib/resizeImage';
 import { formatFileSize } from '@/lib/display';
 import type { Attachment, AttachmentEntity } from '@/types';
 
-const fileIcon = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>;
-const cameraIcon = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>;
-const paperclipIcon = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>;
-const trashIcon = <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z" /></svg>;
+const fileIcon = <Document color="currentColor" size="small" />;
+const cameraIcon = <Camera color="currentColor" size="small" />;
+const paperclipIcon = <AttachmentIcon color="currentColor" size="small" />;
+const trashIcon = <Trash color="currentColor" size="small" />;
 
 const ATTACH_BTN_STYLE: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg2)', border: '1px solid var(--line)',

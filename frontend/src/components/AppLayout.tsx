@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
+import { Notification } from 'grommet-icons';
 import { useApp } from '@/context/AppContext';
 import { useToast } from '@/context/ToastContext';
 import { useNotifications } from '@/context/NotificationsContext';
@@ -63,7 +64,7 @@ export function AppLayout() {
                 <div style={{ fontSize: 13.5, color: 'var(--tx3)', marginTop: 3 }}>{mobileMeta.subtitle}</div>
               </div>
               <button onClick={() => setShowNotifications(true)} style={{ width: 46, height: 46, flex: 'none', borderRadius: 13, background: 'var(--bg2)', border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', position: 'relative' }}>
-                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="var(--tx2)" strokeWidth="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></svg>
+                <Notification color="var(--tx2)" style={{ width: 21, height: 21 }} />
                 {unreadCount > 0 && (
                   <span style={{ position: 'absolute', top: 6, right: 7, minWidth: 17, height: 17, borderRadius: 9, background: 'var(--red)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', border: '2px solid var(--bg1)' }}>{unreadCount > 9 ? '9+' : unreadCount}</span>
                 )}

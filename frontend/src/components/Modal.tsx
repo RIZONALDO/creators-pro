@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
+import { FormClose } from 'grommet-icons';
 
 /** Modal genérico com overlay, fechar no overlay/ESC. */
 export function Modal({ open, title, subtitle, onClose, children, footer, width = 520 }: {
@@ -35,7 +36,7 @@ export function Modal({ open, title, subtitle, onClose, children, footer, width 
             {subtitle && <div style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 2 }}>{subtitle}</div>}
           </div>
           <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: 10, background: 'var(--bg2)', border: '1px solid var(--line)', color: 'var(--tx2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M18 6L6 18M6 6l12 12" /></svg>
+            <FormClose color="currentColor" size="small" />
           </button>
         </div>
         <div style={{ padding: 22, overflowY: 'auto' }}>{children}</div>

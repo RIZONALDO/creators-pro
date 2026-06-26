@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { FormPrevious } from 'grommet-icons';
 
 /**
  * Tela cheia com seta de voltar (padrão de navegação mobile, igual telas nativas). `position:
@@ -16,7 +17,7 @@ export function MobileScreen({ title, onBack, children, footer }: {
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '8px 18px 18px', flex: 'none' }}>
         <button onClick={onBack} style={{ width: 42, height: 42, flex: 'none', borderRadius: 12, background: 'var(--bg2)', border: '1px solid var(--line)', color: 'var(--tx2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M15 18l-6-6 6-6" /></svg>
+          <FormPrevious color="currentColor" style={{ width: 20, height: 20 }} />
         </button>
         <div style={{ fontSize: 22, fontWeight: 800, fontFamily: "'Plus Jakarta Sans'" }}>{title}</div>
       </div>

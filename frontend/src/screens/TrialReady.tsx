@@ -1,4 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
+import { Checkmark } from 'grommet-icons';
 import { useApp } from '@/context/AppContext';
 import type { User } from '@/types';
 
@@ -21,7 +22,7 @@ export function TrialReady() {
     <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'radial-gradient(1000px 600px at 50% -10%, rgba(34,197,94,.16), transparent 60%), var(--bg0)' }}>
       <div style={{ width: 420, maxWidth: '100%', textAlign: 'center' }}>
         <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(34,197,94,.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#22C55E" strokeWidth="2.4"><path d="M20 6L9 17l-5-5" /></svg>
+          <Checkmark color="#22C55E" style={{ width: 30, height: 30 }} />
         </div>
         <div style={{ fontSize: 20, fontWeight: 800, fontFamily: "'Plus Jakarta Sans'", marginBottom: 8 }}>Sua conta de teste está pronta!</div>
         <div style={{ fontSize: 13.5, color: 'var(--tx3)', lineHeight: 1.6, marginBottom: 26 }}>

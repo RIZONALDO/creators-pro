@@ -1,6 +1,7 @@
 import { useApp } from '@/context/AppContext';
 import { useNotifications } from '@/context/NotificationsContext';
 import { useState } from 'react';
+import { Sun, Moon, Notification } from 'grommet-icons';
 import { NotificationsList } from './NotificationsList';
 
 export function Topbar({ title, subtitle }: { title: string; subtitle: string }) {
@@ -16,12 +17,12 @@ export function Topbar({ title, subtitle }: { title: string; subtitle: string })
       <div style={{ flex: 1 }} />
       <button onClick={toggleTheme} title="Alternar tema" style={{ width: 38, height: 38, borderRadius: 11, background: 'var(--bg2)', border: '1px solid var(--line)', color: 'var(--tx2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {theme === 'dark'
-          ? <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5" /><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" /></svg>
-          : <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>}
+          ? <Sun color="currentColor" size="small" />
+          : <Moon color="currentColor" size="small" />}
       </button>
       <div style={{ position: 'relative' }}>
         <button onClick={() => setShowNotifications((s) => !s)} title="Notificações" style={{ width: 38, height: 38, borderRadius: 11, background: 'var(--bg2)', border: '1px solid var(--line)', color: 'var(--tx2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></svg>
+          <Notification color="currentColor" size="small" />
           {unreadCount > 0 && (
             <span style={{ position: 'absolute', top: 5, right: 6, minWidth: 16, height: 16, borderRadius: 8, background: 'var(--red)', color: '#fff', fontSize: 9.5, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', border: '2px solid var(--bg1)' }}>{unreadCount > 9 ? '9+' : unreadCount}</span>
           )}

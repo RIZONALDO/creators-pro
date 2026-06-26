@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Add } from 'grommet-icons';
 import { api } from '@/api';
 import { useAsync } from '@/lib/useAsync';
 import { Card, Avatar, Button } from '@/components/ui';
@@ -160,7 +161,7 @@ export function Cadastros() {
           ))}
         </div>
         <div style={{ flex: 1 }} />
-        <Button icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>} onClick={() => setModal('new')}>
+        <Button icon={<Add color="currentColor" size="small" />} onClick={() => setModal('new')}>
           {tab === 'creators' ? 'Novo creator' : tab === 'colabs' ? 'Novo colaborador' : 'Novo cliente'}
         </Button>
       </div>

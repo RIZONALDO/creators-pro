@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { Alert } from 'grommet-icons';
 import { useApp } from '@/context/AppContext';
 import { ApiError } from '@/api/client';
 import { isGoogleSignInConfigured, renderGoogleSignInButton } from '@/lib/googleIdentity';
@@ -61,7 +62,7 @@ export function ClaimInvite() {
               {busy && <div style={{ fontSize: 12.5, color: 'var(--tx3)', marginBottom: 12 }}>Confirmando…</div>}
               {error && (
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12.5, color: 'var(--red)', background: 'rgba(239,68,68,.1)', border: '1px solid rgba(239,68,68,.25)', borderRadius: 11, padding: '10px 12px', marginBottom: 16 }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flex: 'none', marginTop: 1 }}><circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" /></svg>
+                  <Alert color="currentColor" size="small" style={{ flex: 'none', marginTop: 1 }} />
                   <span>{error}</span>
                 </div>
               )}

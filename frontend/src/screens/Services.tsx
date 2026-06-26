@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Add, Calendar } from 'grommet-icons';
 import { api } from '@/api';
 import { useApp } from '@/context/AppContext';
 import { useAsync } from '@/lib/useAsync';
@@ -67,7 +68,7 @@ export function Services() {
         <ViewToggle value={view} onChange={setView} />
         <span style={{ marginLeft: 'auto', fontSize: 12.5, color: 'var(--tx3)' }}>{list.length} serviços</span>
         {canManage && (
-          <Button icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>} onClick={() => setModal('new')}>Novo serviço</Button>
+          <Button icon={<Add color="currentColor" size="small" />} onClick={() => setModal('new')}>Novo serviço</Button>
         )}
       </div>
 
@@ -92,7 +93,7 @@ export function Services() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11.5, color: 'var(--tx3)' }}>
                 <span>{cliName(s.client_id)}</span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+                  <Calendar color="currentColor" size="small" />
                   {shortDate(s.service_date)}
                 </span>
               </div>
